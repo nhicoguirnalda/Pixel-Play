@@ -1,0 +1,10 @@
+# PixelPlay — robots.txt
+# Replace "yourdomain.com" with your real domain once the site is live.
+
+User-agent: *
+Allow: /
+
+# Game pages, categories and content pages are all fine for crawlers.
+# Nothing here needs to be hidden from search engines.
+
+Sitemap: https://yourdomain.com/sitemap.xml

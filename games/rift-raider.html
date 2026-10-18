@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rift Raider — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Rift Raider free online at PixelPlay. Fly a scout ship through an asteroid rift, dodge drifting debris, blast enemy raiders and grab power-ups.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🛰️%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Flight-deck styling for this page only — shared css/style.css is never edited. */
+    #gameCanvas {
+      width: 100%;
+      max-width: 760px;
+      background: #04060d;
+      box-shadow: 0 0 0 1px rgba(6, 182, 212, .14),
+                  0 0 42px rgba(168, 85, 247, .12),
+                  0 0 90px rgba(6, 182, 212, .07);
+    }
+
+    .touch-controls { gap: 10px; }
+    .touch-controls .tbtn { font-size: .9rem; min-width: 54px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="rift-raider">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Rift Raider</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🎯 <b>Shooting</b></span>
+          <span class="meta-pill">⭐ <b>4.6</b></span>
+          <span class="meta-pill">▶ <b>730K</b> plays</span>
+          <span class="meta-pill">⌨️ Arrows / WASD</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="720" height="420" aria-label="Rift Raider flight lane — fly the ship, dodge asteroids and shoot enemy raiders"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Rift Raider</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <div class="dpad">
+            <button class="tbtn up" type="button" data-dir="up" aria-label="Fly up">▲</button>
+            <button class="tbtn left" type="button" data-dir="left" aria-label="Fly left">◀</button>
+            <button class="tbtn down" type="button" data-dir="down" aria-label="Fly down">▼</button>
+            <button class="tbtn right" type="button" data-dir="right" aria-label="Fly right">▶</button>
+          </div>
+          <button class="tbtn" type="button" data-action="pause" aria-label="Pause or resume the flight">⏸ Pause</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Rift Raider</h2>
+          <p>You are flying a scout ship through an asteroid rift that never stops scrolling. The
+             whole field drifts leftwards past you while your ship holds the left third of the
+             screen, so the challenge is all about threading the gaps: nudge up and down with the
+             arrow keys or WASD to slip between tumbling rocks, and drift a little left or right
+             when the corridor opens up. Your cannon fires on its own, so keep your hands on the
+             flight controls and let the guns look after themselves. Your run is measured in
+             metres travelled and points earned, and the HUD tracks both as you go.</p>
+          <p>It is not just debris out there. Angular raider ships slide in from the right and
+             shoot back, so you will need to weave as well as aim — a clean hit from a plasma bolt
+             or a solid asteroid costs one of your <b>3 lives</b> and punishes you with a short
+             wobble while your shields recover. Drifting capsules carry helpful systems: <b>rapid
+             fire</b>, a <b>spread</b> cannon that covers three lanes at once and a <b>shield</b>
+             that soaks up a single collision. The rift gets faster and busier the longer you
+             survive, so a high score means flying the same distance with twice the traffic coming
+             the other way.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li><kbd>↑</kbd> <kbd>↓</kbd> or <kbd>W</kbd><kbd>S</kbd> to fly up and down</li>
+            <li><kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd> to drift back and forward a little</li>
+            <li>Your cannon fires automatically — no fire button needed</li>
+            <li>On a phone: use the on-screen direction pad</li>
+            <li><kbd>Space</kbd> or <kbd>Enter</kbd> to start, pause or resume, <kbd>P</kbd> / <kbd>Esc</kbd> to pause, <kbd>R</kbd> to restart</li>
+          </ul>
+          <h3>Tips for a longer run</h3>
+          <ul>
+            <li>Stay near the middle of the lane. The top and bottom walls hide rocks until it is too late.</li>
+            <li>Shoot the small rocks rather than flying around them — they break in one hit and clear your escape route.</li>
+            <li>Grab every shield capsule you can. One free hit is worth far more than a few extra points.</li>
+            <li>Spread fire from a power-up shreds raider squadrons; use those seconds to push forward through the traffic.</li>
+            <li>After a crash you are briefly immune — use that moment to fly straight through the debris instead of dodging it.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=shooter">More shooting games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/rift-raider.js"></script>
+</body>
+</html>

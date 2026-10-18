@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Drone Defense — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Drone Defense free online at PixelPlay. Guide a robot around a neon arena, aim with the mouse and blast chasing drones before they wear down your health.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🤖%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page styling for Drone Defense only — shared css/style.css is never edited. */
+    #gameCanvas {
+      width: 100%;
+      max-width: 640px;
+      background: #05070e;
+      cursor: crosshair;
+      box-shadow: 0 0 0 1px rgba(163, 230, 53, .14),
+                  0 0 44px rgba(163, 230, 53, .10),
+                  0 0 92px rgba(34, 211, 238, .08);
+    }
+
+    .touch-controls { align-items: flex-end; gap: 10px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="drone-defense">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Drone Defense</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🎯 <b>Shooting</b></span>
+          <span class="meta-pill">⭐ <b>4.6</b></span>
+          <span class="meta-pill">▶ <b>760K</b> plays</span>
+          <span class="meta-pill">🖱️ WASD + Mouse</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="640" height="480" aria-label="Drone Defense arena with a robot defender"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Drone Defense</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <div class="dpad">
+            <button class="tbtn up" type="button" data-dir="up" aria-label="Move up">▲</button>
+            <button class="tbtn left" type="button" data-dir="left" aria-label="Move left">◀</button>
+            <button class="tbtn down" type="button" data-dir="down" aria-label="Move down">▼</button>
+            <button class="tbtn right" type="button" data-dir="right" aria-label="Move right">▶</button>
+          </div>
+          <button class="tbtn" type="button" data-action="pause" aria-label="Pause or resume the game">⏸ Pause</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Drone Defense</h2>
+          <p>Drone Defense drops your little robot in the middle of a walled neon arena. Rogue drones
+             pour in from every edge of the screen and steer straight for you, so there is nowhere to
+             hide — you have to keep moving. It is a top-down twin-stick style battle: <b>WASD</b>
+             drives the robot while the mouse swings your cannon around. Your blaster fires on its own
+             toward wherever the cursor is pointing, so all you really do is aim and strafe. You start
+             with <b>100 HP</b> and the health bar in the HUD is the only thing keeping you in the game.</p>
+          <p>Every drone that touches you costs health and knocks you backwards, but a short burst of
+             invulnerability follows each hit so you can slip away instead of being shredded on the
+             spot. Drones come in a few flavours: basic green chasers, quick cyan scouts that sprint
+             at you, and heavy orange tanks that take several shots to crack but score the most points.
+             Clear a whole wave and the next one arrives bigger, faster and tougher — but your
+             repair drones patch up a little health for every wave you finish, so clean clears pay off.
+             Keep circling the arena, keep your crosshair ahead of the swarm, and see how many waves
+             you can survive.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys to drive your robot around the arena</li>
+            <li>Move the mouse to aim — the blaster fires on its own toward the cursor, and holding the mouse button fires too</li>
+            <li><kbd>Space</kbd> or <kbd>Enter</kbd> to start, <kbd>Enter</kbd> or <kbd>P</kbd> or <kbd>Esc</kbd> to pause, <kbd>R</kbd> to restart</li>
+            <li>On a phone: use the on-screen direction pad to move and drag a finger on the arena to aim</li>
+          </ul>
+          <h3>Tips for surviving longer</h3>
+          <ul>
+            <li>Never stop moving. A stationary robot is a magnet for every drone on the field.</li>
+            <li>Circle the outer wall instead of cutting through the middle — it strings the swarm out behind you.</li>
+            <li>Deal with cyan scouts first. They close the distance fastest and hurt your escape routes.</li>
+            <li>Save the bulky orange tanks for last; they move slowly and you can kite them while you thin the pack.</li>
+            <li>Each wave you clear repairs a little health, so finishing a swarm cleanly is worth playing safe for.</li>
+            <li>Your best score is saved automatically in this browser.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=shooter">More shooting games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/drone-defense.js"></script>
+</body>
+</html>

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Merge 2048 — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Merge 2048 free online at PixelPlay. Slide tiles, merge matching numbers and chase the legendary 2048 tile in this classic browser puzzle.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🔢%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Board for this page only — shared css/style.css is never edited. */
+    #gameDom {
+      --tgap: 10px;
+      position: relative;
+      width: min(92vw, 440px);
+      aspect-ratio: 1 / 1;
+      padding: var(--tgap);
+      background: radial-gradient(120% 120% at 50% 0%, #1b2540 0%, #0a0f1c 72%);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    #gameDom .t2048-layer {
+      position: absolute;
+      inset: var(--tgap);
+    }
+
+    #gameDom .t2048-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      gap: var(--tgap);
+    }
+
+    #gameDom .t2048-cell {
+      border-radius: 9px;
+      background: rgba(255, 255, 255, .045);
+      border: 1px solid rgba(255, 255, 255, .04);
+    }
+
+    #gameDom .t2048-tile {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: calc((100% - 3 * var(--tgap)) / 4);
+      height: calc((100% - 3 * var(--tgap)) / 4);
+      transform: translate(
+        calc(var(--c) * (100% + var(--tgap))),
+        calc(var(--r) * (100% + var(--tgap)))
+      );
+      transition: transform .11s ease;
+      will-change: transform;
+    }
+
+    #gameDom .t2048-inner {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      font-weight: 800;
+      font-size: clamp(1.15rem, 5.2vw, 1.9rem);
+      line-height: 1;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    #gameDom .t2048-tile.d3 .t2048-inner { font-size: clamp(.95rem, 4.2vw, 1.5rem); }
+    #gameDom .t2048-tile.d4 .t2048-inner { font-size: clamp(.78rem, 3.3vw, 1.2rem); }
+
+    /* classic 2048 colour ramp */
+    #gameDom .t2048-tile[data-val="2"] .t2048-inner { background: #eee4da; color: #776e65; }
+    #gameDom .t2048-tile[data-val="4"] .t2048-inner { background: #ede0c8; color: #776e65; }
+    #gameDom .t2048-tile[data-val="8"] .t2048-inner { background: #f2b179; color: #f9f6f2; }
+    #gameDom .t2048-tile[data-val="16"] .t2048-inner { background: #f59563; color: #f9f6f2; }
+    #gameDom .t2048-tile[data-val="32"] .t2048-inner { background: #f67c5f; color: #f9f6f2; }
+    #gameDom .t2048-tile[data-val="64"] .t2048-inner { background: #f65e3b; color: #f9f6f2; }
+    #gameDom .t2048-tile[data-val="128"] .t2048-inner { background: #edcf72; color: #f9f6f2; box-shadow: 0 0 14px rgba(237, 207, 114, .3); }
+    #gameDom .t2048-tile[data-val="256"] .t2048-inner { background: #edcc61; color: #f9f6f2; box-shadow: 0 0 16px rgba(237, 204, 97, .36); }
+    #gameDom .t2048-tile[data-val="512"] .t2048-inner { background: #edc850; color: #f9f6f2; box-shadow: 0 0 18px rgba(237, 200, 80, .42); }
+    #gameDom .t2048-tile[data-val="1024"] .t2048-inner { background: #e8b923; color: #f9f6f2; box-shadow: 0 0 20px rgba(232, 185, 35, .52); }
+    #gameDom .t2048-tile[data-val="2048"] .t2048-inner { background: #edc22e; color: #f9f6f2; box-shadow: 0 0 26px rgba(237, 194, 46, .75); }
+    #gameDom .t2048-tile.super .t2048-inner { background: #3c3a32; color: #f9f6f2; box-shadow: 0 0 24px rgba(243, 215, 116, .7); }
+
+    #gameDom .t2048-tile.pop .t2048-inner { animation: t2048-pop .16s ease-out; }
+    #gameDom .t2048-tile.bump .t2048-inner { animation: t2048-bump .16s ease-out; }
+
+    @keyframes t2048-pop {
+      from { transform: scale(.25); opacity: .4; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes t2048-bump {
+      0%   { transform: scale(1); }
+      55%  { transform: scale(1.16); }
+      100% { transform: scale(1); }
+    }
+
+    /* the extra "New game" button lives inside .overlay-card next to the primary */
+    #overlayBtn, #overlayBtn2 { margin: 8px 5px 0; }
+
+    @media (prefers-reduced-motion: reduce) {
+      #gameDom .t2048-tile { transition: none; }
+      #gameDom .t2048-tile.pop .t2048-inner,
+      #gameDom .t2048-tile.bump .t2048-inner { animation: none; }
+    }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="merge-2048">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Merge 2048</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🎲 <b>Casual</b></span>
+          <span class="meta-pill">⭐ <b>4.9</b></span>
+          <span class="meta-pill">▶ <b>2.3M</b> plays</span>
+          <span class="meta-pill">⌨️ Arrows / Swipe</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <div class="game-dom" id="gameDom" role="group" aria-label="Merge 2048 tile board"></div>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Merge 2048</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+                <button class="btn btn-ghost" id="overlayBtn2" type="button">↻ New game</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <div class="dpad">
+            <button class="tbtn up" type="button" data-dir="up" aria-label="Up">▲</button>
+            <button class="tbtn left" type="button" data-dir="left" aria-label="Left">◀</button>
+            <button class="tbtn down" type="button" data-dir="down" aria-label="Down">▼</button>
+            <button class="tbtn right" type="button" data-dir="right" aria-label="Right">▶</button>
+          </div>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Merge 2048</h2>
+          <p>Merge 2048 is the classic sliding-tile puzzle played on a 4×4 board. Every move
+             nudges all sixteen squares in one direction at once: tiles glide as far as they
+             can go, and two tiles showing the same number combine into one tile worth double.
+             A pair can only merge once per move, so the order in which you slide matters.
+             After each move that changes the board a brand-new tile appears — usually a 2,
+             occasionally a 4 — and the board fills up quickly if you drift without a plan.</p>
+          <p>Your score grows by the value of every tile you create, so merging two 512 tiles
+             adds <b>1024 points</b> in a single move. The run ends when the board is full and
+             no two neighbours match, leaving you with no legal move. The goal is to build the
+             legendary <b>2048</b> tile, and you may keep playing afterwards to chase 4096 and
+             beyond. Your best score is saved in this browser, so there is always a target to
+             beat.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to slide the tiles</li>
+            <li><kbd>Space</kbd> to start, pause or resume, <kbd>P</kbd> to pause, <kbd>R</kbd> to restart</li>
+            <li>On a phone: swipe across the board in the direction you want, or use the on-screen pad</li>
+          </ul>
+          <h3>Tips for a high score</h3>
+          <ul>
+            <li>Pick one corner and keep your biggest tile parked there for the whole run.</li>
+            <li>Use only two directions most of the time; every extra direction scrambles your layout.</li>
+            <li>Keep the top row sorted in descending order so merges happen where you expect.</li>
+            <li>Never fill the fourth row unless you have a merge ready — that is how boards die.</li>
+            <li>Plan two moves ahead: a slide that creates a gap is often worth more than a quick merge.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=casual">More casual games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/merge-2048.js"></script>
+</body>
+</html>

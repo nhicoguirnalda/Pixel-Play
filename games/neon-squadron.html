@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Neon Squadron — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Neon Squadron free online at PixelPlay. Pilot a neon starfighter, blast alien formations, beat the bosses and grab power-ups in this browser shoot-em-up.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🛸%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page styling for Neon Squadron only — shared css/style.css is never edited. */
+    #gameCanvas {
+      width: 100%;
+      max-width: 520px;
+      background: #05070e;
+      box-shadow: 0 0 0 1px rgba(236, 72, 153, .14),
+                  0 0 44px rgba(236, 72, 153, .10),
+                  0 0 92px rgba(6, 182, 212, .08);
+    }
+
+    .touch-controls { align-items: flex-end; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="neon-squadron">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Neon Squadron</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🎯 <b>Shooting</b></span>
+          <span class="meta-pill">⭐ <b>4.7</b></span>
+          <span class="meta-pill">▶ <b>1.0M</b> plays</span>
+          <span class="meta-pill">⌨️ Arrows / WASD</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="560" height="680" aria-label="Neon Squadron starfighter play field"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Neon Squadron</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <div class="dpad">
+            <button class="tbtn up" type="button" data-dir="up" aria-label="Move up">▲</button>
+            <button class="tbtn left" type="button" data-dir="left" aria-label="Move left">◀</button>
+            <button class="tbtn down" type="button" data-dir="down" aria-label="Move down">▼</button>
+            <button class="tbtn right" type="button" data-dir="right" aria-label="Move right">▶</button>
+          </div>
+          <button class="tbtn" type="button" data-action="pause" aria-label="Pause or resume the game">⏸ Pause</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Neon Squadron</h2>
+          <p>Neon Squadron is a vertical shoot-em-up. You fly a small starfighter pinned to the
+             lower half of the screen while alien formations sweep in from the top. Your ship fires
+             on its own, so your job is positioning: slide left and right to line up shots, ease
+             upward for a better angle, and drop back down when the incoming fire gets thick. Every
+             alien you destroy adds to your score.</p>
+          <p>Each cleared formation advances you to the next wave, and the waves get faster, denser
+             and meaner. Every fifth wave is a <b>boss</b> — a huge armoured cruiser with a long
+             health bar that sweeps across the top of the screen and answers with wide bullet
+             spreads. Between the shooting, destroyed aliens sometimes drop rotating <b>power-ups</b>
+             that drift downward: pick them up for rapid fire, a three-way spread shot or a shield
+             that soaks one hit. They expire after a few seconds, so grab them while they last. You
+             start with <b>3 lives</b>; lose them all and the squadron is down.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to fly your ship</li>
+            <li><kbd>Space</kbd> to fire (auto-fire is on, so holding it is optional)</li>
+            <li><kbd>Space</kbd> or <kbd>Enter</kbd> to start, <kbd>Enter</kbd> or <kbd>P</kbd> or <kbd>Esc</kbd> to pause, <kbd>R</kbd> to restart</li>
+            <li>On a phone: use the on-screen direction pad and the pause button below the field</li>
+          </ul>
+          <h3>Tips for a higher score</h3>
+          <ul>
+            <li>Stay around the middle of the field so you can dodge either way when a bullet spread arrives.</li>
+            <li>Save rapid fire for boss fights — the extra shot rate melts a health bar fast.</li>
+            <li>A shield is worth more than a life. Grab it before it drifts off the bottom of the screen.</li>
+            <li>Kill the aliens nearest the top first: their bullets reach you the slowest, so you get more warning.</li>
+            <li>Your best score is saved automatically in this browser.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=shooter">More shooting games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/neon-squadron.js"></script>
+</body>
+</html>

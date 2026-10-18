@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contact PixelPlay — We'd Love to Hear From You</title>
+  <meta name="description" content="Contact the PixelPlay team with questions, bug reports, game suggestions or partnership enquiries. We read every message and usually reply within two business days.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎮%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-root="" data-nav="contact">
+
+  <header id="site-header"></header>
+
+  <main>
+    <div class="page-content">
+      <h1>Contact us</h1>
+      <p class="lead">Questions, bug reports, game ideas or business enquiries — we
+         read every message and usually reply within two business days. The more
+         detail you give us (especially for bugs: which game, which browser and what
+         happened), the faster we can help.</p>
+
+      <div class="ad-slot ad-leaderboard" data-ad="home_top"></div>
+
+      <!-- NOTE FOR DEVELOPER: this form is client-side only as a demo.
+           Before going live, connect it to a real backend such as Formspree,
+           Formsubmit or your own endpoint (change the action + remove the
+           JS preventDefault below). -->
+      <form class="contact-form" id="contactForm" novalidate>
+        <label>
+          Your name
+          <input type="text" name="name" id="cfName" placeholder="Alex Player" autocomplete="name" required>
+        </label>
+        <label>
+          Email address
+          <input type="email" name="email" id="cfEmail" placeholder="you@example.com" autocomplete="email" required>
+        </label>
+        <label>
+          Subject
+          <select name="subject" id="cfSubject">
+            <option>General question</option>
+            <option>Bug report</option>
+            <option>Game suggestion</option>
+            <option>Advertising &amp; partnerships</option>
+            <option>Other</option>
+          </select>
+        </label>
+        <label>
+          Message
+          <textarea name="message" id="cfMessage" rows="6" placeholder="Tell us what's on your mind…" required></textarea>
+        </label>
+        <div>
+          <button class="btn btn-primary" type="submit">Send message</button>
+        </div>
+        <p class="form-note" id="cfNote">We only use your details to reply to your
+           message — nothing else. See our <a href="privacy.html">Privacy Policy</a>.</p>
+      </form>
+
+      <div class="form-success" id="cfSuccess" hidden>
+        ✅ Thanks — your message has been sent! We will get back to you by email,
+        usually within two business days.
+      </div>
+
+      <h2>Other ways to reach us</h2>
+      <div class="content-card">
+        <p><b>Email:</b> <!-- TODO: replace with your real address -->
+           <a href="mailto:hello@yourdomain.com">hello@yourdomain.com</a></p>
+        <p><b>Response times:</b> we aim to reply within two business days (Monday to
+           Friday). Bug reports about a specific game are usually the quickest for us
+           to act on, so please include the game name, your browser and what you were
+           doing when the problem happened.</p>
+        <p><b>Advertising &amp; partnerships:</b> for sponsorship, advertising or
+           collaboration enquiries, use the form above and choose
+           "Advertising &amp; partnerships" — those messages go straight to the right
+           person. Please note that we do not accept arrangements that involve paid
+           placement of games presented as editorial picks.</p>
+        <p>By contacting us you agree that we may use the details you provide to reply
+           to you. For how we handle your information, see our
+           <a href="privacy.html">Privacy Policy</a> and
+           <a href="terms.html">Terms of Use</a>.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="js/layout.js"></script>
+  <script src="js/ads.js"></script>
+  <script>
+    // Contact form — client-side demo validation.
+    // NOTE FOR DEVELOPER: this only simulates a successful send. Point the form
+    // at a real backend (e.g. Formspree) before launch.
+    (function () {
+      var form = document.getElementById('contactForm');
+      var success = document.getElementById('cfSuccess');
+      var note = document.getElementById('cfNote');
+      if (!form) return;
+
+      function fail(input, msg) {
+        input.style.borderColor = 'var(--danger)';
+        note.textContent = msg;
+        note.style.color = 'var(--danger)';
+        input.focus();
+      }
+
+      function clearError(input) {
+        input.style.borderColor = '';
+      }
+
+      ['cfName', 'cfEmail', 'cfMessage'].forEach(function (id) {
+        var el = document.getElementById(id);
+        el.addEventListener('input', function () { clearError(el); });
+      });
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        var name = document.getElementById('cfName');
+        var email = document.getElementById('cfEmail');
+        var message = document.getElementById('cfMessage');
+
+        if (name.value.trim().length < 2) {
+          fail(name, 'Please enter your name (at least 2 characters).');
+          return;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
+          fail(email, 'Please enter a valid email address so we can reply.');
+          return;
+        }
+        if (message.value.trim().length < 10) {
+          fail(message, 'Please write a message of at least 10 characters.');
+          return;
+        }
+
+        form.hidden = true;
+        success.hidden = false;
+        success.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    })();
+  </script>
+</body>
+</html>

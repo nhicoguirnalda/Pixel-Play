@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Neon Snake — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Neon Snake free online at PixelPlay. Guide the glowing serpent, eat orbs, grow longer and beat your high score. Runs in your browser — no downloads.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🐍%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="snake">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Neon Snake</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🕹️ <b>Arcade</b></span>
+          <span class="meta-pill">⭐ <b>4.8</b></span>
+          <span class="meta-pill">▶ <b>1.4M</b> plays</span>
+          <span class="meta-pill">⌨️ Arrows / WASD</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="600" height="600" aria-label="Neon Snake game board"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Neon Snake</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <div class="dpad">
+            <button class="tbtn up" type="button" data-dir="up" aria-label="Up">▲</button>
+            <button class="tbtn left" type="button" data-dir="left" aria-label="Left">◀</button>
+            <button class="tbtn down" type="button" data-dir="down" aria-label="Down">▼</button>
+            <button class="tbtn right" type="button" data-dir="right" aria-label="Right">▶</button>
+          </div>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Neon Snake</h2>
+          <p>You control a glowing snake moving across a 20×20 grid. Each orb you eat
+             makes the snake longer and scores <b>10 points</b> — and the game gets a
+             little faster. The run ends when you hit a wall or your own body, so think
+             two turns ahead before you commit.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to steer</li>
+            <li><kbd>Space</kbd> to start or pause, <kbd>P</kbd> to pause, <kbd>R</kbd> to restart</li>
+            <li>On a phone: swipe across the game board or use the on-screen direction pad</li>
+          </ul>
+          <h3>Tips for a high score</h3>
+          <ul>
+            <li>Keep to the outside of the grid — the middle fills up fast once you pass 150 points.</li>
+            <li>Never double back. A quick 180° turn into your own neck is the classic way to lose.</li>
+            <li>Speed rises every 50 points. Short, controlled moves beat panic near the walls.</li>
+            <li>Your best score is saved automatically in this browser.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=arcade">More arcade games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/snake.js"></script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brick Blitz — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Brick Blitz free online at PixelPlay. Aim the paddle, smash every brick and clear colourful levels — free in your browser, no downloads.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🧱%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="brick-blitz">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Brick Blitz</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🕹️ <b>Action</b></span>
+          <span class="meta-pill">⭐ <b>4.6</b></span>
+          <span class="meta-pill">▶ <b>980K</b> plays</span>
+          <span class="meta-pill">🖱️ Mouse / Touch</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="640" height="480" aria-label="Brick Blitz game board"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Brick Blitz</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <div class="dpad">
+            <button class="tbtn up" type="button" data-dir="launch" aria-label="Launch ball">▲</button>
+            <button class="tbtn left" type="button" data-dir="left" aria-label="Move left">◀</button>
+            <button class="tbtn down" type="button" data-dir="pause" aria-label="Pause">▼</button>
+            <button class="tbtn right" type="button" data-dir="right" aria-label="Move right">▶</button>
+          </div>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Brick Blitz</h2>
+          <p>Brick Blitz is a fast game of angles. You control a glowing paddle at the bottom
+             of the 640×480 playfield, and one very bouncy ball does the rest. Five rows of
+             bricks hang near the top — the highest rows pay the most, so pick off the red and
+             orange bricks early while the ball still travels slowly. Every cleared wall earns
+             a 100 point bonus, rebuilds the bricks and speeds the ball up by about six percent.
+             You get three lives per run, and where the ball touches your paddle decides where
+             it goes next: hit it dead centre and it bounces straight back up, clip it on the
+             edge and it leaves at a steep angle. Learning to steer the ball with tiny paddle
+             nudges is the whole trick.</p>
+          <p>Keep the paddle moving — one sitting still is usually one watching the ball sail
+             past. After each lost life the ball sticks to your paddle again, so take a breath,
+             aim your first shot away from the wall and send the ball digging through the middle
+             of the stack. Your best score is saved automatically in this browser.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li>Move the mouse over the board, or drag a finger across it, to guide the paddle</li>
+            <li><kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd> to nudge the paddle at a steady speed</li>
+            <li><kbd>Space</kbd> or <kbd>Enter</kbd> to start and launch, <kbd>P</kbd> to pause, <kbd>R</kbd> to restart</li>
+            <li>On a phone: use the on-screen pad — <kbd>◀</kbd><kbd>▶</kbd> steer, <kbd>▲</kbd> launches the ball, <kbd>▼</kbd> pauses</li>
+          </ul>
+          <h3>Tips for a high score</h3>
+          <ul>
+            <li>Aim at the top two rows first — 50 and 40 points each while the ball is at its slowest.</li>
+            <li>Let the ball dig a tunnel up the middle, then bounce it over the wall into the space above.</li>
+            <li>Clip the very edge of the paddle to turn a straight shot into a sharp 60° angle toward the corner.</li>
+            <li>Every level makes the ball roughly 6% faster, so shorten your reactions as the numbers climb.</li>
+            <li>Losing a life is cheap — panicking and diving for an impossible return is what ends the run.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=action">More action games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/brick-blitz.js"></script>
+</body>
+</html>

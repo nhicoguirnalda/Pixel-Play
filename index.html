@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PixelPlay — Play Free Browser Games Online</title>
+  <meta name="description" content="Play free browser games online at PixelPlay. Arcade, puzzle, action, sports and board games that start instantly — no downloads, no sign-up, 100% free.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎮%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-root="" data-nav="home" data-page="home">
+
+  <header id="site-header"></header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <h1>Play <em>free browser games</em><br>instantly online</h1>
+        <p class="sub">A hand-picked arcade of puzzle, action, sports and board games
+           that load in seconds — no downloads, no installs, no sign-up. Just hit play.</p>
+        <form class="hero-search" action="index.html" method="get">
+          <input type="search" name="q" placeholder="Search for a game…" aria-label="Search games">
+          <button class="btn btn-primary" type="submit">Search</button>
+        </form>
+        <div class="hero-stats">
+          <span class="stat-pill"><b>100%</b> free to play</span>
+          <span class="stat-pill"><b>0</b> downloads needed</span>
+          <span class="stat-pill">★ <b>4.7</b> average rating</span>
+          <span class="stat-pill"><b>7</b> original games</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="container">
+      <div class="ad-slot ad-leaderboard" data-ad="home_top"></div>
+
+      <section class="section" id="categories">
+        <div class="section-head">
+          <h2>Browse by category</h2>
+          <a class="link-more" href="index.html?sort=popular">Most popular →</a>
+        </div>
+        <div class="chip-row" id="categoryChips"></div>
+      </section>
+
+      <section class="section" id="games">
+        <div class="section-head">
+          <h2 id="gridTitle">Featured Games</h2>
+          <span class="muted" id="gridCount"></span>
+        </div>
+        <div class="game-grid" id="gameGrid"></div>
+      </section>
+
+      <section class="section" id="recentSection" style="display:none">
+        <div class="section-head">
+          <h2>Recently Played</h2>
+          <span class="muted">saved on this device</span>
+        </div>
+        <div class="game-grid" id="recentGrid"></div>
+      </section>
+
+      <section class="section" id="about">
+        <div class="section-head">
+          <h2>What is PixelPlay?</h2>
+        </div>
+        <div class="info-grid">
+          <div class="content-card">
+            <h3>⚡ Instant play</h3>
+            <p>Every game runs right here in your browser using HTML5 and JavaScript.
+               Click a thumbnail and you are playing — there is nothing to install and
+               nothing to create.</p>
+          </div>
+          <div class="content-card">
+            <h3>🧩 Every genre</h3>
+            <p>Chase high scores in the arcade, sharpen your mind with puzzle games,
+               compete in fast sports duels or plan three moves ahead on the board.</p>
+          </div>
+          <div class="content-card">
+            <h3>📱 Phone &amp; desktop</h3>
+            <p>Games scale from a phone screen to a large monitor and support keyboard,
+               mouse and touch controls, so your high score follows you anywhere.</p>
+          </div>
+        </div>
+        <div class="content-card">
+          <p><b>Welcome to PixelPlay</b> — a free online games portal built for people who
+             just want to play. Our catalogue is small but curated: every title is an
+             original game written from scratch for this site, tuned to run smoothly even
+             on older hardware and slow connections. Progress such as high scores and your
+             recently played list is stored locally in your browser, so you can pick up
+             where you left off without an account.</p>
+          <p>New here? Start with <a href="games/merge-2048.html">Merge 2048</a> if you like
+             relaxing number puzzles, try <a href="games/snake.html">Neon Snake</a> for a
+             classic arcade run, or test your reflexes in
+             <a href="games/pong-arena.html">Pong Arena</a>. Use the category chips above or
+             the search box to find something that fits your mood — and check back soon,
+             because new games are added regularly.</p>
+        </div>
+      </section>
+
+      <div class="ad-slot ad-leaderboard" data-ad="footer_banner" id="ads"></div>
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="js/games.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/ads.js"></script>
+</body>
+</html>

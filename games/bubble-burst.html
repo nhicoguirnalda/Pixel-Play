@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bubble Burst — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Bubble Burst free online at PixelPlay. Aim, shoot and pop groups of three or more matching bubbles on a colourful board, then beat your best score.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🫧%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page-only styling — the shared css/style.css is never edited. */
+    #gameCanvas {
+      width: min(100%, 600px);
+      background: radial-gradient(120% 90% at 50% 0%, #14203a 0%, #070b14 70%);
+    }
+
+    #btnFire, #btnPause { min-width: 128px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="bubble-burst">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Bubble Burst</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🎯 <b>Shooting</b></span>
+          <span class="meta-pill">⭐ <b>4.8</b></span>
+          <span class="meta-pill">▶ <b>1.5M</b> plays</span>
+          <span class="meta-pill">🖱️ Mouse / Touch</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="600" height="640" aria-label="Bubble Burst bubble shooter board"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Bubble Burst</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn" id="btnFire" type="button">🎯 Fire</button>
+          <button class="tbtn" id="btnPause" type="button">⏸ Pause</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Bubble Burst</h2>
+          <p>Bubble Burst is a classic bubble shooter. A honeycomb wall of coloured bubbles
+             fills the top of the board and you stand at the bottom with a launcher. Move the
+             mouse or your finger to aim, and an aim guide will bounce off the side walls to
+             show you exactly where your bubble is heading. Click or tap to fire the coloured
+             bubble that is loaded, and it snaps into the first free slot it touches.</p>
+          <p>Three or more bubbles of the same colour joined together burst and award
+             <b>10 points</b> each. Anything left dangling below a burst is no longer attached
+             to the ceiling, so the whole clump drops for a <b>20-point</b> bonus per bubble —
+             that is where the big scores come from. A fresh row creeps down every eight shots,
+             so keep clearing space. If the wall reaches the danger line the round is over.
+             Empty the board completely and you advance a level with more colours and a deeper
+             starting wall.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li>Move the mouse or drag your finger to aim — the guide bounces off the walls</li>
+            <li>Click or tap to fire the loaded bubble</li>
+            <li><kbd>Space</kbd> or <kbd>Enter</kbd> to start, pause and resume</li>
+            <li><kbd>P</kbd> or <kbd>Escape</kbd> to pause, <kbd>R</kbd> to restart</li>
+            <li>On a phone: use the on-screen <b>Fire</b> and <b>Pause</b> buttons below the board</li>
+          </ul>
+          <h3>Tips for a high score</h3>
+          <ul>
+            <li>Shoot the colours that already sit high on the wall — popping near the ceiling drops the most bubbles.</li>
+            <li>Aim at a bubble whose opposite side is crowded; the burst will cut a whole clump free.</li>
+            <li>Bounce shots off the side walls to reach awkward pockets you cannot hit straight on.</li>
+            <li>Watch the next-bubble preview and plan two shots ahead, not one.</li>
+            <li>Your best score is saved automatically in this browser.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=shooter">More shooting games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/bubble-burst.js"></script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bullet Ballet — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Bullet Ballet free online at PixelPlay. Dodge swirling bullet-hell patterns, auto-fire at a glowing boss and survive every phase of this neon shooter.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💫%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Arena styling for this page only — shared css/style.css is never edited. */
+    #gameCanvas {
+      width: 100%;
+      max-width: 600px;
+      background: #05070e;
+      box-shadow: 0 0 0 1px rgba(244, 114, 182, .14),
+                  0 0 44px rgba(244, 114, 182, .10),
+                  0 0 96px rgba(139, 92, 246, .09);
+    }
+
+    .dpad .tbtn { font-size: 1.25rem; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="bullet-ballet">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Bullet Ballet</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🎯 <b>Shooting</b></span>
+          <span class="meta-pill">⭐ <b>4.7</b></span>
+          <span class="meta-pill">▶ <b>920K</b> plays</span>
+          <span class="meta-pill">⌨️ Arrows / WASD</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="600" height="600" aria-label="Bullet Ballet arena with a boss orb firing glowing bullet patterns"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Bullet Ballet</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <div class="dpad">
+            <button class="tbtn up" type="button" data-dir="up" aria-label="Move up">▲</button>
+            <button class="tbtn left" type="button" data-dir="left" aria-label="Move left">◀</button>
+            <button class="tbtn down" type="button" data-dir="down" aria-label="Move down">▼</button>
+            <button class="tbtn right" type="button" data-dir="right" aria-label="Move right">▶</button>
+          </div>
+          <button class="tbtn" type="button" data-action="pause" aria-label="Pause or resume the battle">⏸ Pause</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Bullet Ballet</h2>
+          <p>Bullet Ballet is a single-arena boss fight. Your glowing orb drifts around a
+             600×600 dance floor while a huge luminous boss sits in the centre, spinning out
+             dense walls of light. You never press a fire button: your orb <b>auto-fires</b> at
+             the boss on its own, so all of your attention goes into reading the patterns and
+             slipping through the gaps.</p>
+          <p>The boss cycles through <b>four phases</b>. Each phase switches the pattern —
+             expanding rings, a rotating spiral, and spread shots aimed straight at you — and
+             every phase pushes out more bullets than the last. You start with
+             <b>100 HP</b>; each bullet that clips you costs 10 HP and shoves you backwards,
+             with a short moment of invulnerability to help you recover. Drain the boss's
+             health bar to move on, and clear the final phase to win the run and collect a big
+             score bonus. Your best score is saved in this browser.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move your orb</li>
+            <li><kbd>Space</kbd> or <kbd>Enter</kbd> to start, pause and resume</li>
+            <li><kbd>P</kbd> or <kbd>Esc</kbd> to pause, <kbd>R</kbd> to restart the fight</li>
+            <li>On a phone, use the on-screen direction pad below the arena</li>
+          </ul>
+          <h3>Tips for surviving every phase</h3>
+          <ul>
+            <li>Watch the boss, not your orb — bullets telegraph a beat before they launch.</li>
+            <li>Ring patterns leave a safe pocket between the spokes; find it early and drift into it.</li>
+            <li>Spirals are beaten by circling in the same direction, just slower than the rotation.</li>
+            <li>Keep moving when you take a hit. The knockback is a gift: it puts distance between you and the next volley.</li>
+            <li>Save a little reaction space near the edges. Cornering yourself against a ring is how runs end.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=shooter">More shooting games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/bullet-ballet.js"></script>
+</body>
+</html>

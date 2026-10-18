@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mine Field — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Mine Field free online at PixelPlay. Clear a 10×10 grid hiding 12 mines using the number clues, flag the danger and beat your best score.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💣%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Mine Field board — DOM tiles, touch friendly 40px cells */
+    #gameDom.mf-grid {
+      display: grid;
+      grid-template-columns: repeat(10, 40px);
+      gap: 3px;
+      padding: 10px;
+      justify-content: center;
+      justify-content: safe center;
+      overflow-x: auto;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: pan-x;
+    }
+    .mf-cell {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      background: #16233d;
+      border: 1px solid #22304d;
+      border-radius: 6px;
+      font-size: 1.15rem;
+      font-weight: 800;
+      line-height: 1;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .12s, transform .08s, border-color .12s;
+    }
+    .mf-cell:hover { background: #1e2d4d; border-color: #33456e; }
+    .mf-cell:active { transform: scale(.9); background: #24365c; }
+    .mf-cell.open { background: #0a1120; border-color: #1a2740; cursor: default; }
+    .mf-cell.open:hover { background: #0a1120; border-color: #1a2740; transform: none; }
+    .mf-cell.open:active { transform: none; background: #0a1120; }
+    .mf-cell.flag, .mf-cell.wrong { background: #241a34; }
+    .mf-cell.mine { background: #2a1420; border-color: #4a2333; }
+    .mf-cell.boom { background: rgba(255, 92, 122, .45); border-color: #ff5c7a; }
+    .mf-cell.n1 { color: #4f7dff; }
+    .mf-cell.n2 { color: #2ee6a6; }
+    .mf-cell.n3 { color: #ff5c7a; }
+    .mf-cell.n4 { color: #a855f7; }
+    .mf-cell.n5 { color: #f59e0b; }
+    .mf-cell.n6 { color: #06c8d6; }
+    .mf-cell.n7 { color: #e8eefc; }
+    .mf-cell.n8 { color: #93a3c2; }
+    .tbtn.on { background: var(--accent); border-color: transparent; color: #fff; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="mine-field">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Mine Field</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🧠 <b>Puzzle</b></span>
+          <span class="meta-pill">⭐ <b>4.5</b></span>
+          <span class="meta-pill">▶ <b>760K</b> plays</span>
+          <span class="meta-pill">🖱️ Click / Right-click</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <div class="game-dom" id="gameDom" aria-label="Mine Field board"></div>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Mine Field</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn" type="button" id="flagModeBtn" aria-pressed="false">🚩 Flag mode</button>
+          <button class="tbtn" type="button" id="newGameBtn">↻ New game</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Mine Field</h2>
+          <p>Mine Field hides <b>12 bombs</b> inside a 10×10 grid — that's 100 squares, and only 88 of
+             them are safe. Your first tap is always a lucky one: the mines are scattered <i>after</i> you
+             open your very first square, and that square plus its eight neighbours are guaranteed to be
+             clear, so every game begins with a fair opening. Uncover all 88 safe squares and you clear
+             the field; touch a mine and the round ends in an instant.</p>
+          <p>The numbers are the whole game. A number tells you exactly how many mines sit in the squares
+             touching it, counting all eight directions — the diagonals included. A <b>3</b> sitting beside
+             three closed squares means all three of them are bombs, so plant your flags there. A blank
+             square means nothing dangerous is nearby at all, which is why the board ripples open around
+             it: blank squares trigger a flood fill that instantly reveals every connected empty square
+             and the numbered ring around its edge. From there it is pure logic — no guessing required
+             in most rounds.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li><kbd>Click</kbd> / <kbd>Tap</kbd> a square to reveal what is under it</li>
+            <li><kbd>Right-click</kbd> a square to plant or remove a 🚩 flag</li>
+            <li>On a phone: switch on <b>🚩 Flag mode</b> below the board so taps place flags instead of
+                revealing, or press and hold a square for half a second to flag it</li>
+            <li><kbd>Space</kbd> or <kbd>Enter</kbd> to start, <kbd>R</kbd> to shuffle a fresh grid</li>
+          </ul>
+          <h3>Tips for clearing the field</h3>
+          <ul>
+            <li>Open a corner first. Corner squares have only three neighbours instead of eight, so the
+                early numbers give tighter, more reliable deductions.</li>
+            <li>Work along the edge of the opened area. Those numbers constrain the fewest hidden squares
+                and are always the easiest to solve next.</li>
+            <li>A number that already "sees" its full count of flags is finished — every other square
+                around it must be safe, so click them without fear.</li>
+            <li>Flags block the flood fill, just like in the classic game. Unflag a square if you need the
+                reveal to pass through it.</li>
+            <li>Speed pays: your score is <b>1200 − 8 × seconds</b>, with a floor of 100 points, and your
+                best result is saved automatically in this browser.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=puzzle">More puzzle games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/mine-field.js"></script>
+</body>
+</html>

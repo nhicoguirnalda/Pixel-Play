@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Turret Guard — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Turret Guard free online at PixelPlay. Aim your turret with the mouse, blast waves of marching robots and spend credits on upgrades to hold your base.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🛡️%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Field styling for this page only — shared css/style.css is never edited. */
+    #gameCanvas {
+      width: 100%;
+      max-width: 760px;
+      background: #05070e;
+      box-shadow: 0 0 0 1px rgba(34, 197, 94, .12),
+                  0 0 42px rgba(99, 102, 241, .10),
+                  0 0 90px rgba(34, 197, 94, .07);
+      cursor: crosshair;
+    }
+
+    .touch-controls .tbtn { font-size: .9rem; padding: 0 14px; }
+    .touch-controls .tbtn[disabled] { opacity: .45; cursor: default; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="turret-guard">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Turret Guard</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🎯 <b>Shooting</b></span>
+          <span class="meta-pill">⭐ <b>4.5</b></span>
+          <span class="meta-pill">▶ <b>810K</b> plays</span>
+          <span class="meta-pill">🖱️ Mouse / Touch</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="720" height="420" aria-label="Turret Guard defence field — aim the turret and fire at the marching robots"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Turret Guard</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn" type="button" data-buy="rate" aria-label="Buy a fire rate upgrade">⚡ Fire rate</button>
+          <button class="tbtn" type="button" data-buy="dmg" aria-label="Buy a damage upgrade">💥 Damage</button>
+          <button class="tbtn" type="button" data-action="pause" aria-label="Pause or resume the defence">⏸ Pause</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Turret Guard</h2>
+          <p>Rows of marching robots are walking a winding road straight toward your base, and you
+             have a single defence turret to stop them. Point at the road with the mouse or your
+             finger and hold to fire: the barrel always swings to face your cursor, and every hit
+             sparks off the robot's plating. Everything you destroy adds points to your score and
+             credits to your repair fund. Nothing gets past the fence for free — any robot that
+             reaches the base takes a chunk out of its <b>20 hit points</b>. When the last of them
+             drains away, the defence falls and the run is over.</p>
+          <p>The waves get heavier as you go. Wave one is a squad of light scouts, but crawlers
+             sprint down the road from wave three and squat armoured tanks start trundling along
+             from wave two, soaking up far more punishment. Spending credits is the answer: the
+             <b>Fire rate</b> upgrade shortens the gap between shots and the <b>Damage</b> upgrade
+             makes each round hit harder. Two big upgrade buttons sit in the bottom-left corner of
+             the field — click them whenever you can afford them, or use the matching buttons under
+             the field on a phone. Between waves there is a short pause: reposition your aim, buy
+             an upgrade and get ready for the next push.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li>Move the mouse over the field to aim — the turret follows your cursor</li>
+            <li>Hold the left mouse button (or a finger) to fire, release to stop</li>
+            <li>Click the <b>⚡ Fire rate</b> and <b>💥 Damage</b> panels on the field to buy upgrades</li>
+            <li><kbd>1</kbd> and <kbd>2</kbd> buy those upgrades from the keyboard</li>
+            <li><kbd>Space</kbd> or <kbd>Enter</kbd> to start, pause or resume, <kbd>P</kbd> / <kbd>Esc</kbd> to pause, <kbd>R</kbd> to restart</li>
+          </ul>
+          <h3>Tips for holding the line</h3>
+          <ul>
+            <li>Big robots walk the long way around, so shoot the fast crawlers first — leaks hurt more than slow kills.</li>
+            <li>Aim at the corners of the road. That is where the walkers bunch up and a burst of fire hits several at once.</li>
+            <li>Buy fire rate early and damage later: more bullets stop a rush, more power stops a tank.</li>
+            <li>Watch the road, not your crosshair — the turret aims itself, your job is to pick the target.</li>
+            <li>Keep a few credits spare before a wave ends so you can upgrade the moment the bonus lands.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=shooter">More shooting games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/turret-guard.js"></script>
+</body>
+</html>

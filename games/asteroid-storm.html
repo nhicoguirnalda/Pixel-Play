@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Asteroid Storm — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Asteroid Storm free online at PixelPlay. Rotate and thrust your spinning ship, blast drifting asteroids that split apart, and clear wave after wave.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E☄️%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page-specific only — shared css/style.css is never edited. */
+    .touch-controls .tbtn-turn { min-width: 64px; }
+    .touch-controls .tbtn-fire { min-width: 104px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="asteroid-storm">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Asteroid Storm</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🎯 <b>Shooting</b></span>
+          <span class="meta-pill">⭐ <b>4.6</b></span>
+          <span class="meta-pill">▶ <b>840K</b> plays</span>
+          <span class="meta-pill">⌨️ Arrows / Space</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="640" height="480" aria-label="Asteroid Storm space game arena"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Asteroid Storm</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn tbtn-turn" type="button" data-act="left" aria-label="Rotate ship left">⟲</button>
+          <button class="tbtn" type="button" data-act="up" aria-label="Thrust forward">▲ Thrust</button>
+          <button class="tbtn tbtn-fire" type="button" data-act="fire" aria-label="Fire the blaster">🔥 Fire</button>
+          <button class="tbtn tbtn-turn" type="button" data-act="right" aria-label="Rotate ship right">⟳</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Asteroid Storm</h2>
+          <p>Asteroid Storm drops you into a 640×480 asteroid field in a small ship that keeps
+             whatever momentum you give it. <kbd>←</kbd> and <kbd>→</kbd> spin the ship, <kbd>↑</kbd>
+             fires the thrusters and <kbd>Space</kbd> shoots. Because the ship drifts, the trick is
+             to tap the thrusters in short bursts, let drag slow you down, and line up your next
+             shot before you commit to a direction. Fly off one side of the screen and you appear
+             on the other, so there is nowhere to hide and nowhere to crash.</p>
+          <p>Every asteroid you hit is worth points, but big rocks do not simply vanish — they
+             break into two smaller, faster chunks, and those split again into quick little
+             fragments. Clear every rock in the field and a fresh wave arrives with more
+             asteroids and more speed. You begin with <b>three lives</b>: touching a rock costs
+             one life and puts you back in the middle of the field with a short burst of
+             protection. Lose them all and the run is over. Your best score is saved in this
+             browser, so keep an eye on that number in the HUD.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li><kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd> to rotate the ship</li>
+            <li><kbd>↑</kbd> or <kbd>W</kbd> to thrust forward, <kbd>↓</kbd> <kbd>S</kbd> to brake gently</li>
+            <li><kbd>Space</kbd> to fire, <kbd>P</kbd> or <kbd>Esc</kbd> to pause, <kbd>Enter</kbd> to pause or resume, <kbd>R</kbd> to restart</li>
+            <li>On a phone: use the ⟲ / ▲ Thrust / 🔥 Fire / ⟳ buttons, or tap the arena to turn toward that spot</li>
+          </ul>
+          <h3>Tips for a high score</h3>
+          <ul>
+            <li>Big rocks split into two, so break them at the edge of the screen where the pieces drift away from you.</li>
+            <li>Fire in short taps rather than holding the button — your shots travel faster than the rocks.</li>
+            <li>Never sit still in the middle. The centre is where fragments from every direction end up.</li>
+            <li>Use the wrap-around edges to escape: a quick dash off the top reappears at the bottom.</li>
+            <li>Keep your last life safe by saving a clear lane before you break the final big rock of a wave.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=shooter">More shooting games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/asteroid-storm.js"></script>
+</body>
+</html>

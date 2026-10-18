@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skeet Shot — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Skeet Shot free online at PixelPlay. Launch clay targets, aim with mouse or finger and break every pair in this fast arcade shooting challenge.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🥏%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Range styling for this page only — shared css/style.css is never edited. */
+    #gameCanvas {
+      width: 100%;
+      max-width: 720px;
+      background: #05070e;
+      box-shadow: 0 0 0 1px rgba(251, 191, 36, .14),
+                  0 0 44px rgba(251, 191, 36, .10),
+                  0 0 96px rgba(249, 115, 22, .09);
+      cursor: crosshair;
+    }
+
+    .touch-controls .tbtn { min-width: 150px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="skeet-shot">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Skeet Shot</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🎯 <b>Shooting</b></span>
+          <span class="meta-pill">⭐ <b>4.4</b></span>
+          <span class="meta-pill">▶ <b>580K</b> plays</span>
+          <span class="meta-pill">🖱️ Mouse / Touch</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="720" height="460" aria-label="Skeet Shot clay target range with a crosshair"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Skeet Shot</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn" type="button" data-action="pause" aria-label="Pause or resume the round">⏸ Pause</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Skeet Shot</h2>
+          <p>Skeet Shot is an arcade shooting range with a very simple rule: clay discs fly,
+             you knock them down. Targets launch from the bottom of the range in pairs,
+             arcing upward and drifting apart, then curve back down under gravity. Move the
+             mouse to sweep your crosshair across the sky and click — or tap on a
+             touchscreen — to fire at exactly where you are aiming.</p>
+          <p>You carry <b>two shells per pair</b> of clays, followed by a short reload. Break a
+             disc and your <b>combo multiplier</b> climbs; fire a shell into empty sky and it
+             resets to one, so wild spraying is expensive. A round is <b>10 launches</b>, and
+             the speed, angle and drift of every pair changes, so no two sequences look alike.
+             At the end of the final round every hit you landed is totalled up, along with an
+             <b>accuracy bonus</b> for shots that found a target. Your best score is saved in
+             this browser.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li>Move the mouse to aim — the crosshair follows your pointer</li>
+            <li>Click, or tap the range on a touchscreen, to fire a shell</li>
+            <li><kbd>Space</kbd> or <kbd>Enter</kbd> to start, pause and resume</li>
+            <li><kbd>P</kbd> or <kbd>Esc</kbd> to pause, <kbd>R</kbd> to restart the round</li>
+          </ul>
+          <h3>Tips for a higher score</h3>
+          <ul>
+            <li>Aim at the flat face of a disc, not its thin edge — lead the target slightly as it climbs.</li>
+            <li>The fastest clays travel furthest. Take the close, slow one first and use your second shell on the hard one.</li>
+            <li>Two shells means two chances: never spend both on the same place in the sky.</li>
+            <li>Protect your combo. One careful hit beats a rushed shot that breaks the streak.</li>
+            <li>Finish every round with shells to spare — the accuracy bonus rewards patience.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=shooter">More shooting games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/skeet-shot.js"></script>
+</body>
+</html>

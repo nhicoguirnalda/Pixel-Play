@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sky Defense — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Sky Defense free online at PixelPlay. Aim your crosshair and shoot down cartoon aircraft before they reach your city in this fast arcade shooter.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎯%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page-only styling — the shared css/style.css is never edited. */
+    #gameCanvas {
+      width: min(100%, 720px);
+      background: linear-gradient(180deg, #0b1a33 0%, #102a46 55%, #0a1424 100%);
+    }
+
+    #btnReload, #btnPause { min-width: 130px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="sky-defense">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Sky Defense</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🎯 <b>Shooting</b></span>
+          <span class="meta-pill">⭐ <b>4.5</b></span>
+          <span class="meta-pill">▶ <b>690K</b> plays</span>
+          <span class="meta-pill">🖱️ Mouse / Touch</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="720" height="420" aria-label="Sky Defense anti-aircraft shooting range"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Sky Defense</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn" id="btnReload" type="button">↻ Reload</button>
+          <button class="tbtn" id="btnPause" type="button">⏸ Pause</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Sky Defense</h2>
+          <p>Sky Defense puts you behind the crosshair of a friendly sky city's defence tower.
+             Colourful little aircraft and drones buzz in from the left and head straight for
+             the rooftops, and only you can stop them. Slide the mouse or your finger to move
+             the crosshair, then click or tap to fire. Every shot that lands pops the aircraft
+             into a burst of sparks and adds points to your score.</p>
+          <p>Your tower carries a magazine of <b>6 shots</b> and reloads automatically when the
+             clip runs dry, so spray-and-pray has a price. Hits are what matter: each one
+             builds a combo, and consecutive hits multiply your score up to <b>5×</b>. A miss
+             costs no points, but it does break the streak. The city starts with
+             <b>5 health</b> — every aircraft that slips off the right-hand side of the sky
+             takes one point of it away. When the health reaches zero the round ends, so guard
+             the rooftops and go for the high-value streaks.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li>Move the mouse or drag your finger to aim the crosshair</li>
+            <li>Click or tap the sky to fire one round</li>
+            <li><kbd>Space</kbd> or <kbd>Enter</kbd> to start, pause and resume</li>
+            <li><kbd>P</kbd> or <kbd>Escape</kbd> to pause, <kbd>R</kbd> to restart</li>
+            <li>On a phone: tap the sky to shoot and use the <b>Reload</b> and <b>Pause</b> buttons</li>
+          </ul>
+          <h3>Tips for a high score</h3>
+          <ul>
+            <li>Let an aircraft drift into the middle of the sky before you shoot — a miss near the edge is a wasted round.</li>
+            <li>Protect a long combo. Three hits in a row is worth more than three rushed, scattered shots.</li>
+            <li>Keep an eye on the magazine bar. Fire your last round early, then reload while the sky is quiet.</li>
+            <li>Small drones are worth the most and they are the fastest — lead your aim slightly ahead of them.</li>
+            <li>Your best score is saved automatically in this browser.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=shooter">More shooting games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/sky-defense.js"></script>
+</body>
+</html>

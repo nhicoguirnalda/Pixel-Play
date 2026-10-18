@@ -1,0 +1,17 @@
+# PixelPlay — advertising verification file (ads.txt)
+#
+# WHAT TO DO HERE --------------------------------------------------------------
+# 1. Your ad network gives you one line per ad system. For Google AdSense it
+#    looks like this (the last part is the certification authority ID for Google):
+#
+#    google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
+#
+# 2. Delete the leading "# " from that line below and replace
+#    pub-0000000000000000 with YOUR publisher ID.
+# 3. Upload this file so it is reachable at: https://yourdomain.com/ads.txt
+# 4. Other networks (Media.net, Ezoic, Adsterra, ...) will give you their own
+#    lines — add one per network, one line each.
+#
+# Until you uncomment a real line, this file is a valid but empty ads.txt.
+
+# google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0

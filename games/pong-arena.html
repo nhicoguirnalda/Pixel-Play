@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pong Arena — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Pong Arena free online at PixelPlay. Duel a speedy AI paddle, angle your returns and win the race to 7 points in this fast browser classic.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏓%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Court styling for this page only — shared css/style.css is never edited. */
+    #gameCanvas {
+      width: 100%;
+      max-width: 640px;
+      background: #05070e;
+      box-shadow: 0 0 0 1px rgba(0, 217, 255, .12),
+                  0 0 42px rgba(0, 217, 255, .09),
+                  0 0 90px rgba(124, 92, 255, .08);
+      cursor: none;
+    }
+
+    .touch-controls .tbtn { min-width: 150px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="pong-arena">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Pong Arena</h1>
+        <div class="game-meta">
+          <span class="meta-pill">⚽ <b>Sports</b></span>
+          <span class="meta-pill">⭐ <b>4.7</b></span>
+          <span class="meta-pill">▶ <b>1.6M</b> plays</span>
+          <span class="meta-pill">🖱️ Mouse / Touch</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="640" height="480" aria-label="Pong Arena paddle court"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Pong Arena</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn" type="button" data-action="pause" aria-label="Pause or resume the match">⏸ Pause</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Pong Arena</h2>
+          <p>Pong Arena is a head-to-head paddle duel against a computer opponent. A glowing
+             ball bounces around a fenced court: you defend the left goal with the cyan paddle,
+             the AI defends the right with the pink one. Miss the ball and your opponent scores.
+             The first player to reach <b>7 points</b> takes the match.</p>
+          <p>The real skill is in the angle. Where the ball lands on your paddle decides where
+             it travels next — strike with the centre and it returns flat and predictable, catch
+             it near the top or bottom edge and you fire it away at up to 60°, sending the AI
+             scrambling. Every paddle hit also makes the ball a little faster, so long rallies
+             turn into genuine tests of nerve. The AI is quick but not perfect: it reacts with a
+             small delay and can be dragged out of position with sharp angles.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li>Move the mouse over the court to slide your paddle up and down</li>
+            <li>On a touchscreen, drag your finger along the court to steer the paddle</li>
+            <li><kbd>↑</kbd> <kbd>↓</kbd> or <kbd>W</kbd><kbd>S</kbd> to move the paddle manually</li>
+            <li><kbd>Space</kbd> or a tap to serve, <kbd>P</kbd> or <kbd>Esc</kbd> to pause, <kbd>R</kbd> to restart</li>
+          </ul>
+          <h3>Tips for a winning streak</h3>
+          <ul>
+            <li>Aim with the edges of your paddle to open up steep return angles the AI cannot reach.</li>
+            <li>Return to the middle of the goal after every shot so you are ready for either side.</li>
+            <li>Watch the AI paddle, not the ball — it always drifts toward the last place it saw the ball.</li>
+            <li>Keep rallies short when you are ahead; the ball speeds up with every hit.</li>
+            <li>Your best win streak is saved in this browser. Win again to extend it — a loss resets it to zero.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=sports">More sports games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/pong-arena.js"></script>
+</body>
+</html>

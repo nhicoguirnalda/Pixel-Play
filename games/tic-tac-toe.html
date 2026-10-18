@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tic Tac Toe — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Tic Tac Toe free online at PixelPlay. Beat an unbeatable minimax AI in Hard mode or challenge a friend in local two-player games. No downloads.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E❌%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Tic Tac Toe board — DOM tiles, big touch friendly cells */
+    #gameDom.ttt-board {
+      display: grid;
+      grid-template-columns: repeat(3, clamp(74px, 20vw, 96px));
+      grid-template-rows: repeat(3, clamp(74px, 20vw, 96px));
+      gap: 8px;
+      padding: 12px;
+      justify-content: center;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+    .ttt-cell {
+      display: grid;
+      place-items: center;
+      background: #16233d;
+      border: 1px solid #22304d;
+      border-radius: 12px;
+      font-size: clamp(2rem, 9vw, 2.8rem);
+      font-weight: 800;
+      line-height: 1;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .15s, transform .1s, border-color .15s;
+    }
+    .ttt-cell:hover:empty { background: #1e2d4d; border-color: #33456e; }
+    .ttt-cell:active { transform: scale(.94); }
+    .ttt-cell.x { color: #7c5cff; text-shadow: 0 0 18px rgba(124, 92, 255, .55); }
+    .ttt-cell.o { color: #00d9ff; text-shadow: 0 0 18px rgba(0, 217, 255, .55); }
+    @keyframes tttWin {
+      0%   { transform: scale(1);    background: #16233d; border-color: #22304d; }
+      50%  { transform: scale(1.07); background: rgba(46, 230, 166, .25); border-color: #2ee6a6; }
+      100% { transform: scale(1);    background: rgba(46, 230, 166, .16); border-color: #2ee6a6; }
+    }
+    .ttt-cell.win { animation: tttWin .6s ease-out both; }
+    .tbtn.on { background: var(--accent); border-color: transparent; color: #fff; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="tic-tac-toe">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Tic Tac Toe</h1>
+        <div class="game-meta">
+          <span class="meta-pill">♟️ <b>Board</b></span>
+          <span class="meta-pill">⭐ <b>4.4</b></span>
+          <span class="meta-pill">▶ <b>640K</b> plays</span>
+          <span class="meta-pill">👆 Click / Tap</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <div class="game-dom" id="gameDom" aria-label="Tic Tac Toe board"></div>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Tic Tac Toe</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn on" type="button" id="modeAiBtn" aria-pressed="true">🤖 vs AI</button>
+          <button class="tbtn" type="button" id="mode2pBtn" aria-pressed="false">👥 2 players</button>
+          <button class="tbtn" type="button" id="diffBtn">🎚️ Hard</button>
+          <button class="tbtn" type="button" id="newGameBtn">↻ New game</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Tic Tac Toe</h2>
+          <p>Take it in turns to drop your mark into one of the nine squares. You are <b>❌ X</b>, the
+             opponent is <b>⭕ O</b>, and X always moves first. Line up three of your marks in a row —
+             across, down or diagonally — and you take the round. Fill all nine squares with no line and
+             it's a draw. Play against the machine to build a win streak, or switch to two players and
+             share the screen with a friend.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li><kbd>Click</kbd> / <kbd>Tap</kbd> an empty square to place your mark</li>
+            <li><b>🤖 vs AI</b> and <b>👥 2 players</b> switch the mode; <b>🎚️ Easy / Hard</b> changes
+                the bot's strength (it only appears in AI mode)</li>
+            <li><kbd>Space</kbd> or <kbd>Enter</kbd> starts a new round, <kbd>R</kbd> restarts one at any time</li>
+          </ul>
+          <h3>How the Hard AI thinks (minimax, in plain words)</h3>
+          <p>The Hard bot plays out every possible future of the board before it commits to a move. It
+             tries each empty square in turn, then imagines the best reply you could make, then the best
+             reply to that reply, all the way down to the end of the game. Finished lines are scored —
+             winning is worth +10, drawing 0, losing −10 — and the bot picks whichever square gives it
+             the best score <i>even if you answer perfectly from then on</i>. That search-and-backtrack
+             loop is called minimax, and it makes Hard mode literally unbeatable: the best a flawless
+             human can force is a draw. Which is exactly the goal — draw, don't lose.</p>
+          <h3>Tips for drawing or winning</h3>
+          <ul>
+            <li>Open with the centre square. It belongs to four of the eight possible winning lines, twice
+                as many as any corner.</li>
+            <li>Always answer a threat. If the bot has two in a row with the third square open, block it
+                before doing anything else.</li>
+            <li>Build forks. A fork is one square that creates two threats at once — the opponent can only
+                block one, so the other wins the game.</li>
+            <li>Against Hard, grabbing the centre then the opposite corner is the classic route to a safe
+                draw. On Easy the bot sometimes plays randomly, so punish that by finishing your lines fast.</li>
+            <li>Your current win streak against the AI is saved in this browser — the HUD's Best shows it.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=board">More board games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/tic-tac-toe.js"></script>
+</body>
+</html>
