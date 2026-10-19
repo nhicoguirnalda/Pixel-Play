@@ -78,7 +78,10 @@
     if (gridTitle) {
       var t = 'Featured Games';
       if (state.q) t = 'Results for “' + state.q + '”';
-      else if (state.cat !== 'all') t = categoryLabel(state.cat) + ' Games';
+      else if (state.cat !== 'all') {
+        var lbl = categoryLabel(state.cat);
+        t = /Games$/i.test(lbl) ? lbl : lbl + ' Games';
+      }
       else if (state.sort === 'popular') t = 'Most Popular Games';
       else if (state.sort === 'new') t = 'New Games';
       gridTitle.textContent = t;
