@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Anagram Ace — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Anagram Ace free online at PixelPlay. Unscramble the seven glowing letter tiles, chain streak bonuses and beat the clock in fast 90-second rounds.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🔤%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page-specific only — shared css/style.css is never edited. */
+    .touch-controls .tbtn-sub { min-width: 108px; }
+    .touch-controls .tbtn-shuffle { min-width: 100px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="anagram-ace">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Anagram Ace</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🔤 <b>Word Games</b></span>
+          <span class="meta-pill">⭐ <b>4.7</b></span>
+          <span class="meta-pill">▶ <b>520K</b> plays</span>
+          <span class="meta-pill">⌨️ Keyboard / Tap</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="600" height="600" aria-label="Anagram Ace board with seven scrambled letter tiles, an answer strip and a found-words list"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Anagram Ace</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn" type="button" data-act="clear" aria-label="Clear the current answer">⌫</button>
+          <button class="tbtn tbtn-shuffle" type="button" data-act="shuffle" aria-label="Shuffle the letter tiles">🔄 Shuffle</button>
+          <button class="tbtn tbtn-sub" type="button" data-act="submit" aria-label="Submit the current word">✓ Submit</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Anagram Ace</h2>
+          <p>Anagram Ace hands you seven scrambled letter tiles, all drawn from a single
+             hidden seed word, and ninety seconds to pull as many smaller words out of them
+             as you can. Type a word on the physical keyboard or tap the tiles in order —
+             every tap lights a letter into the answer strip — then press <kbd>Enter</kbd>
+             or the ✓ Submit button to lock it in. Tap any tile you have already placed to
+             put it back, press <kbd>Backspace</kbd> to erase the last typed letter, and use
+             the 🔄 Shuffle button whenever the letters feel stuck: re-scrambling the row
+             costs nothing.</p>
+          <p>A word counts when it is at least three letters long, never reuses a tile and
+             exists in the game's dictionary. Anything else shakes the answer strip and
+             pops a short toast — "not in list" for unknown words, or a tile warning when
+             you need letters you do not have. Wrong guesses do more than waste time: they
+             break your streak multiplier, so guess with care.</p>
+          <p>Scoring grows with length. Three letters score 30 points, four score 60, five
+             score 100, six score 160 and the full seven-letter seed scores 250. Land three
+             valid words in a row and everything scores ×2; six in a row lifts it to ×3.
+             Your found words appear below the tiles, grouped by length, so you can see
+             which sizes are still worth chasing. When the 90-second clock expires the
+             results card shows your score, best score, words found and best word — then
+             "Next round" deals a fresh seed word. Your best score is saved in this
+             browser.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li><kbd>A</kbd>–<kbd>Z</kbd> type letters, <kbd>Backspace</kbd> erases, <kbd>Enter</kbd> submits</li>
+            <li>Tap tiles to build a word; tap a placed tile to return it to the row</li>
+            <li>🔄 Shuffle re-scrambles the tiles, ✓ Submit and ⌫ Clear sit under the board</li>
+            <li><kbd>Space</kbd> starts a round, <kbd>P</kbd> or <kbd>Esc</kbd> pauses (tap the P tile if a word must start with it), <kbd>R</kbd> restarts from the results card</li>
+          </ul>
+          <h3>Tips for a high score</h3>
+          <ul>
+            <li>Bank a few three-letter words early to switch the multiplier on before big finds.</li>
+            <li>Shuffle often — a fresh order makes hidden words leap into view.</li>
+            <li>Leave the seven-letter seed until last; it is worth 250 before any multiplier.</li>
+            <li>Never guess unsure words: a broken streak costs more than a skipped word.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=puzzle">More puzzle games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/anagram-ace.js"></script>
+</body>
+</html>

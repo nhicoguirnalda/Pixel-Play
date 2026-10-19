@@ -1,0 +1,1114 @@
+/* ============================================================
+   Stickman Fighter — original game for PixelPlay
+   Canvas arena beat-em-up: endless waves of rival stick fighters,
+   punch / kick / guard, combos, dodge bonuses, cartoon knockouts.
+   Keyboard first, on-screen buttons for touch.
+   ============================================================ */
+
+(function () {
+  'use strict';
+
+  var canvas = document.getElementById('gameCanvas');
+  if (!canvas || !canvas.getContext) return;
+  var ctx = canvas.getContext('2d');
+
+  var W = 600, H = 600;
+  var TAU = Math.PI * 2;
+  var BEST_KEY = 'stickman-fighter';
+  var FONT = '"Segoe UI", system-ui, sans-serif';
+  var GROUND = 500;                 /* foot line of the arena */
+
+  /* GameShell is provided by ../js/game-page.js, which loads first.
+     The no-op fallback only exists so this file can never throw. */
+  var GameShell = window.GameShell;
+  if (!GameShell) {
+    GameShell = {
+      hud: function () {},
+      overlay: { show: function () {}, hide: function () {} },
+      best: { get: function (k, f) { return f || 0; }, set: function () {} }
+    };
+  }
+
+  var ENEMY_COLS = ['#ff5c7a', '#f59e0b', '#a855f7', '#2ee6a6'];
+  var PLAYER_COL = '#22d3ee';
+
+  /* attack tables: w0 = frame the strike resolves, all windows >= 0.05s */
+  var ATK = {
+    punch: { dur: 0.26, w0: 0.06, reach: 68, dmg: 7, kb: 90, stun: 0.24, cool: 0.08, pts: 10 },
+    kick:  { dur: 0.46, w0: 0.15, reach: 88, dmg: 13, kb: 300, stun: 0.4, cool: 0.16, pts: 16 }
+  };
+  var ENEMY_REACH = 70;
+
+  var IDLE_POSE = { crouch: 0, armF: 0.18, armB: -0.14, legF: 0.1, legB: -0.1, lean: 0.05, tilt: 0 };
+  var KNOCK_POSE = { crouch: 0, armF: -1.3, armB: -1.05, legF: 0.9, legB: -0.8, lean: 0.2, tilt: 0.3 };
+
+  /* ---------------- state ---------------- */
+
+  var state = 'ready';            /* ready | running | paused | over */
+  var score = 0, wave = 1, knockouts = 0;
+  var best = GameShell.best.get(BEST_KEY, 0);
+  var player = null, enemies = [], particles = [], pops = [];
+  var keys = { left: false, right: false, block: false };
+  var combo = 0, comboT = 0;
+  var phase = 'fight';            /* fight | breather */
+  var spawnLeft = 0, spawnT = 0, spawnSide = 0, breatherT = 0;
+  var banner = null;              /* { title, sub, t, t0 } */
+  var flashT = 0, shake = 0, tGlobal = 0;
+  var rafId = 0, last = 0;
+
+  /* ---------------- helpers ---------------- */
+
+  function rand(n) { return Math.floor(Math.random() * n); }
+
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+  function now() {
+    return (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  }
+
+  function newPose() {
+    return { crouch: 0, armF: IDLE_POSE.armF, armB: IDLE_POSE.armB,
+             legF: 0.1, legB: -0.1, lean: 0.05, tilt: 0 };
+  }
+
+  function lerpPose(p, target, dt) {
+    var k = Math.min(1, dt * 16);
+    p.crouch += (target.crouch - p.crouch) * k;
+    p.armF += (target.armF - p.armF) * k;
+    p.armB += (target.armB - p.armB) * k;
+    p.legF += (target.legF - p.legF) * k;
+    p.legB += (target.legB - p.legB) * k;
+    p.lean += (target.lean - p.lean) * k;
+    p.tilt += (target.tilt - p.tilt) * k;
+  }
+
+  function burst(x, y, col, n, stars) {
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * TAU;
+      var s = 50 + Math.random() * 190;
+      var life = 0.3 + Math.random() * 0.45;
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(a) * s, vy: Math.sin(a) * s - 40,
+        life: life, life0: life,
+        size: 2 + Math.random() * 3,
+        col: col, star: !!stars && i % 3 === 0
+      });
+    }
+    if (particles.length > 300) particles.splice(0, particles.length - 300);
+  }
+
+  function pop(x, y, txt, col, size) {
+    pops.push({ x: x, y: y, txt: txt, col: col, size: size || 15,
+                t: 0, life: 0.95 });
+    if (pops.length > 24) pops.shift();
+  }
+
+  function addScore(n) {
+    score += n;
+    updateHud();
+  }
+
+  function updateHud() {
+    GameShell.hud(
+      {
+        Score: score,
+        Best: Math.max(best, score),
+        Wave: wave,
+        HP: (player ? Math.max(0, Math.round(player.hp)) : 0) + '/100'
+      },
+      state === 'paused' ? '⏸ Paused · Wave ' + wave : 'Z punch · X kick · ↓ block'
+    );
+  }
+
+  function drawStar(x, y, r, rot) {
+    ctx.beginPath();
+    for (var i = 0; i < 10; i++) {
+      var rad = i % 2 === 0 ? r : r * 0.45;
+      var a = rot + (i * Math.PI) / 5 - Math.PI / 2;
+      var px = x + Math.cos(a) * rad, py = y + Math.sin(a) * rad;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  /* ---------------- setup ---------------- */
+
+  function makePlayer() {
+    return {
+      x: W / 2, hp: 100, maxHp: 100, face: 1, speed: 250,
+      atk: null, atkT: 0, atkHit: false, atkId: 0, cool: 0,
+      hurtT: 0, invuln: 0, walkP: 0,
+      pose: newPose()
+    };
+  }
+
+  function isBlocking() {
+    return !!player && keys.block && !player.atk && player.hurtT <= 0;
+  }
+
+  function spawnEnemy() {
+    var side = spawnSide;
+    spawnSide ^= 1;
+    var hp = 12 + Math.round(wave * 4) + rand(5);
+    enemies.push({
+      x: side === 0 ? -26 : W + 26,
+      face: side === 0 ? 1 : -1,
+      hp: hp,
+      maxHp: hp,
+      speed: Math.min(62 + wave * 8, 160) * (0.9 + Math.random() * 0.2),
+      prefer: 50 + rand(20),
+      dmg: Math.min(6 + wave * 1.5, 22),
+      state: 'enter', t: 0, atkCd: 0.5 + Math.random() * 0.8,
+      strikeDone: false, dodgeX: 0, flashT: 0, hurtT: 0, kbV: 0,
+      walkP: Math.random() * TAU, lastHitId: -1,
+      col: ENEMY_COLS[rand(ENEMY_COLS.length)],
+      pose: newPose(), knock: null
+    });
+  }
+
+  function beginWave(n) {
+    wave = n;
+    spawnLeft = Math.min(2 + Math.ceil(n * 1.1), 9);
+    spawnT = 0.8;
+    spawnSide = rand(2);
+    phase = 'fight';
+    banner = { title: 'WAVE ' + n, sub: 'Fighters incoming!', t: 1.7, t0: 1.7 };
+    updateHud();
+  }
+
+  function reset() {
+    score = 0; wave = 1; knockouts = 0;
+    combo = 0; comboT = 0;
+    enemies = []; particles = []; pops = [];
+    flashT = 0; shake = 0;
+    keys.left = keys.right = keys.block = false;
+    player = makePlayer();
+    beginWave(1);
+  }
+
+  /* ---------------- combat ---------------- */
+
+  function tryAttack(type) {
+    if (state !== 'running' || !player) return false;
+    if (player.atk || player.hurtT > 0 || player.cool > 0) return false;
+    player.atk = type;
+    player.atkT = 0;
+    player.atkHit = false;
+    player.atkId++;
+    return true;
+  }
+
+  function nearestEnemy() {
+    var bestE = null, bestD = 1e9;
+    for (var i = 0; i < enemies.length; i++) {
+      var e = enemies[i];
+      if (e.state === 'knocked') continue;
+      var d = Math.abs(e.x - player.x);
+      if (d < bestD) { bestD = d; bestE = e; }
+    }
+    return bestE;
+  }
+
+  function knockout(e, dir) {
+    e.state = 'knocked';
+    e.knock = {
+      x: e.x, y: GROUND,
+      vx: dir * (300 + Math.random() * 90),
+      vy: -(240 + Math.random() * 110),
+      rot: 0, spin: dir * (5 + Math.random() * 3),
+      life: 2.6, bounces: 0
+    };
+    knockouts++;
+    var gain = 50 + wave * 10;
+    addScore(gain);
+    pop(e.x, GROUND - 74, 'KNOCKOUT +' + gain, '#facc15', 17);
+    burst(e.x, GROUND - 50, e.col, 16, true);
+    shake = Math.max(shake, 7);
+  }
+
+  function playerStrike() {
+    var atk = ATK[player.atk];
+    var hitAny = false;
+    for (var i = 0; i < enemies.length; i++) {
+      var e = enemies[i];
+      if (e.state === 'knocked' || e.lastHitId === player.atkId) continue;
+      var dx = (e.x - player.x) * player.face;
+      if (dx < -14 || dx > atk.reach) continue;
+      e.lastHitId = player.atkId;
+      hitAny = true;
+      e.hp -= atk.dmg;
+      e.hurtT = atk.stun;
+      e.flashT = 0.14;
+      e.kbV = player.face * atk.kb;
+      e.state = 'hurt';
+      e.t = atk.stun;
+      combo++;
+      comboT = 1.5;
+      var gain = atk.pts + Math.min(combo, 20) * 2;
+      addScore(gain);
+      var cx = player.x + player.face * (atk.reach * 0.6);
+      pop(cx, GROUND - 58, '+' + gain, '#e8eefc', 14);
+      burst(cx, GROUND - 54, player.atk === 'kick' ? '#f59e0b' : '#22d3ee', 8);
+      if (e.hp <= 0) knockout(e, player.face);
+    }
+    if (hitAny) shake = Math.max(shake, player.atk === 'kick' ? 6 : 3);
+  }
+
+  function hurtPlayer(dmg, fromX) {
+    if (state !== 'running' || player.invuln > 0) return;
+    var blocked = isBlocking();
+    var d = blocked ? Math.max(1, Math.round(dmg * 0.3)) : dmg;
+    player.hp -= d;
+    player.hurtT = blocked ? 0.18 : 0.34;
+    player.invuln = blocked ? 0.3 : 0.55;
+    combo = 0;
+    comboT = 0;
+    if (!blocked) {
+      flashT = 0.32;
+      shake = Math.max(shake, 10);
+      var push = player.x >= fromX ? 1 : -1;
+      player.x = clamp(player.x + push * 30, 24, W - 24);
+      pop(player.x, GROUND - 76, '−' + d, '#ff5c7a', 16);
+      burst(player.x, GROUND - 52, '#ff5c7a', 10);
+    } else {
+      pop(player.x, GROUND - 76, 'GUARD −' + d, '#2ee6a6', 13);
+      burst(player.x, GROUND - 46, '#2ee6a6', 5);
+    }
+    updateHud();
+    if (player.hp <= 0) {
+      player.hp = 0;
+      updateHud();
+      gameOver();
+    }
+  }
+
+  /* enemy strike resolution: returns nothing */
+  function enemyStrike(e) {
+    var dx = Math.abs(player.x - e.x);
+    if (dx <= ENEMY_REACH) {
+      hurtPlayer(e.dmg, e.x);
+    } else if (Math.abs(player.x - e.dodgeX) >= 22) {
+      addScore(15);
+      pop(player.x, GROUND - 76, 'DODGE +15', '#22d3ee', 15);
+    }
+  }
+
+  /* ---------------- enemy AI ---------------- */
+
+  function updateEnemy(e, dt) {
+    var i;
+
+    if (e.flashT > 0) e.flashT -= dt;
+    if (e.kbV) {
+      e.x += e.kbV * dt;
+      e.kbV *= Math.max(0, 1 - dt * 7);
+      if (Math.abs(e.kbV) < 4) e.kbV = 0;
+    }
+
+    if (e.state === 'knocked') {
+      var k = e.knock;
+      k.x += k.vx * dt;
+      k.y += k.vy * dt;
+      k.vy += 780 * dt;
+      k.rot += k.spin * dt;
+      k.life -= dt;
+      if (k.y >= GROUND && k.bounces < 2 && k.vy > 0) {
+        k.y = GROUND;
+        k.vy = -k.vy * 0.42;
+        k.vx *= 0.7;
+        k.bounces++;
+        burst(k.x, GROUND - 6, e.col, 5);
+      }
+      e.x = k.x;
+      if (k.life <= 0 || k.x < -90 || k.x > W + 90 || k.y > H + 90) {
+        e.remove = true;
+      }
+      return;
+    }
+
+    var target = player;
+    var dxT = target.x - e.x;
+    var ad = Math.abs(dxT);
+
+    if (e.state === 'hurt') {
+      e.t -= dt;
+      if (e.t <= 0) { e.state = 'walk'; e.atkCd = Math.max(0.3, e.atkCd - 0.2); }
+      poseEnemy(e, dt);
+      return;
+    }
+
+    e.atkCd -= dt;
+    e.face = dxT >= 0 ? 1 : -1;
+
+    if (e.state === 'enter') {
+      e.x += (e.face > 0 ? 1 : -1) * e.speed * dt;
+      if (e.x > 16 && e.x < W - 16) e.state = 'walk';
+      e.walkP += dt * e.speed * 0.045;
+      poseEnemy(e, dt);
+      return;
+    }
+
+    if (e.state === 'telegraph') {
+      e.t -= dt;
+      if (e.t <= 0) {
+        e.state = 'attack';
+        e.t = 0.26;
+        e.strikeDone = false;
+      }
+      poseEnemy(e, dt);
+      return;
+    }
+
+    if (e.state === 'attack') {
+      e.t -= dt;
+      if (!e.strikeDone && e.t <= 0.2) {
+        e.strikeDone = true;
+        enemyStrike(e);
+      }
+      if (e.t <= 0) {
+        e.state = 'recover';
+        e.t = Math.max(0.28, 0.5 - wave * 0.02);
+        e.atkCd = Math.max(0.25, 0.45 + Math.random() * 0.6 - wave * 0.03);
+      }
+      poseEnemy(e, dt);
+      return;
+    }
+
+    if (e.state === 'recover') {
+      e.t -= dt;
+      if (e.t <= 0) e.state = 'walk';
+      poseEnemy(e, dt);
+      return;
+    }
+
+    /* walk / approach: close to strike range, then commit */
+    var CLOSE = ENEMY_REACH - 4;
+    var moving = 0;
+    if (ad > CLOSE) {
+      e.x += (dxT > 0 ? 1 : -1) * e.speed * dt;
+      moving = 1;
+      e.walkP += dt * e.speed * 0.045;
+    } else if (ad < e.prefer * 0.45) {
+      e.x -= (dxT > 0 ? 1 : -1) * e.speed * 0.35 * dt;
+      moving = 1;
+      e.walkP += dt * e.speed * 0.03;
+    }
+    e.x = clamp(e.x, 14, W - 14);
+    e.moving = moving;
+
+    if (e.atkCd <= 0 && ad <= CLOSE) {
+      e.state = 'telegraph';
+      e.t = 0.44;
+      e.dodgeX = player.x;
+      e.atkCd = 1e9; /* restored when the sequence finishes */
+    }
+    poseEnemy(e, dt);
+  }
+
+  function poseEnemy(e, dt) {
+    var t = { crouch: 0, armF: 0.18, armB: -0.14, legF: 0.1, legB: -0.1, lean: 0.05, tilt: 0 };
+    if (e.state === 'walk' || e.state === 'enter') {
+      if (e.moving || e.state === 'enter') {
+        var s = Math.sin(e.walkP);
+        t.legF = s * 0.6; t.legB = -s * 0.6;
+        t.armF = -s * 0.5 + 0.12; t.armB = s * 0.5;
+        t.lean = 0.16;
+      }
+    } else if (e.state === 'telegraph') {
+      t.armF = -1.05; t.armB = 0.55; t.lean = -0.14; t.crouch = 0.15;
+      t.legF = 0.3; t.legB = -0.3; t.tilt = -0.08;
+    } else if (e.state === 'attack') {
+      t.armF = 1.5; t.armB = -0.55; t.lean = 0.2; t.crouch = 0.1;
+      t.legF = 0.35; t.legB = -0.35;
+    } else if (e.state === 'recover') {
+      t.armF = 0.95; t.armB = -0.2; t.lean = 0.12; t.crouch = 0.08;
+      t.legF = 0.28; t.legB = -0.3;
+    } else if (e.state === 'hurt') {
+      t.armF = -0.95; t.armB = -0.7; t.lean = -0.3; t.tilt = -0.25;
+      t.legF = 0.4; t.legB = -0.5; t.crouch = 0.2;
+    }
+    lerpPose(e.pose, t, dt);
+  }
+
+  function updatePlayer(dt) {
+    var p = player;
+    if (p.cool > 0) p.cool -= dt;
+    if (p.hurtT > 0) p.hurtT -= dt;
+    if (p.invuln > 0) p.invuln -= dt;
+
+    var canMove = !p.atk && p.hurtT <= 0;
+    var vx = 0;
+    if (canMove) {
+      if (keys.left) vx -= 1;
+      if (keys.right) vx += 1;
+    }
+    var sp = p.speed * (isBlocking() ? 0.4 : 1);
+    if (vx !== 0) {
+      p.x = clamp(p.x + vx * sp * dt, 24, W - 24);
+      p.walkP += dt * sp * 0.05;
+    }
+
+    /* face the nearest rival so swings always connect toward the fight */
+    var near = nearestEnemy();
+    if (near) p.face = near.x >= p.x ? 1 : -1;
+    else if (vx !== 0) p.face = vx > 0 ? 1 : -1;
+
+    if (p.atk) {
+      p.atkT += dt;
+      var a = ATK[p.atk];
+      if (!p.atkHit && p.atkT >= a.w0) {
+        p.atkHit = true;
+        playerStrike();
+      }
+      if (p.atkT >= a.dur) {
+        p.atk = null;
+        p.atkT = 0;
+        p.cool = a.cool;
+      }
+    }
+
+    /* pose targets */
+    var t = { crouch: 0, armF: 0.18, armB: -0.14, legF: 0.1, legB: -0.1, lean: 0.05, tilt: 0 };
+    if (p.hurtT > 0) {
+      t.armF = -1.0; t.armB = -0.75; t.lean = -0.3; t.tilt = -0.28; t.crouch = 0.15;
+      t.legF = 0.4; t.legB = -0.5;
+    } else if (p.atk === 'punch') {
+      if (p.atkT < a.w0) { t.armF = -0.75; t.lean = -0.06; }
+      else { t.armF = 1.55; t.lean = 0.2; t.armB = -0.5; }
+      t.legF = 0.3; t.legB = -0.35;
+    } else if (p.atk === 'kick') {
+      if (p.atkT < ATK.kick.w0) { t.legF = -0.45; t.lean = -0.05; t.armF = -0.3; t.armB = 0.5; }
+      else { t.legF = 1.35; t.lean = -0.14; t.armF = -0.75; t.armB = 0.95; }
+      t.legB = -0.4;
+    } else if (isBlocking()) {
+      t.crouch = 1; t.armF = 1.15; t.armB = 1.3; t.legF = 0.5; t.legB = -0.5; t.lean = 0.1;
+    } else if (vx !== 0) {
+      var s = Math.sin(p.walkP);
+      t.legF = s * 0.65; t.legB = -s * 0.65;
+      t.armF = -s * 0.5 + 0.15; t.armB = s * 0.5 - 0.05;
+      t.lean = 0.16;
+    } else {
+      t.armF = 0.18 + Math.sin(tGlobal * 2.4) * 0.04;
+      t.armB = -0.14 - Math.sin(tGlobal * 2.4) * 0.03;
+    }
+    lerpPose(p.pose, t, dt);
+  }
+
+  /* ---------------- update ---------------- */
+
+  function update(dt) {
+    var i, j;
+    tGlobal += dt;
+    if (flashT > 0) flashT -= dt;
+    if (shake > 0) shake = Math.max(0, shake - dt * 55);
+
+    if (comboT > 0) {
+      comboT -= dt;
+      if (comboT <= 0) combo = 0;
+    }
+
+    updatePlayer(dt);
+
+    for (i = enemies.length - 1; i >= 0; i--) {
+      updateEnemy(enemies[i], dt);
+      if (enemies[i].remove) enemies.splice(i, 1);
+    }
+
+    /* keep rivals from stacking on one another */
+    for (i = 0; i < enemies.length; i++) {
+      for (j = i + 1; j < enemies.length; j++) {
+        var a = enemies[i], b = enemies[j];
+        if (a.state === 'knocked' || b.state === 'knocked') continue;
+        var d = b.x - a.x;
+        if (Math.abs(d) < 28) {
+          var push = (28 - Math.abs(d)) / 2 * (d >= 0 ? 1 : -1);
+          a.x = clamp(a.x - push, 14, W - 14);
+          b.x = clamp(b.x + push, 14, W - 14);
+        }
+      }
+    }
+
+    /* spawning */
+    if (phase === 'fight' && spawnLeft > 0) {
+      spawnT -= dt;
+      if (spawnT <= 0) {
+        spawnEnemy();
+        spawnLeft--;
+        spawnT = Math.max(0.7, 1.5 - wave * 0.06);
+      }
+    }
+
+    /* wave clear → two-second breather */
+    if (phase === 'fight' && spawnLeft === 0) {
+      var alive = 0;
+      for (i = 0; i < enemies.length; i++) {
+        if (enemies[i].state !== 'knocked') alive++;
+      }
+      if (alive === 0) {
+        phase = 'breather';
+        breatherT = 2;
+        var bonus = 30 * wave;
+        addScore(bonus);
+        player.hp = Math.min(player.maxHp, player.hp + 12);
+        banner = { title: 'WAVE ' + wave + ' CLEAR', sub: '+' + bonus + ' · next wave in 2s', t: 2, t0: 2 };
+        updateHud();
+      }
+    } else if (phase === 'breather') {
+      breatherT -= dt;
+      if (breatherT <= 0) beginWave(wave + 1);
+    }
+
+    /* particles + pops */
+    for (i = particles.length - 1; i >= 0; i--) {
+      var p = particles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 340 * dt;
+      p.vx *= 0.98;
+      p.life -= dt;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+    for (i = pops.length - 1; i >= 0; i--) {
+      var q = pops[i];
+      q.t += dt;
+      q.y -= 34 * dt;
+      if (q.t >= q.life) pops.splice(i, 1);
+    }
+
+    if (banner) {
+      banner.t -= dt;
+      if (banner.t <= 0) banner = null;
+    }
+  }
+
+  /* ---------------- drawing ---------------- */
+
+  function drawStickman(x, y, facing, col, pose, opts) {
+    opts = opts || {};
+    var s = opts.scale || 1;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    var hipY = y - 30 * s + pose.crouch * 14 * s;
+    var shX = x + pose.lean * 12 * facing * s;
+    var shY = hipY - 24 * s + pose.crouch * 6 * s;
+    var headX = shX + pose.lean * 5 * facing * s + pose.tilt * 5 * s;
+    var headY = shY - 13 * s;
+    var lw = 3.4 * s;
+
+    function foot(a) {
+      return [x + Math.sin(a) * 30 * facing * s, hipY + Math.cos(a) * 30 * s];
+    }
+    function hand(a) {
+      return [shX + Math.sin(a) * 24 * facing * s, shY + Math.cos(a) * 24 * s];
+    }
+
+    var col2 = opts.flash ? '#ffffff' : (opts.dim ? '#8892ab' : col);
+    ctx.strokeStyle = col2;
+    ctx.lineWidth = lw;
+
+    var bf = foot(pose.legB), bb = hand(pose.armB);
+    var ff = foot(pose.legF), fh = hand(pose.armF);
+
+    /* back limbs */
+    ctx.globalAlpha = opts.alpha !== undefined ? opts.alpha * 0.7 : 0.7;
+    ctx.beginPath();
+    ctx.moveTo(x, hipY);
+    ctx.lineTo(bf[0], bf[1]);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(shX, shY);
+    ctx.lineTo(bb[0], bb[1]);
+    ctx.stroke();
+    ctx.globalAlpha = opts.alpha !== undefined ? opts.alpha : 1;
+
+    /* torso */
+    ctx.lineWidth = lw + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(shX, shY);
+    ctx.lineTo(x, hipY);
+    ctx.stroke();
+
+    /* front limbs */
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    ctx.moveTo(x, hipY);
+    ctx.lineTo(ff[0], ff[1]);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(shX, shY);
+    ctx.lineTo(fh[0], fh[1]);
+    ctx.stroke();
+
+    /* head */
+    ctx.beginPath();
+    ctx.arc(headX, headY, 8.5 * s, 0, TAU);
+    ctx.stroke();
+
+    /* eye + headband */
+    ctx.fillStyle = col2;
+    ctx.beginPath();
+    ctx.arc(headX + facing * 3.4 * s, headY - 1 * s, 1.5 * s, 0, TAU);
+    ctx.fill();
+    if (opts.headband) {
+      ctx.strokeStyle = opts.headband;
+      ctx.lineWidth = 2.4 * s;
+      ctx.beginPath();
+      ctx.arc(headX, headY, 8.5 * s, Math.PI * 1.15, Math.PI * 1.85);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(headX - facing * 8 * s, headY + 4 * s);
+      ctx.lineTo(headX - facing * 15 * s, headY + 9 * s);
+      ctx.stroke();
+    }
+    return { hx: headX, hy: headY };
+  }
+
+  function drawEnemy(e, t) {
+    var col = e.col;
+    var flash = false;
+    if (e.state === 'telegraph' && Math.floor(t / 70) % 2 === 0) { flash = true; col = '#ffffff'; }
+    if (e.flashT > 0) flash = true;
+
+    /* ground shadow */
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.beginPath();
+    ctx.ellipse(e.x, GROUND + 3, 17, 4.5, 0, 0, TAU);
+    ctx.fill();
+
+    if (e.state === 'knocked') {
+      var k = e.knock;
+      var alpha = k.life < 0.5 ? k.life / 0.5 : 1;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(k.x, k.y - 32);
+      ctx.rotate(k.rot);
+      ctx.translate(-k.x, -(k.y - 32));
+      drawStickman(k.x, k.y, e.face, col, KNOCK_POSE, { flash: flash });
+      ctx.restore();
+      /* cartoon stars circle the tumbling fighter */
+      ctx.fillStyle = '#facc15';
+      ctx.globalAlpha = alpha;
+      for (var i = 0; i < 5; i++) {
+        var a = t / 140 + (i * TAU) / 5;
+        drawStar(k.x + Math.cos(a) * 30, k.y - 34 + Math.sin(a) * 26, 6, a);
+      }
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    drawStickman(e.x, GROUND, e.face, col, e.pose, { flash: flash });
+
+    /* small hp pips above the head */
+    if (e.hp < e.maxHp) {
+      var w = 30, frac = Math.max(0, e.hp / e.maxHp);
+      ctx.fillStyle = 'rgba(5,7,14,.8)';
+      ctx.fillRect(e.x - w / 2, GROUND - 84, w, 4);
+      ctx.fillStyle = frac > 0.4 ? '#2ee6a6' : '#ff5c7a';
+      ctx.fillRect(e.x - w / 2, GROUND - 84, w * frac, 4);
+    }
+  }
+
+  function drawArena(t) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#05070e';
+    ctx.fillRect(0, 0, W, H);
+
+    var g = ctx.createRadialGradient(W * 0.5, 120, 30, W * 0.5, 120, W * 0.85);
+    g.addColorStop(0, 'rgba(168,85,247,.16)');
+    g.addColorStop(0.55, 'rgba(34,211,238,.05)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    /* crowd dots */
+    ctx.fillStyle = 'rgba(147,163,194,.14)';
+    for (var r = 0; r < 4; r++) {
+      var y = 150 + r * 46;
+      for (var c = 0; c < 26; c++) {
+        var x = 18 + c * 23 + (r % 2) * 11;
+        ctx.globalAlpha = 0.06 + 0.1 * (0.5 + 0.5 * Math.sin(t / 520 + c * 1.7 + r));
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, TAU);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    /* pit ring + floor */
+    ctx.strokeStyle = 'rgba(124,92,255,.35)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(W / 2, GROUND + 46, 330, 62, 0, 0, TAU);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(34,211,238,.55)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND + 5.5);
+    ctx.lineTo(W, GROUND + 5.5);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(7,11,20,.85)';
+    ctx.fillRect(0, GROUND + 7, W, H - GROUND - 7);
+    ctx.strokeStyle = 'rgba(124,92,255,.25)';
+    ctx.lineWidth = 1;
+    for (var i = 0; i < 8; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * 80, H);
+      ctx.lineTo(W / 2 + (i * 80 - W / 2) * 0.55, GROUND + 8);
+      ctx.stroke();
+    }
+  }
+
+  function drawHudCanvas() {
+    /* HP bar */
+    var hp = player ? Math.max(0, player.hp) : 0;
+    var bx = 18, by = 18, bw = 170, bh = 15;
+    ctx.fillStyle = 'rgba(5,7,14,.78)';
+    ctx.fillRect(bx - 3, by - 3, bw + 6, bh + 6);
+    ctx.fillStyle = '#1c2740';
+    ctx.fillRect(bx, by, bw, bh);
+    var frac = hp / 100;
+    ctx.fillStyle = frac > 0.55 ? '#2ee6a6' : (frac > 0.25 ? '#f59e0b' : '#ff5c7a');
+    ctx.fillRect(bx, by, bw * frac, bh);
+    ctx.strokeStyle = 'rgba(232,238,252,.35)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bx - 0.5, by - 0.5, bw + 1, bh + 1);
+    ctx.fillStyle = '#e8eefc';
+    ctx.font = '700 11px ' + FONT;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('HP ' + Math.ceil(hp), bx + 6, by + bh / 2 + 1);
+
+    /* combo */
+    if (combo >= 2) {
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = '800 26px ' + FONT;
+      ctx.fillStyle = '#facc15';
+      ctx.fillText('×' + combo + ' COMBO', 18, 68);
+      ctx.fillStyle = 'rgba(232,238,252,.65)';
+      ctx.font = '600 12px ' + FONT;
+      ctx.fillText(comboT.toFixed(1) + 's to keep it', 18, 86);
+    }
+
+    /* wave label top-right */
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(147,163,194,.95)';
+    ctx.font = '700 14px ' + FONT;
+    ctx.fillText('WAVE ' + wave + '  ·  KOs ' + knockouts, W - 16, 32);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  function draw(t) {
+    drawArena(t);
+
+    ctx.save();
+    if (shake > 0) {
+      ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    }
+
+    /* knockouts first (behind), then standing rivals, then the player */
+    var i;
+    for (i = 0; i < enemies.length; i++) {
+      if (enemies[i].state === 'knocked') drawEnemy(enemies[i], t);
+    }
+    for (i = 0; i < enemies.length; i++) {
+      if (enemies[i].state !== 'knocked') drawEnemy(enemies[i], t);
+    }
+
+    if (player) {
+      ctx.fillStyle = 'rgba(0,0,0,.35)';
+      ctx.beginPath();
+      ctx.ellipse(player.x, GROUND + 3, 17, 4.5, 0, 0, TAU);
+      ctx.fill();
+      if (!(player.invuln > 0 && Math.floor(t / 90) % 2 === 1 && player.hurtT <= 0)) {
+        drawStickman(player.x, GROUND, player.face, PLAYER_COL, player.pose,
+          { headband: '#e8eefc', flash: player.hurtT > 0 && Math.floor(t / 60) % 2 === 0 });
+      }
+
+      /* strike arc flourish */
+      if (player.atk && player.atkT >= ATK[player.atk].w0 &&
+          player.atkT <= ATK[player.atk].w0 + 0.09) {
+        var a = ATK[player.atk];
+        ctx.strokeStyle = player.atk === 'kick' ? 'rgba(245,158,11,.75)' : 'rgba(232,238,252,.7)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(player.x + player.face * 26, GROUND - 44,
+                a.reach * 0.75, -0.85, 0.85);
+        ctx.stroke();
+      }
+    }
+
+    /* particles */
+    for (i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      ctx.globalAlpha = Math.max(0, p.life / p.life0);
+      ctx.fillStyle = p.col;
+      if (p.star) drawStar(p.x, p.y, p.size + 1.5, p.life * 8);
+      else ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
+
+    /* floating texts */
+    ctx.textAlign = 'center';
+    for (i = 0; i < pops.length; i++) {
+      var q = pops[i];
+      ctx.globalAlpha = Math.max(0, 1 - q.t / q.life);
+      ctx.fillStyle = q.col;
+      ctx.font = '800 ' + q.size + 'px ' + FONT;
+      ctx.fillText(q.txt, q.x, q.y);
+    }
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
+
+    ctx.restore();
+
+    drawHudCanvas();
+
+    /* wave banner */
+    if (banner) {
+      var a2 = Math.min(1, banner.t / 0.35, (banner.t0 - banner.t) / 0.2 + 0.2);
+      ctx.globalAlpha = Math.max(0, Math.min(1, a2));
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(5,7,14,.72)';
+      ctx.fillRect(0, H * 0.34, W, 96);
+      ctx.fillStyle = '#e8eefc';
+      ctx.font = '800 38px ' + FONT;
+      ctx.fillText(banner.title, W / 2, H * 0.34 + 50);
+      ctx.fillStyle = '#22d3ee';
+      ctx.font = '600 16px ' + FONT;
+      ctx.fillText(banner.sub, W / 2, H * 0.34 + 78);
+      ctx.globalAlpha = 1;
+      ctx.textAlign = 'left';
+    }
+
+    /* red damage flash */
+    if (flashT > 0) {
+      ctx.fillStyle = 'rgba(255,60,72,' + (Math.max(0, flashT) * 0.55) + ')';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    if (state === 'paused') {
+      ctx.fillStyle = 'rgba(232,238,252,.75)';
+      ctx.font = 'bold 22px ' + FONT;
+      ctx.textAlign = 'center';
+      ctx.fillText('PAUSED', W / 2, 34);
+      ctx.textAlign = 'left';
+    }
+  }
+
+  /* ---------------- loop ---------------- */
+
+  function tick(t) {
+    rafId = requestAnimationFrame(tick);
+    var dt = last ? (t - last) / 1000 : 0;
+    last = t;
+    if (!(dt > 0)) dt = 0;
+    if (dt > 0.05) dt = 0.05;
+    if (state === 'running') update(dt);
+    draw(t);
+  }
+
+  function ensureLoop() {
+    if (!rafId) rafId = requestAnimationFrame(tick);
+  }
+
+  /* ---------------- states ---------------- */
+
+  function releaseKeys() {
+    keys.left = keys.right = keys.block = false;
+  }
+
+  function start() {
+    reset();
+    state = 'running';
+    last = now();
+    GameShell.overlay.hide();
+    updateHud();
+    ensureLoop();
+  }
+
+  function pause() {
+    if (state !== 'running') return;
+    state = 'paused';
+    releaseKeys();
+    updateHud();
+    GameShell.overlay.show({
+      title: 'Paused',
+      msg: 'Catch your breath — the rivals will wait.',
+      stats: [
+        { label: 'Score', value: score },
+        { label: 'Wave', value: wave },
+        { label: 'HP', value: Math.max(0, Math.round(player.hp)) }
+      ],
+      btn: '▶ Resume',
+      action: resume
+    });
+  }
+
+  function resume() {
+    if (state !== 'paused') return;
+    state = 'running';
+    last = now();
+    GameShell.overlay.hide();
+    updateHud();
+    ensureLoop();
+  }
+
+  function gameOver() {
+    if (state === 'over') return;
+    state = 'over';
+    releaseKeys();
+    var isBest = score > best;
+    if (isBest) {
+      best = score;
+      GameShell.best.set(BEST_KEY, best);
+    }
+    updateHud();
+    GameShell.overlay.show({
+      title: isBest ? 'New high score!' : 'Game over',
+      msg: 'You fought through wave ' + wave + ', scored ' + score +
+           ' point' + (score === 1 ? '' : 's') + ' and knocked out ' +
+           knockouts + ' rival' + (knockouts === 1 ? '' : 's') + '.',
+      stats: [
+        { label: 'Score', value: score },
+        { label: 'Best', value: best },
+        { label: 'Wave', value: wave },
+        { label: 'Knockouts', value: knockouts }
+      ],
+      btn: '▶ Play again',
+      action: start
+    });
+  }
+
+  /* ---------------- input ---------------- */
+
+  document.addEventListener('keydown', function (e) {
+    var tag = e.target && e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    var k = e.key;
+    if (k === undefined || k === null) return;
+
+    if (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowDown' ||
+        k === ' ' || k === 'Enter') {
+      if (e.preventDefault) e.preventDefault();
+    }
+
+    if (k === 'ArrowLeft' || k === 'a' || k === 'A') keys.left = true;
+    else if (k === 'ArrowRight' || k === 'd' || k === 'D') keys.right = true;
+    else if (k === 'ArrowDown' || k === 's' || k === 'S') keys.block = true;
+    else if (k === 'z' || k === 'Z') tryAttack('punch');
+    else if (k === 'x' || k === 'X' || k === 'Shift') tryAttack('kick');
+    else if (k === ' ') {
+      if (state === 'ready' || state === 'over') start();
+      else if (state === 'paused') resume();
+      else if (state === 'running') tryAttack('punch');
+    } else if (k === 'Enter') {
+      if (state === 'ready' || state === 'over') start();
+      else if (state === 'running') pause();
+      else if (state === 'paused') resume();
+    } else if (k === 'p' || k === 'P' || k === 'Escape') {
+      if (state === 'running') pause();
+      else if (state === 'paused') resume();
+    } else if (k === 'r' || k === 'R') {
+      start();
+    }
+  });
+
+  document.addEventListener('keyup', function (e) {
+    var k = e.key;
+    if (k === undefined || k === null) return;
+    if (k === 'ArrowLeft' || k === 'a' || k === 'A') keys.left = false;
+    else if (k === 'ArrowRight' || k === 'd' || k === 'D') keys.right = false;
+    else if (k === 'ArrowDown' || k === 's' || k === 'S') keys.block = false;
+  });
+
+  /* on-screen touch buttons */
+  var padBtns = document.querySelectorAll('[data-act]');
+  for (var b = 0; b < padBtns.length; b++) {
+    (function (btn) {
+      var act = btn.getAttribute('data-act');
+      function on() {
+        if (state === 'ready' || state === 'over') { start(); return; }
+        if (state === 'paused') { resume(); return; }
+        if (act === 'left') keys.left = true;
+        else if (act === 'right') keys.right = true;
+        else if (act === 'block') keys.block = true;
+        else if (act === 'punch') tryAttack('punch');
+        else if (act === 'kick') tryAttack('kick');
+      }
+      function off() {
+        if (act === 'left') keys.left = false;
+        else if (act === 'right') keys.right = false;
+        else if (act === 'block') keys.block = false;
+      }
+      btn.addEventListener('pointerdown', function (ev) { if (ev.preventDefault) ev.preventDefault(); on(); });
+      btn.addEventListener('pointerup', off);
+      btn.addEventListener('pointerleave', off);
+      btn.addEventListener('pointercancel', off);
+    })(padBtns[b]);
+  }
+
+  /* click the arena to punch */
+  canvas.addEventListener('pointerdown', function () {
+    if (state === 'ready' || state === 'over') { start(); return; }
+    if (state === 'running') tryAttack('punch');
+  });
+
+  window.addEventListener('blur', releaseKeys);
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden && state === 'running') pause();
+  });
+
+  /* ---------------- test snapshot (read-only) ---------------- */
+
+  try {
+    Object.defineProperty(window, '__stickmanFighter', {
+      value: Object.freeze({
+        snapshot: function () {
+          var list = [];
+          for (var i = 0; i < enemies.length; i++) {
+            var e = enemies[i];
+            list.push({
+              x: Math.round(e.x * 10) / 10,
+              hp: e.hp, maxHp: e.maxHp,
+              state: e.state,
+              knocked: e.state === 'knocked'
+            });
+          }
+          return {
+            state: state,
+            score: score,
+            best: Math.max(best, score),
+            wave: wave,
+            knockouts: knockouts,
+            hp: player ? player.hp : 0,
+            playerX: player ? Math.round(player.x * 10) / 10 : 0,
+            combo: combo,
+            phase: phase,
+            spawnLeft: spawnLeft,
+            enemies: list
+          };
+        }
+      }),
+      writable: false,
+      configurable: false
+    });
+  } catch (e) { /* snapshot hook unavailable — ignore */ }
+
+  /* ---------------- boot ---------------- */
+
+  reset();
+  updateHud();
+  ensureLoop();
+  GameShell.overlay.show({
+    title: 'Stickman Fighter',
+    msg: 'Rival stick fighters rush the arena from both sides. Punch with Z, kick with X, hold ↓ to guard — and sidestep every flash for a dodge bonus. Press Space or Play to enter the arena.',
+    stats: [{ label: 'Best', value: best }],
+    btn: '▶ Play',
+    action: start
+  });
+})();

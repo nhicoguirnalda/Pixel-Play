@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Word Hunt — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Word Hunt free online at PixelPlay. Drag across a glowing 10x10 letter grid and uncover all ten hidden words before the countdown clock reaches zero.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🔍%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page-specific only — shared css/style.css is never edited. */
+    .game-canvas-wrap canvas { cursor: crosshair; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="word-hunt">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Word Hunt</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🔤 <b>Word Games</b></span>
+          <span class="meta-pill">⭐ <b>4.8</b></span>
+          <span class="meta-pill">▶ <b>640K</b> plays</span>
+          <span class="meta-pill">⌨️ Mouse / Touch</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="600" height="600" aria-label="Word Hunt letter grid where ten hidden words are concealed among random neon tiles"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Word Hunt</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Word Hunt</h2>
+          <p>Every round of Word Hunt hides ten everyday words inside a fresh 10×10 neon
+             letter grid. The words run forwards and backwards, across rows, down columns
+             and along both diagonals, so a word can begin at any edge and travel in almost
+             any direction. Nothing is listed for you in advance — the ten words stay secret
+             until you trace them, and each one you uncover lights up along the bottom of
+             the board as a coloured pill.</p>
+          <p>To grab a word, press down on its first letter and drag in a straight line to its
+             last letter, then release. The trail glows behind your finger or cursor as you
+             drag. If the letters spell one of the hidden words, the path locks into colour
+             and joins your found list; any other line flashes red and clears, so a wild
+             swipe costs nothing but a moment. On a touchscreen you can simply tap the start
+             cell and then tap the end cell instead of dragging.</p>
+          <p>You begin each puzzle with 120 seconds on the clock, and every word you find
+             adds three seconds back. A word scores its length multiplied by ten, plus a
+             bonus for longer finds. Clear all ten words and the board celebrates, pays out
+             200 points plus five points for every remaining second, then hands you a
+             brand-new grid with extra time on the clock. When the timer finally reaches
+             zero, the results card shows your score, your best score, how many words you
+             uncovered overall and your longest find. Your best score is saved in this
+             browser so there is always a target to beat.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li>Press and drag from the first letter to the last letter to select a word</li>
+            <li>On a phone or tablet: tap the start cell, then tap the end cell</li>
+            <li><kbd>Space</kbd> starts a game, <kbd>P</kbd> or <kbd>Esc</kbd> pauses, <kbd>R</kbd> restarts</li>
+          </ul>
+          <h3>Tips for a high score</h3>
+          <ul>
+            <li>Work the diagonals first — they are the hardest lines to spot by eye.</li>
+            <li>Long words pay double, so hunt the seven- and eight-letter chains early.</li>
+            <li>Found words tint their cells; use the tinted letters as anchors for crossing words.</li>
+            <li>Clear grids fast — the seconds-left bonus is where the really big scores hide.</li>
+            <li>Your best score is saved automatically in this browser.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=puzzle">More puzzle games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/word-hunt.js"></script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stickman Climb — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Stickman Climb free online at PixelPlay. Hammer two pickaxes into a neon cliff, swing around overhangs and climb as high as your nerves allow.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🧗%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page-specific only — shared css/style.css is never edited. */
+    .touch-controls .tbtn-pick { min-width: 108px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="stickman-climb">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Stickman Climb</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🧗 <b>Stickman</b></span>
+          <span class="meta-pill">⭐ <b>4.6</b></span>
+          <span class="meta-pill">▶ <b>310K</b> plays</span>
+          <span class="meta-pill">⌨️ ← → / A D</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="600" height="600" aria-label="Stickman Climb neon cliff with a stickman swinging two pickaxes up the rock face"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Stickman Climb</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn tbtn-pick" type="button" data-act="left" aria-label="Hammer the left pickaxe">◀ Left pick</button>
+          <button class="tbtn tbtn-pick" type="button" data-act="right" aria-label="Hammer the right pickaxe">Right pick ▶</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Stickman Climb</h2>
+          <p>Stickman Climb is a physics-based climber with just two buttons. Your little
+             stickman hangs from a towering neon cliff by a pickaxe in each hand. Pressing
+             <kbd>←</kbd> hammers the <b>left</b> pickaxe up to a new hold, pressing
+             <kbd>→</kbd> hammers the <b>right</b> one. Each swing yanks the body upward
+             toward that hand while the other arm stretches and dangles, so alternating
+             left and right builds a jarring, momentum-driven rhythm that slowly carries
+             you up the rock face. Mashing both keys at once frees both hands — and sends
+             the climber plummeting.</p>
+          <p>Your score is the height in metres you reach, shown live in the HUD together
+             with your best climb, which is saved in this browser. You start with three
+             lives. Fall too far below your last ledge and you lose one, then respawn on
+             that ledge ready to try again. The cliff is never empty: jutting overhangs
+             force you to swing out sideways, loose rocks flash with cracks moments before
+             they crumble out from under a pickaxe, ledges slide back and forth, and
+             gusting wind zones push you sideways while you cross them.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li><kbd>←</kbd> or <kbd>A</kbd> to hammer the left pickaxe up</li>
+            <li><kbd>→</kbd> or <kbd>D</kbd> to hammer the right pickaxe up</li>
+            <li><kbd>Space</kbd> to start, <kbd>Enter</kbd>, <kbd>P</kbd> or <kbd>Esc</kbd> to pause, <kbd>R</kbd> to restart</li>
+            <li>On a phone: tap the ◀ Left pick / Right pick ▶ buttons below the cliff</li>
+          </ul>
+          <h3>Tips for a tall climb</h3>
+          <ul>
+            <li>Alternate steadily. Rhythm beats panic — each clean swing gains a few metres.</li>
+            <li>Watch for flashing cracks: a loose rock gives you a moment to shift your weight to the other arm.</li>
+            <li>Overhangs push you out from the wall; swing wide and let momentum carry you around the lip.</li>
+            <li>Land on sliding ledges to rest, reset your grip and set a new checkpoint.</li>
+            <li>Cross gust zones with quick swings so the wind cannot drag you off the face.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=stickman">More stickman games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/stickman-climb.js"></script>
+</body>
+</html>

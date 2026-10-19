@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Word Fall — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Word Fall free online at PixelPlay. Type the words falling down your screen, send them with Enter before they land and hold the defence line.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🔤%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page-specific only — shared css/style.css is never edited. */
+    .touch-controls .tbtn-ok { min-width: 108px; }
+    .touch-controls .tbtn-del { min-width: 74px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="word-fall">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Word Fall</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🔤 <b>Word Games</b></span>
+          <span class="meta-pill">⭐ <b>4.7</b></span>
+          <span class="meta-pill">▶ <b>468K</b> plays</span>
+          <span class="meta-pill">⌨️ Typing / Keyboard</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="600" height="600" aria-label="Word Fall typing arena with falling words and the defence line"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Word Fall</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn tbtn-del" type="button" data-act="del" aria-label="Erase the last typed letter">⌫ Erase</button>
+          <button class="tbtn tbtn-ok" type="button" data-act="ok" aria-label="Send the typed word">↵ Send</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Word Fall</h2>
+          <p>Word Fall is a typing defence game. Words rain down from the top of the
+             arena in six lanes while a glowing defence line waits at the bottom.
+             Just type each word on your physical keyboard — every letter you press
+             lands in the typed buffer bar above the line, and the moment the buffer
+             spells a falling word exactly, hit <kbd>Enter</kbd> to send it shattering
+             into sparks. Words that reach the line cost you a life, and you only
+             have three, shown as hearts in the HUD and beside the line.</p>
+          <p>The arena reads your mind before your fingers catch up: any falling word
+             the buffer could still become gets a thin underline, so you always know
+             which words are still in play. Type a letter that no underlined word can
+             continue and the buffer shakes red — press <kbd>Backspace</kbd> to peel it
+             off, or just press <kbd>Enter</kbd> to try anyway, which costs 25 points if
+             the buffer matches nothing on screen. Empty sends are free, so never be
+             afraid to clear a dead-end prefix and start a word again.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li>Type letters to fill the buffer, <kbd>Backspace</kbd> erases, <kbd>Enter</kbd> sends the word</li>
+            <li><kbd>Esc</kbd> always pauses — <kbd>P</kbd> too, whenever no falling word needs that letter — and <kbd>Space</kbd> starts or resumes</li>
+            <li><kbd>R</kbd> restarts from the pause screen or the game-over screen</li>
+            <li>On a phone: tap the arena to raise your keyboard — a hidden text box keeps it open while you type</li>
+            <li>Use the ⌫ Erase and ↵ Send buttons under the arena when tapping is easier than typing</li>
+          </ul>
+          <h3>Scoring and tips</h3>
+          <ul>
+            <li>Shattered words pay by length: 30 for three letters, 60 for four, 100 for five, 160 for six and 250 for seven or more</li>
+            <li>Every point is multiplied by the current wave, so long words deep into a run are worth a fortune</li>
+            <li>Clear a whole wave of eight words without letting one land and earn a 150-point perfect wave bonus</li>
+            <li>Chase the underlined words: shattering one instantly frees the buffer for your next target</li>
+            <li>Waves speed up and spawn faster over time — early accuracy beats late panic</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=word">More word games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/word-fall.js"></script>
+</body>
+</html>

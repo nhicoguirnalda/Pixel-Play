@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pin Escape — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Pin Escape free online at PixelPlay. Pull the pins in the right order and guide your stickman past lava, water and boulders to the treasure.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📌%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page-specific only — shared css/style.css is never edited. */
+    .touch-controls .tbtn-pin { min-width: 96px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="pin-escape">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Pin Escape</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🧗 <b>Stickman</b></span>
+          <span class="meta-pill">⭐ <b>4.8</b></span>
+          <span class="meta-pill">▶ <b>540K</b> plays</span>
+          <span class="meta-pill">🖱️ Click / Tap</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="600" height="600" aria-label="Pin Escape puzzle scene with a stickman, a treasure chest, hazards and pullable pins"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Pin Escape</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn" type="button" data-act="prev" aria-label="Select previous pin">◀ Pin</button>
+          <button class="tbtn tbtn-pin" type="button" data-act="pull" aria-label="Pull the selected pin">📌 Pull</button>
+          <button class="tbtn" type="button" data-act="next" aria-label="Select next pin">Pin ▶</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Pin Escape</h2>
+          <p>Pin Escape is a pull-the-pin logic puzzle. Each level is a single-screen
+             scene: your stickman waits in one chamber, a treasure chest sits in another,
+             and between them are compartments full of gold, lava, rushing water, rolling
+             boulders — and the occasional friendly shield or ladder. Everything is held
+             back by metal pins with big ring handles. Click or tap a pin to slide it out,
+             and whatever it was holding drops straight down. The order you pull them in
+             is everything: drop the gold onto the safe floor first, then open the
+             stickman's door so he can walk across without a hazard landing on his head.</p>
+          <p>Released contents obey simple physics: they fall until something stops them,
+             and liquids spread along whatever floor they land on. So a wrong pin can
+             flood the walkway with lava or send a boulder rolling straight at your
+             little man. If a hazard touches him, the level fails and resets — pull the
+             pins in the right order and he walks to the chest, the lid flies open and
+             you advance. Clear a level first try for three stars, after one or two
+             retries for two stars, and one star otherwise. Your star total per level is
+             saved in this browser.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li>Click or tap a pin to pull it out</li>
+            <li><kbd>←</kbd> <kbd>→</kbd> to cycle the selected pin, <kbd>Space</kbd> to pull the selected one</li>
+            <li>Number keys <kbd>1</kbd>–<kbd>9</kbd> pull that pin directly (left to right, top to bottom)</li>
+            <li><kbd>Enter</kbd>, <kbd>P</kbd> or <kbd>Esc</kbd> to pause, <kbd>R</kbd> to restart the level</li>
+            <li>On a phone: tap pins on the screen, or use the ◀ Pin / 📌 Pull / Pin ▶ buttons</li>
+          </ul>
+          <h3>Tips for tricky levels</h3>
+          <ul>
+            <li>Look at where each pin's contents will land before you pull anything.</li>
+            <li>Liquids flow as soon as they land — route them into pits, never onto the walkway.</li>
+            <li>A shield saves your stickman from one hazard hit, so grab it before danger.</li>
+            <li>Ladders bridge gaps; drop them into the pit before your man reaches the edge.</li>
+            <li>Some pins are traps that look useful. If in doubt, pull the glowing hinted pin first.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=stickman">More stickman games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/pin-escape.js"></script>
+</body>
+</html>

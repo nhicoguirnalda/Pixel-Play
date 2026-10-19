@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stickman Fighter — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Stickman Fighter free online at PixelPlay. Punch, kick, block and dodge rival stick fighters through endless cartoon waves in this arena brawler.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🥊%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page-specific only — shared css/style.css is never edited. */
+    .touch-controls .tbtn-punch { min-width: 104px; }
+    .touch-controls .tbtn-kick { min-width: 92px; }
+    .touch-controls .tbtn-block { min-width: 92px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="stickman-fighter">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Stickman Fighter</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🥊 <b>Stickman</b></span>
+          <span class="meta-pill">⭐ <b>4.6</b></span>
+          <span class="meta-pill">▶ <b>540K</b> plays</span>
+          <span class="meta-pill">⌨️ Z / X / Arrows</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="600" height="600" aria-label="Stickman Fighter side-view arena with rival stick fighters sparring"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Stickman Fighter</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn" type="button" data-act="left" aria-label="Move left">◀</button>
+          <button class="tbtn tbtn-block" type="button" data-act="block" aria-label="Hold the low guard">🛡 Guard</button>
+          <button class="tbtn tbtn-punch" type="button" data-act="punch" aria-label="Throw a quick punch">👊 Punch</button>
+          <button class="tbtn tbtn-kick" type="button" data-act="kick" aria-label="Throw a knockback kick">🦵 Kick</button>
+          <button class="tbtn" type="button" data-act="right" aria-label="Move right">▶</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Stickman Fighter</h2>
+          <p>Stickman Fighter drops you into a neon side-view arena where waves of rival
+             stick fighters march in from both edges of the screen. You only need three
+             moves — a fast punch, a heavier kick and a low guard — but chaining them
+             clears a wave. Every rival walks up, winds up with a clear
+             flashing tell, then throws a swing: step away as it lands and you collect a
+             dodge bonus, or hold the low guard and soak most of the damage.</p>
+          <p>Land a clean hit and your combo counter climbs, adding a bigger bonus with
+             every uninterrupted blow. Knock a rival out and they tumble off with a
+             cartoon ring of stars above their head. Each wave brings more fighters with
+             quicker feet and tougher heads, so never get cornered: keep moving, pick
+             rivals off at the edges, and use the two-second breather between waves to
+             recover — clearing a wave heals a little and pays a bonus. The fight is
+             endless, and your best score is saved in this browser.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li><kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd> to walk around the arena</li>
+            <li><kbd>↓</kbd> or <kbd>S</kbd> to crouch and guard — you still slide slowly while guarding</li>
+            <li><kbd>Z</kbd> or click for a quick short punch, <kbd>X</kbd> or <kbd>Shift</kbd> for a slower kick with knockback</li>
+            <li><kbd>Space</kbd> also punches during a fight, <kbd>P</kbd>, <kbd>Esc</kbd> or <kbd>Enter</kbd> pause, <kbd>R</kbd> restarts</li>
+            <li>On a phone: use the ◀ / 🛡 Guard / 👊 Punch / 🦵 Kick / ▶ buttons under the arena</li>
+          </ul>
+          <h3>Tips for lasting longer</h3>
+          <ul>
+            <li>Watch the flash, not the fighter: every rival telegraphs, so a short step back turns the swing into a dodge bonus.</li>
+            <li>Kicks push crowds away — one kick creates the breathing room you need.</li>
+            <li>Guard only once the swing has started — holding guard too early stops your movement and lets rivals surround you.</li>
+            <li>Combos reset the moment you get hit — slip away and re-engage instead of trading blows.</li>
+            <li>Your best score is saved automatically in this browser.</li>
+          </ul>
+          <h3>Scoring</h3>
+          <p>Punches and kicks pay points per hit, scaled up by your live combo counter.
+             Clean dodges add a bonus, every knockout pays extra, and clearing a wave
+             awards a wave bonus plus a health top-up. The HUD tracks Score, Best, Wave
+             and HP at a glance.</p>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=stickman">More stickman games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/stickman-fighter.js"></script>
+</body>
+</html>

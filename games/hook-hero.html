@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hook Hero — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Hook Hero free online at PixelPlay. Fire your hook at glowing anchors, swing like a pendulum and release over a bottomless neon chasm in six levels.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🪝%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page-specific only — shared css/style.css is never edited. */
+    .touch-controls .tbtn-hook { min-width: 200px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="hook-hero">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Hook Hero</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🪝 <b>Stickman</b></span>
+          <span class="meta-pill">⭐ <b>4.7</b></span>
+          <span class="meta-pill">▶ <b>610K</b> plays</span>
+          <span class="meta-pill">⌨️ Hold Space to hook</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="600" height="600" aria-label="Hook Hero grapple-swing platformer over a neon chasm"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Hook Hero</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn tbtn-hook" type="button" data-act="hook" aria-label="Hold to fire the hook">🪝 Hold to hook</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Hook Hero</h2>
+          <p>Hook Hero is a pendulum-swinging adventure over a bottomless neon chasm.
+             Your stickman hero starts each stage suspended in the void, and the only
+             way across is the glowing anchor rings floating ahead. Hold your hook to
+             shoot a rope to the nearest ring, swing like a pendulum gathering speed,
+             then release at the perfect moment to fly through the air on pure
+             momentum. Land another hook on the next ring before you drop into the
+             dark.</p>
+          <p>Real pendulum physics are at work the whole time: gravity pulls you down,
+             the rope tugs you around its anchor, and the swing keeps a gentle
+             forward pull so good timing is always rewarded with progress. Six
+             hand-built stages stretch across the chasm, each ending at a shining
+             finish gate. Miss a hook and fall below the screen and you simply
+             restart that stage — you keep your score, and the coins you already
+             collected stay collected, so every attempt carries you a little
+             further.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li>Hold <kbd>Space</kbd> (or hold the mouse button on the game, or the on-screen Hook button) to attach the rope</li>
+            <li>Release <kbd>Space</kbd> to let go and fly forward on momentum</li>
+            <li><kbd>Enter</kbd>, <kbd>P</kbd> or <kbd>Esc</kbd> to pause, <kbd>R</kbd> to restart the run, <kbd>Space</kbd> to start</li>
+          </ul>
+          <h3>Tips for crossing the chasm</h3>
+          <ul>
+            <li>Hook the ring ahead of you, not the one you are already passing — the swing throws you forward.</li>
+            <li>Let the swing build. Two or three pumps on a ring carry far further than one desperate release.</li>
+            <li>Snatch the floating coins along your flight line; they are worth 25 points each.</li>
+            <li>Finishing a stage quickly pays a speed bonus on top of the 250-point level bonus.</li>
+            <li>Your best score is saved automatically in this browser.</li>
+          </ul>
+          <h3>Scoring</h3>
+          <p>Every stage you clear is worth 250 points, plus a speed bonus for beating
+             the stage's par time. Coins add 25 points each the moment you touch
+             them, and the HUD keeps Score, Best, Level and Coins live while you
+             swing. Clear all six stages in one run to win the game — and post the
+             biggest score your browser has ever seen for Hook Hero.</p>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=stickman">More stickman games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/hook-hero.js"></script>
+</body>
+</html>

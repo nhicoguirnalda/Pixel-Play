@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily Word — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Daily Word free online at PixelPlay. Crack the hidden five-letter word in six tries using colour-coded tile hints, keyboard tracking and streaks.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🔤%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page-specific only — shared css/style.css is never edited. */
+    .game-stage { max-width: 520px; margin-inline: auto; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="daily-word">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Daily Word</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🔤 <b>Word Games</b></span>
+          <span class="meta-pill">⭐ <b>4.8</b></span>
+          <span class="meta-pill">▶ <b>540K</b> plays</span>
+          <span class="meta-pill">⌨️ Type · Enter to submit</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="600" height="600" aria-label="Daily Word puzzle board with a five by six letter grid and an on-screen keyboard"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Daily Word</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Daily Word</h2>
+          <p>Daily Word is a calm, endless five-letter guessing puzzle. A hidden word is
+             picked for the round and you have six guesses to find it. Type any valid
+             five-letter word on your physical keyboard — or tap the on-screen keyboard
+             drawn right inside the game board — then press <b>Enter</b> to lock the row
+             in. Each guess is graded letter by letter: a green tile means that letter is
+             correct and in the right spot, a yellow tile means the letter exists but sits
+             in the wrong position, and a grey tile means the letter is not in the word at
+             all. The colours flip in with a smooth animation, and the keyboard at the
+             bottom recolours itself so you always know which letters are still worth
+             trying.</p>
+          <p>Watch out for repeated letters. If the hidden word contains a letter twice
+             and you only guess it once, only one tile can be graded as present — the game
+             resolves duplicates properly so a single guess can never reveal more copies
+             of a letter than the word actually holds. Solve the puzzle and the score is
+             <b>700 points minus 100 for every guess past the first</b>, so a hole-in-one
+             is worth the full 700. Run out of six guesses and the word is revealed so
+             you always learn the answer. Every new round draws a fresh word, and the
+             game avoids repeating the previous answer so no two rounds in a row feel
+             the same.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li>Type <kbd>A</kbd>–<kbd>Z</kbd> on your keyboard to fill the current row</li>
+            <li><kbd>Backspace</kbd> erases the last letter, <kbd>Enter</kbd> submits the row</li>
+            <li><kbd>Esc</kbd> or <kbd>Shift</kbd>+<kbd>P</kbd> pauses the game — <kbd>Enter</kbd> never pauses, it only submits</li>
+            <li>On a phone: tap the letters, ⌫ and ↵ keys drawn on the board itself</li>
+            <li><kbd>Space</kbd> starts a new round from the title screen</li>
+          </ul>
+          <h3>Tips for a strong streak</h3>
+          <ul>
+            <li>Open with a vowel-rich word such as AUDIO or CRANE to map the board fast.</li>
+            <li>Grey letters matter: mentally cross them out of every future guess.</li>
+            <li>A yellow letter you have not placed yet is your best next-move clue.</li>
+            <li>Duplicate tiles are common — a word like SPEED hides a repeat you must plan for.</li>
+            <li>Your best score and current streak are saved in this browser automatically.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=puzzle">More puzzle games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/daily-word.js"></script>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stickman Sprint — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Stickman Sprint free online at PixelPlay. Jump barriers, slide under beams and leap neon gaps in a fast endless parkour runner with double jumps.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏃%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page-specific only — shared css/style.css is never edited. */
+    .touch-controls .tbtn-jump { min-width: 116px; }
+    .touch-controls .tbtn-slide { min-width: 100px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="stickman-sprint">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Stickman Sprint</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🏃 <b>Stickman</b></span>
+          <span class="meta-pill">⭐ <b>4.8</b></span>
+          <span class="meta-pill">▶ <b>740K</b> plays</span>
+          <span class="meta-pill">⌨️ Space / ↑ ↓</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="600" height="600" aria-label="Stickman Sprint endless parkour runner with a neon city backdrop"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Stickman Sprint</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn tbtn-slide" type="button" data-act="slide" aria-label="Slide under the beam">⬇ Slide</button>
+          <button class="tbtn tbtn-jump" type="button" data-act="jump" aria-label="Jump over the obstacle">⬆ Jump</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Stickman Sprint</h2>
+          <p>You are a lone neon stickman sprinting endlessly through a glowing city —
+             the ground never stops scrolling and the pace only gets faster. Your
+             runner never slows down, so your whole job is survival: read the
+             obstacles coming in from the right, react at the right moment and
+             cover as many metres as you can. Every metre is a point, and every
+             coin you scoop up along the way is worth a tasty bonus.</p>
+          <p>The rooftops are never safe for long. Neon barriers rise from the ground
+             and must be jumped, low energy beams hang across the path and must be
+             slid under, and open chasms split the road and have to be cleared with
+             a well-timed leap. You get one double jump per airtime, so a panicked
+             early jump can still be rescued — but only once. Clip an obstacle and
+             your stickman stumbles, tumbles in a cartoon spill and the run ends
+             right there.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li><kbd>Space</kbd>, <kbd>↑</kbd> or <kbd>W</kbd> to jump — press again in mid-air for a double jump</li>
+            <li><kbd>↓</kbd> or <kbd>S</kbd> to slide under the low beams (hold the key to keep sliding)</li>
+            <li>Click or tap the game screen to jump; on a phone use the Slide and Jump buttons</li>
+            <li><kbd>Enter</kbd>, <kbd>P</kbd> or <kbd>Esc</kbd> to pause, <kbd>R</kbd> to restart, <kbd>Space</kbd> to start</li>
+          </ul>
+          <h3>Tips for a long run</h3>
+          <ul>
+            <li>Watch the horizon, not your runner. The next obstacle is always readable a second early if you look ahead.</li>
+            <li>Save the double jump for gaps — barriers and beams only ever need a single, well-timed move.</li>
+            <li>Slide early rather than late: the beam is wide, and a late slide clips its trailing edge.</li>
+            <li>Coin arcs trace safe jump lines. Follow them and the obstacles tend to line up neatly underneath.</li>
+            <li>Speed keeps climbing with distance, so a smooth rhythm beats panic mashing every time.</li>
+          </ul>
+          <h3>Scoring</h3>
+          <p>Your score is the distance covered in metres plus 10 points for every coin
+             collected. Distance climbs faster as the sprint accelerates, so a long
+             run is worth far more than a lucky short one. Your best score is saved
+             automatically in this browser, and the HUD keeps Score, Best, Distance
+             and Coins live while you run.</p>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=stickman">More stickman games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/stickman-sprint.js"></script>
+</body>
+</html>

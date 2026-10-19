@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Word Link — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Word Link free online at PixelPlay. Link glowing letter tiles into hidden words, fill every empty slot and clear forty handmade levels, one ring at a time.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🔗%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page-specific only — shared css/style.css is never edited. */
+    .touch-controls .tbtn-ok { min-width: 108px; }
+    .touch-controls .tbtn-del,
+    .touch-controls .tbtn-hint { min-width: 74px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="word-link">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Word Link</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🔤 <b>Word Games</b></span>
+          <span class="meta-pill">⭐ <b>4.8</b></span>
+          <span class="meta-pill">▶ <b>512K</b> plays</span>
+          <span class="meta-pill">⌨️ Keyboard / Tap</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="600" height="600" aria-label="Word Link letter ring and word slot puzzle board"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Word Link</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn tbtn-del" type="button" data-act="del" aria-label="Remove the last letter">⌫ Erase</button>
+          <button class="tbtn tbtn-ok" type="button" data-act="ok" aria-label="Submit the current word">✓ Submit</button>
+          <button class="tbtn tbtn-hint" type="button" data-act="hint" aria-label="Reveal a free letter">💡 Hint</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Word Link</h2>
+          <p>Word Link hands you a circle of glowing letter tiles and a board of empty
+             word slots. Every word you need can be spelled using only the letters in
+             the ring, using each tile no more than once — and every tile in the ring
+             belongs to at least one answer. Tap or click letters in order to build a
+             word in the answer bar at the top, then press <kbd>Enter</kbd> or the ✓ Submit
+             button to lock it in. Fill every slot on the board and the level explodes
+             with confetti before the next one slides into view.</p>
+          <p>Made a mistake? Click a lit-up tile in the ring or press <kbd>Backspace</kbd> to
+             peel the last letter off, or tap an earlier tile to jump back to that point
+             in your word. Found every word that can use that letter combination already?
+             A word you have already discovered gives a gentle shake so you know to try
+             something new. There are forty hand-designed levels, starting with friendly
+             four-letter sets and building up to six-letter boards packed with tricky
+             longer words. Your highest level reached is saved in this browser, so you
+             can close the tab and come back to continue the climb.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li>Click or tap ring tiles to spell a word — the physical keyboard letters pick tiles too</li>
+            <li><kbd>Backspace</kbd> or clicking a placed tile erases letters, <kbd>Enter</kbd> or ✓ submits</li>
+            <li><kbd>Esc</kbd> or <kbd>P</kbd> pauses (P only when no ring tile of that letter is left), <kbd>Space</kbd> starts or resumes, <kbd>R</kbd> restarts from the pause screen or a finished run</li>
+            <li>💡 Hint reveals one free letter of one remaining word — it costs 100 points</li>
+          </ul>
+          <h3>Scoring and tips</h3>
+          <ul>
+            <li>New words score 30 points for three letters, 60 for four, 100 for five and 160 for six</li>
+            <li>Clearing a whole board pays a bonus of 200 points plus 50 for every level behind you</li>
+            <li>Start with the longest slot on the board — the short words usually hide inside it</li>
+            <li>Look for plurals: if you find "star", "stars" is almost always waiting too</li>
+            <li>Reveal letters with the hint button only when you are truly stuck — it eats your score</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=word">More word games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/word-link.js"></script>
+</body>
+</html>
