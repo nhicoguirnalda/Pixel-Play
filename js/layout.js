@@ -70,6 +70,9 @@
             '<a href="' + root + 'index.html?cat=action">Action</a>' +
             '<a href="' + root + 'index.html?cat=sports">Sports</a>' +
             '<a href="' + root + 'index.html?cat=shooter">Shooting</a>' +
+            '<a href="' + root + 'index.html?cat=fps">FPS</a>' +
+            '<a href="' + root + 'index.html?cat=stickman">Stickman</a>' +
+            '<a href="' + root + 'index.html?cat=word">Word Games</a>' +
           '</div>' +
           '<div>' +
             '<h2>Company</h2>' +

@@ -7,9 +7,12 @@ var CATEGORIES = [
   { id: 'all',      label: 'All Games', icon: '🎮' },
   { id: 'action',   label: 'Action',    icon: '⚡' },
   { id: 'shooter',  label: 'Shooting',  icon: '🎯' },
+  { id: 'fps',      label: 'FPS',       icon: '🔫' },
   { id: 'puzzle',   label: 'Puzzle',    icon: '🧠' },
   { id: 'arcade',   label: 'Arcade',    icon: '🕹️' },
   { id: 'sports',   label: 'Sports',    icon: '⚽' },
+  { id: 'stickman', label: 'Stickman',  icon: '🧍' },
+  { id: 'word',     label: 'Word Games', icon: '🔤' },
   { id: 'casual',   label: 'Casual',    icon: '🎲' },
   { id: 'board',    label: 'Board',     icon: '♟️' }
 ];
@@ -151,6 +154,150 @@ var GAMES = [
     controls: 'Arrows / WASD',
     desc: 'Thread the asteroid rift in a scout ship, blast raiders and grab power-ups before your lives run out.',
     url: 'games/rift-raider.html'
+  },
+  {
+    id: 'neon-blocks', title: 'Neon Blocks', cat: 'puzzle',
+    icon: '🔷', c1: '#a855f7', c2: '#22d3ee',
+    plays: '1.9M', playsN: 1900000, rating: 4.9, added: 18,
+    controls: 'Arrows / WASD',
+    desc: 'Rotate and slide glowing blocks, clear complete lines and chain combos — the timeless stacker reborn in neon.',
+    url: 'games/neon-blocks.html'
+  },
+  {
+    id: 'strike-zone', title: 'Strike Zone', cat: 'fps',
+    icon: '🔫', c1: '#ef4444', c2: '#a3e635',
+    plays: '1.4M', playsN: 1400000, rating: 4.7, added: 19,
+    controls: 'WASD + Mouse',
+    desc: 'Clear every room of hostile bots: strafe through the maze, line up your crosshair and drop each target before it opens fire.',
+    url: 'games/strike-zone.html'
+  },
+  {
+    id: 'defuse-squad', title: 'Defuse Squad', cat: 'fps',
+    icon: '💣', c1: '#f59e0b', c2: '#0ea5e9',
+    plays: '980K', playsN: 980000, rating: 4.6, added: 20,
+    controls: 'WASD + Mouse',
+    desc: 'Breach the site, hold the defuse button and hold off the defending bots until the bomb is safely disabled.',
+    url: 'games/defuse-squad.html'
+  },
+  {
+    id: 'wavebreak', title: 'Wavebreak', cat: 'fps',
+    icon: '🤖', c1: '#8b5cf6', c2: '#22d3ee',
+    plays: '1.1M', playsN: 1100000, rating: 4.5, added: 21,
+    controls: 'WASD + Mouse',
+    desc: 'Hold the arena against endless waves of attack drones — every cleared wave pays credits for faster guns and more armor.',
+    url: 'games/wavebreak.html'
+  },
+  {
+    id: 'scope-elite', title: 'Scope Elite', cat: 'fps',
+    icon: '🔭', c1: '#0ea5e9', c2: '#f59e0b',
+    plays: '760K', playsN: 760000, rating: 4.4, added: 22,
+    controls: 'Mouse / Touch',
+    desc: 'Peek from cover, steady your scope and pick off moving targets at long range before the clock runs out on each mission.',
+    url: 'games/scope-elite.html'
+  },
+  {
+    id: 'breach-point', title: 'Breach Point', cat: 'fps',
+    icon: '💥', c1: '#ec4899', c2: '#6366f1',
+    plays: '640K', playsN: 640000, rating: 4.5, added: 23,
+    controls: 'WASD + Mouse',
+    desc: 'Kick through the compound room by room, clear every hostile bot and reach extraction before the clock hits zero.',
+    url: 'games/breach-point.html'
+  },
+  {
+    id: 'stickman-sprint', title: 'Stickman Sprint', cat: 'stickman',
+    icon: '🏃', c1: '#22d3ee', c2: '#a3e635',
+    plays: '740K', playsN: 740000, rating: 4.8, added: 24,
+    controls: 'Space / Arrows',
+    desc: 'Sprint a neon skyline runner: jump barriers, slide under beams and clear wide gaps with a mid-air double jump.',
+    url: 'games/stickman-sprint.html'
+  },
+  {
+    id: 'hook-hero', title: 'Hook Hero', cat: 'stickman',
+    icon: '🪝', c1: '#f59e0b', c2: '#22d3ee',
+    plays: '610K', playsN: 610000, rating: 4.7, added: 25,
+    controls: 'Hold Space',
+    desc: 'Fire your hook at glowing anchors, swing like a pendulum and release at the perfect moment to clear the chasm.',
+    url: 'games/hook-hero.html'
+  },
+  {
+    id: 'stickman-fighter', title: 'Stickman Fighter', cat: 'stickman',
+    icon: '🥊', c1: '#ef4444', c2: '#8b5cf6',
+    plays: '540K', playsN: 540000, rating: 4.6, added: 26,
+    controls: 'Z / X / Arrows',
+    desc: 'Punch, kick, block and dodge rival stick fighters through endless cartoon arena waves.',
+    url: 'games/stickman-fighter.html'
+  },
+  {
+    id: 'sky-archer', title: 'Sky Archer', cat: 'stickman',
+    icon: '🏹', c1: '#4ade80', c2: '#0ea5e9',
+    plays: '780K', playsN: 780000, rating: 4.7, added: 27,
+    controls: 'Mouse / Space',
+    desc: 'Draw your bow, read the crosswind and land bullseyes on floating towers across three precision rounds.',
+    url: 'games/sky-archer.html'
+  },
+  {
+    id: 'stickman-climb', title: 'Stickman Climb', cat: 'stickman',
+    icon: '🧗', c1: '#a855f7', c2: '#f59e0b',
+    plays: '310K', playsN: 310000, rating: 4.6, added: 28,
+    controls: 'Arrows / A D',
+    desc: 'Hammer two pickaxes into a neon cliff, swing around overhangs and climb as high as your nerves allow.',
+    url: 'games/stickman-climb.html'
+  },
+  {
+    id: 'pin-escape', title: 'Pin Escape', cat: 'stickman',
+    icon: '📍', c1: '#f97316', c2: '#0ea5e9',
+    plays: '540K', playsN: 540000, rating: 4.8, added: 29,
+    controls: 'Click / Tap',
+    desc: 'Pull the pins in the right order and guide your stickman past lava, water and boulders to the treasure.',
+    url: 'games/pin-escape.html'
+  },
+  {
+    id: 'stickman-rider', title: 'Stickman Rider', cat: 'stickman',
+    icon: '🏍️', c1: '#38bdf8', c2: '#f43f5e',
+    plays: '620K', playsN: 620000, rating: 4.7, added: 30,
+    controls: 'Arrows / WASD',
+    desc: 'Race a trials bike over hilly trails, pull big flips for bonus points and reach the finish gate before time runs out.',
+    url: 'games/stickman-rider.html'
+  },
+  {
+    id: 'daily-word', title: 'Daily Word', cat: 'word',
+    icon: '📅', c1: '#22c55e', c2: '#0ea5e9',
+    plays: '540K', playsN: 540000, rating: 4.8, added: 31,
+    controls: 'Type / Enter',
+    desc: 'Crack the hidden five-letter word in six tries using colour-coded tile hints, with streaks and a fresh daily puzzle.',
+    url: 'games/daily-word.html'
+  },
+  {
+    id: 'word-hunt', title: 'Word Hunt', cat: 'word',
+    icon: '🔎', c1: '#a3e635', c2: '#8b5cf6',
+    plays: '640K', playsN: 640000, rating: 4.8, added: 32,
+    controls: 'Mouse / Touch',
+    desc: 'Drag across a glowing letter grid and uncover all ten hidden words before the countdown clock reaches zero.',
+    url: 'games/word-hunt.html'
+  },
+  {
+    id: 'anagram-ace', title: 'Anagram Ace', cat: 'word',
+    icon: '🔤', c1: '#f472b6', c2: '#22d3ee',
+    plays: '520K', playsN: 520000, rating: 4.7, added: 33,
+    controls: 'Keyboard / Tap',
+    desc: 'Unscramble the seven glowing letter tiles, chain streak bonuses and beat the clock in fast 90-second rounds.',
+    url: 'games/anagram-ace.html'
+  },
+  {
+    id: 'word-link', title: 'Word Link', cat: 'word',
+    icon: '🔗', c1: '#f59e0b', c2: '#6366f1',
+    plays: '512K', playsN: 512000, rating: 4.8, added: 34,
+    controls: 'Keyboard / Tap',
+    desc: 'Link glowing letter tiles into hidden words, fill every empty slot and clear forty handmade levels one ring at a time.',
+    url: 'games/word-link.html'
+  },
+  {
+    id: 'word-fall', title: 'Word Fall', cat: 'word',
+    icon: '⌨️', c1: '#ef4444', c2: '#22d3ee',
+    plays: '468K', playsN: 468000, rating: 4.7, added: 35,
+    controls: 'Typing / Keyboard',
+    desc: 'Type the words falling down your screen, send them with Enter before they land and hold the defence line.',
+    url: 'games/word-fall.html'
   }
 ];
 
