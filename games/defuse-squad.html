@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Defuse Squad — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Defuse Squad free online at PixelPlay. Raid the arena in first person, hold the defuse key and fight off defending bots before the bomb timer runs out.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💣%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page-specific only — shared css/style.css is never edited. */
+    #gameCanvas {
+      width: 100%;
+      max-width: 600px;
+      background: #05070e;
+      box-shadow: 0 0 0 1px rgba(245, 158, 11, .14),
+                  0 0 44px rgba(14, 165, 233, .10),
+                  0 0 96px rgba(245, 158, 11, .08);
+    }
+
+    .touch-controls .tbtn-fire { min-width: 108px; }
+    .touch-controls .tbtn-step { min-width: 74px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="defuse-squad">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Defuse Squad</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🎯 <b>FPS</b></span>
+          <span class="meta-pill">⭐ <b>4.6</b></span>
+          <span class="meta-pill">▶ <b>980K</b> plays</span>
+          <span class="meta-pill">⌨️ WASD + Mouse</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="600" height="600" aria-label="Defuse Squad first-person raid arena with a glowing bomb site"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Defuse Squad</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn tbtn-step" type="button" data-act="left" aria-label="Turn the view left">◀</button>
+          <button class="tbtn tbtn-fire" type="button" data-act="fire" aria-label="Fire the blaster">🔥 Fire</button>
+          <button class="tbtn" type="button" data-act="jump" aria-label="Jump">⤒ Jump</button>
+          <button class="tbtn tbtn-step" type="button" data-act="right" aria-label="Turn the view right">▶</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Defuse Squad</h2>
+          <p>Defuse Squad is a first-person raid in three escalating rounds. Each round you
+             spawn somewhere in a maze-like training compound, and somewhere inside it a
+             glowing bomb site pulses on the minimap. <b>Reach the marked site, then hold
+             <kbd>F</kbd> (or <kbd>E</kbd>) to defuse</b> — the progress bar fills in about
+             three seconds, but release the key and it decays slowly. Clear all three rounds
+             to win the run.</p>
+          <p>Defusing is never free. The moment a round begins, defending bots activate and
+             converge on your position, and they spawn faster while you are on the defuse
+             key. You can release, sweep them out with your blaster, then resume — that
+             stop-and-go rhythm is the core of the game. A <b>45-second bomb timer</b> runs
+             the whole round, so time spent hiding is time the site has left. If the timer
+             hits zero, or your HP runs out, the round is lost and the run ends. Rounds 2
+             and 3 send more bots, faster, with tougher plating; between rounds you repair
+             some HP and refill your magazine.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move and strafe; <kbd>←</kbd> <kbd>→</kbd> to turn the view</li>
+            <li>Click the view once to lock the mouse, then move it to look around — <kbd>Esc</kbd> releases it</li>
+            <li><kbd>Space</kbd> to jump — hop over incoming orb fire while closing on the site</li>
+            <li><kbd>Z</kbd> or left click to fire — the blaster reloads itself after a short pause</li>
+            <li>Hold <kbd>F</kbd> or <kbd>E</kbd> at the glowing site to defuse the bomb</li>
+            <li><kbd>Enter</kbd>, <kbd>P</kbd> or <kbd>Esc</kbd> to pause, <kbd>R</kbd> to restart the run</li>
+          </ul>
+          <h3>Tips for clearing rounds</h3>
+          <ul>
+            <li>Strafe constantly while defusing — bots aim where you were, not where you are.</li>
+            <li>Use corners and crates as funnels; bots line up nicely down a corridor.</li>
+            <li>The minimap shows your view cone, the site waypoint and every bot on the radar.</li>
+            <li>Let the bar decay is fine — a half-finished defuse still saves you seconds later.</li>
+          </ul>
+          <h3>Scoring</h3>
+          <ul>
+            <li>Every bot you disable pays more in later rounds; round-clear bonuses scale with the time left on the bomb timer.</li>
+            <li>Shots fired versus shots landed tracks your accuracy, shown on the end screen.</li>
+            <li>Your best score is saved automatically in this browser.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=shooter">More shooting games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/defuse-squad.js"></script>
+</body>
+</html>

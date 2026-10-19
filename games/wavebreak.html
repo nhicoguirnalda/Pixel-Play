@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wavebreak — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Wavebreak free online at PixelPlay. Survive endless first-person waves of attack drones and spend earned credits on faster guns and heavier armor.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🤖%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page-specific only — shared css/style.css is never edited. */
+    #gameCanvas {
+      width: 100%;
+      max-width: 600px;
+      background: #05070e;
+      box-shadow: 0 0 0 1px rgba(139, 92, 246, .16),
+                  0 0 44px rgba(34, 211, 238, .10),
+                  0 0 96px rgba(139, 92, 246, .09);
+    }
+
+    .touch-controls .tbtn-fire { min-width: 108px; }
+    .touch-controls .tbtn-step { min-width: 74px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="wavebreak">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Wavebreak</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🎯 <b>FPS</b></span>
+          <span class="meta-pill">⭐ <b>4.5</b></span>
+          <span class="meta-pill">▶ <b>1.1M</b> plays</span>
+          <span class="meta-pill">⌨️ WASD + Mouse</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="600" height="600" aria-label="Wavebreak first-person neon arena with drones swarming past the crates"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Wavebreak</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn tbtn-step" type="button" data-act="left" aria-label="Turn the view left">◀</button>
+          <button class="tbtn tbtn-fire" type="button" data-act="fire" aria-label="Fire the blaster">🔥 Fire</button>
+          <button class="tbtn" type="button" data-act="jump" aria-label="Jump">⤒ Jump</button>
+          <button class="tbtn tbtn-step" type="button" data-act="right" aria-label="Turn the view right">▶</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Wavebreak</h2>
+          <p>Wavebreak drops you into a neon arena with a blaster, a health bar and endless
+             waves of attack drones. Every wave adds more drones, and they come faster and
+             tougher than the last. You <b>WASD</b> around the crates and pillars, turn with
+             the mouse or the arrow keys, and fire with <kbd>F</kbd> or a click. Tap <kbd>Space</kbd>
+             to jump over incoming drone shots as you dodge. Clear a
+             wave, catch your breath, then do it again until the swarm finally puts you down.</p>
+          <p>Every kill pays <b>credits</b>, and credits are the whole metagame. Between
+             waves you get a three-second breather with an upgrade menu on screen: press
+             <kbd>1</kbd> for a faster fire rate, <kbd>2</kbd> for more damage per shot, or
+             <kbd>3</kbd> to bolt on armor plating that raises your maximum HP and repairs
+             you. Each upgrade stacks, but the price climbs with every level, so choose
+             between speed, power and survival carefully. Kills also build a <b>combo
+             multiplier</b> — chain kills quickly and your score explodes. The run ends when
+             your HP hits zero, and your best score is saved in this browser.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move and strafe; <kbd>←</kbd> <kbd>→</kbd> to turn the view</li>
+            <li>Click the view once to lock the mouse, then move it to look around — <kbd>Esc</kbd> releases it</li>
+            <li><kbd>Space</kbd> to jump — leap clear of drone fire while you reposition</li>
+            <li><kbd>F</kbd> or left click to fire — the blaster reloads itself after a short pause</li>
+            <li><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> to buy upgrades during the breather (or click them)</li>
+            <li><kbd>Enter</kbd>, <kbd>P</kbd> or <kbd>Esc</kbd> to pause, <kbd>R</kbd> to restart the run</li>
+          </ul>
+          <h3>Tips for lasting longer</h3>
+          <ul>
+            <li>Keep the crates between you and the swarm — drones line up nicely down a lane.</li>
+            <li>Never stand still; circling the arena centre keeps the orbs missing.</li>
+            <li>Two levels of damage early beats one level of everything: fewer shots per drone means fewer hits on you.</li>
+            <li>The minimap shows your view cone and every drone on the radar — watch it for flanks.</li>
+            <li><kbd>Space</kbd> skips the breather when you feel ready.</li>
+          </ul>
+          <h3>Scoring</h3>
+          <ul>
+            <li>Each drone pays base credits plus a wave bonus; the combo multiplier multiplies your score, not your credits.</li>
+            <li>Combo rises with quick consecutive kills and resets after a couple of seconds without one.</li>
+            <li>Your best score is saved automatically in this browser.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=shooter">More shooting games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/wavebreak.js"></script>
+</body>
+</html>

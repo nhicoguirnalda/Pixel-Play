@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Neon Blocks — Play Free Online | PixelPlay</title>
+  <meta name="description" content="Play Neon Blocks free online at PixelPlay. Rotate and slide glowing blocks, stack them neatly and clear line after line in this neon block-stacking classic.">
+  <meta name="theme-color" content="#070b14">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🔷%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Page-specific only — shared css/style.css is never edited. */
+    .touch-controls .tbtn-drop { min-width: 100px; }
+    .touch-controls .tbtn-rot { min-width: 92px; }
+  </style>
+</head>
+<body data-root="../" data-nav="home" data-page="game" data-game="neon-blocks">
+
+  <header id="site-header"></header>
+
+  <main class="container">
+    <div class="game-layout">
+
+      <div class="game-main">
+        <nav class="breadcrumbs" id="breadcrumbs"></nav>
+
+        <div class="ad-slot ad-leaderboard" data-ad="game_top"></div>
+
+        <h1 class="game-title">Neon Blocks</h1>
+        <div class="game-meta">
+          <span class="meta-pill">🧠 <b>Puzzle</b></span>
+          <span class="meta-pill">⭐ <b>4.9</b></span>
+          <span class="meta-pill">▶ <b>1.9M</b> plays</span>
+          <span class="meta-pill">⌨️ Arrows / WASD</span>
+        </div>
+
+        <div class="game-stage" id="gameStage">
+          <div class="game-hud" id="gameHud"></div>
+          <div class="game-canvas-wrap">
+            <canvas id="gameCanvas" width="600" height="600" aria-label="Neon Blocks block-stacking puzzle well with next and hold panels"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Neon Blocks</h2>
+                <p id="overlayMsg"></p>
+                <div class="overlay-stats" id="overlayStats"></div>
+                <button class="btn btn-primary" id="overlayBtn" type="button">▶ Play</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="touch-controls">
+          <button class="tbtn" type="button" data-act="left" aria-label="Slide block left">◀</button>
+          <button class="tbtn tbtn-rot" type="button" data-act="rot" aria-label="⟳ Rotate block">⟳ Rotate</button>
+          <button class="tbtn" type="button" data-act="soft" aria-label="▼ Soft drop">▼ Soft</button>
+          <button class="tbtn tbtn-drop" type="button" data-act="drop" aria-label="⤓ Drop the piece">⤓ Drop</button>
+          <button class="tbtn" type="button" data-act="hold" aria-label="Hold the block for later">Hold</button>
+          <button class="tbtn" type="button" data-act="right" aria-label="Slide block right">▶</button>
+        </div>
+
+        <section class="game-desc">
+          <h2>How to Play Neon Blocks</h2>
+          <p>Neon Blocks is a block-stacking classic played on a 10×20 well. One glowing
+             shape falls at a time — seven different pieces in all, from the four-square
+             straight bar to the square, the plus, the two zig-zags and the pair of little
+             corners, each in its own neon colour. Slide a piece sideways, rotate it until
+             it fits, then drop it onto the stack. Fill every cell of a horizontal row and
+             that row flashes and vanishes. Clear four rows in a single drop for the biggest
+             score in the game.</p>
+          <p>A preview shows the next piece, and a ghost copy of the current one marks
+             exactly where it will land. Press <kbd>C</kbd> to bench a piece in the hold box
+             and swap it back later — but you can only hold once per drop. Every 10 lines you
+             clear, gravity speeds up, so tidy stacks beat tall towers: the run ends the
+             moment new pieces can no longer enter the well. Your best score is saved in
+             this browser.</p>
+          <h3>Controls</h3>
+          <ul>
+            <li><kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd> to slide the piece across the well</li>
+            <li><kbd>↑</kbd>, <kbd>X</kbd> or <kbd>W</kbd> to rotate, <kbd>↓</kbd> or <kbd>S</kbd> to soft-drop gently</li>
+            <li><kbd>Space</kbd> to hard-drop the piece (and to start a game), <kbd>C</kbd> or <kbd>Shift</kbd> to hold it</li>
+            <li><kbd>P</kbd>, <kbd>Esc</kbd> or <kbd>Enter</kbd> to pause, <kbd>R</kbd> to restart</li>
+            <li>On a phone: use the ◀ / ⟳ / ▼ / ⤓ / Hold / ▶ buttons under the well</li>
+          </ul>
+          <h3>Scoring and the scoreboard</h3>
+          <p>A single line scores 100 points, a double 300, a triple 500 and a four-line
+             clear 800 — all multiplied by your level. Soft-dropping adds 1 point per row,
+             hard-dropping 2, so aggressive play pays. Levels rise every 10 lines, and the
+             HUD keeps Score, Best, Lines and Level live; your best score survives
+             restarts.</p>
+          <h3>Tips for a high score</h3>
+          <ul>
+            <li>Keep the stack flat. A level floor means almost every piece fits somewhere useful.</li>
+            <li>Reserve one column — usually the far right — for the long straight bar and four-line clears.</li>
+            <li>Line the ghost up before you commit.</li>
+            <li>Use hold to park an awkward piece and bring it back when the stack suits it.</li>
+            <li>Speed climbs every 10 lines, so start clearing early instead of digging later.</li>
+          </ul>
+        </section>
+
+        <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Related Games</h2>
+            <a class="link-more" href="../index.html?cat=puzzle">More puzzle games →</a>
+          </div>
+          <div class="game-grid" id="relatedGames"></div>
+        </section>
+      </div>
+
+      <aside class="game-sidebar">
+        <div class="ad-slot ad-rect ad-tall" data-ad="sidebar"></div>
+        <div class="side-card">
+          <h2>Popular right now</h2>
+          <div class="side-list" id="popularList"></div>
+        </div>
+        <div class="side-card">
+          <h2>Browse categories</h2>
+          <div class="side-list" id="catList"></div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script src="../js/games.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/game-page.js"></script>
+  <script src="../js/ads.js"></script>
+  <script src="js/neon-blocks.js"></script>
+</body>
+</html>
