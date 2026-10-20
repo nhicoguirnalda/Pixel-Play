@@ -1,8 +1,8 @@
 # PixelPlay — free browser games portal (ad-ready)
 
 A complete, self-contained browser-game website in the style of Y8 / Poki / CrazyGames:
-a homepage with search + category filters, a catalogue of **29 original HTML5 games**
-(8 shooting, 3 first-person shooters, 5 stickman, 5 word games, a block-stacking
+a homepage with search + category filters, a catalogue of **27 original HTML5 games**
+(8 shooting, 1 first-person shooter, 5 stickman, 5 word games, a block-stacking
 classic and more), game pages with ads, and all the content/legal pages you need to
 get approved by an ad network.
 
@@ -50,9 +50,7 @@ games/turret-guard.html     Turret Guard          (shooting / defense)
 games/rift-raider.html      Rift Raider           (shooting / space)
 
 games/neon-blocks.html      Neon Blocks           (puzzle / block stacker)
-games/defuse-squad.html     Defuse Squad          (fps / objective)
 games/wavebreak.html        Wavebreak             (fps / wave survival)
-games/breach-point.html     Breach Point          (fps / timed breach)
 
 games/stickman-sprint.html  Stickman Sprint       (stickman / endless runner)
 games/hook-hero.html        Hook Hero             (stickman / rope swing)

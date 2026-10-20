@@ -148,28 +148,12 @@ var GAMES = [
     url: 'games/neon-blocks.html'
   },
   {
-    id: 'defuse-squad', title: 'Defuse Squad', cat: 'fps',
-    icon: '💣', c1: '#f59e0b', c2: '#0ea5e9',
-    plays: '980K', playsN: 980000, rating: 4.6, added: 20,
-    controls: 'WASD + Mouse',
-    desc: 'Breach the site, hold the defuse button and hold off the defending bots until the bomb is safely disabled.',
-    url: 'games/defuse-squad.html'
-  },
-  {
     id: 'wavebreak', title: 'Wavebreak', cat: 'fps',
     icon: '🤖', c1: '#8b5cf6', c2: '#22d3ee',
     plays: '1.1M', playsN: 1100000, rating: 4.5, added: 21,
     controls: 'WASD + Mouse',
     desc: 'Hold the arena against endless waves of attack drones — every cleared wave pays credits for faster guns and more armor.',
     url: 'games/wavebreak.html'
-  },
-  {
-    id: 'breach-point', title: 'Breach Point', cat: 'fps',
-    icon: '💥', c1: '#ec4899', c2: '#6366f1',
-    plays: '640K', playsN: 640000, rating: 4.5, added: 23,
-    controls: 'WASD + Mouse',
-    desc: 'Kick through the compound room by room, clear every hostile bot and reach extraction before the clock hits zero.',
-    url: 'games/breach-point.html'
   },
   {
     id: 'stickman-sprint', title: 'Stickman Sprint', cat: 'stickman',
