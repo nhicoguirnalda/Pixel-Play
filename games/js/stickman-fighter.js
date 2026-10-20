@@ -44,17 +44,44 @@
 
   /* ---------------- state ---------------- */
 
-  var state = 'ready';            /* ready | running | paused | over */
+  var state = 'ready';            /* ready | running | paused | over | upgrade */
   var score = 0, wave = 1, knockouts = 0;
   var best = GameShell.best.get(BEST_KEY, 0);
   var player = null, enemies = [], particles = [], pops = [];
+  var pickups = [], shockwaves = [], hitFlashes = [];
   var keys = { left: false, right: false, block: false };
   var combo = 0, comboT = 0;
   var phase = 'fight';            /* fight | breather */
   var spawnLeft = 0, spawnT = 0, spawnSide = 0, breatherT = 0;
   var banner = null;              /* { title, sub, t, t0 } */
-  var flashT = 0, shake = 0, tGlobal = 0;
+  var flashT = 0, shake = 0, tGlobal = 0, hitStop = 0;
   var rafId = 0, last = 0;
+
+  /* new systems: run upgrades, pickups and combat feedback */
+  var upgradeChoices = [], upgradeRects = [], upgradeSel = 0, upgradesTaken = 0;
+  var upDamage = 0, upSpeed = 0, upGuard = 0, upCombo = 0, comboBonus = 0;
+  var dmgBoostT = 0, speedT = 0, shieldCharges = 0;
+  var leftSideHits = 0, rightSideHits = 0, effectsSpawned = 0, shockSpawned = 0;
+  var pickupsDropped = 0, pickupsTaken = 0;
+
+  var UPGRADE_DEFS = {
+    damage: { title: 'Heavy Hands', desc: '+18% strike damage', col: '#fb7185' },
+    speed:  { title: 'Light Feet',  desc: '+12% move speed',   col: '#22d3ee' },
+    heal:   { title: 'Second Wind', desc: 'Restore 45 HP',     col: '#2ee6a6' },
+    guard:  { title: 'Iron Guard',  desc: 'Guard blocks more', col: '#a78bfa' },
+    combo:  { title: 'Flow State',  desc: '+0.5s combo window', col: '#facc15' }
+  };
+
+  var PICKUP_DEFS = {
+    heal:   { col: '#2ee6a6' },
+    damage: { col: '#fb7185' },
+    speed:  { col: '#22d3ee' },
+    shield: { col: '#a78bfa' },
+    combo:  { col: '#facc15' }
+  };
+
+  var GUARD_BASE = 0.3;
+  var COMBO_BASE = 1.5;
 
   /* ---------------- helpers ---------------- */
 
@@ -104,6 +131,55 @@
     if (pops.length > 24) pops.shift();
   }
 
+  function comboWindow() {
+    return COMBO_BASE + upCombo * 0.5 + comboBonus;
+  }
+
+  /* a cone of sparks hurled in the strike direction */
+  function burstCone(x, y, dir, col, speed, n, arc) {
+    arc = arc || 0.52;
+    for (var i = 0; i < n; i++) {
+      var a = (Math.random() - 0.5) * arc;
+      var s = speed * (0.45 + Math.random() * 0.75);
+      var life = 0.22 + Math.random() * 0.34;
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(a) * s * dir,
+        vy: Math.sin(a) * s - 30,
+        life: life, life0: life,
+        size: 2 + Math.random() * 3.5,
+        col: col, star: i % 4 === 0
+      });
+    }
+    if (particles.length > 360) particles.splice(0, particles.length - 360);
+  }
+
+  function addShockwave(x, y, maxR, life, col, width, dbl) {
+    shockwaves.push({ x: x, y: y, maxR: maxR, t: 0, life: life,
+                      col: col, width: width || 3, dbl: !!dbl });
+    shockSpawned++;
+    if (shockwaves.length > 20) shockwaves.shift();
+  }
+
+  function addHitFlash(x, y, dir, col) {
+    hitFlashes.push({ x: x, y: y, dir: dir, t: 0, life: 0.2, col: col });
+    if (hitFlashes.length > 16) hitFlashes.shift();
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+  }
+
   function addScore(n) {
     score += n;
     updateHud();
@@ -117,7 +193,9 @@
         Wave: wave,
         HP: (player ? Math.max(0, Math.round(player.hp)) : 0) + '/100'
       },
-      state === 'paused' ? '⏸ Paused · Wave ' + wave : 'Z punch · X kick · ↓ block'
+      state === 'paused' ? '⏸ Paused · Wave ' + wave
+        : (state === 'upgrade' ? 'Choose an upgrade: 1 / 2 / 3'
+          : 'Z punch · X kick · ↓ block')
     );
   }
 
@@ -178,11 +256,68 @@
     updateHud();
   }
 
+  /* ---------------- every-third-wave upgrades ---------------- */
+
+  function openUpgrade() {
+    var pool = ['damage', 'speed', 'heal', 'guard', 'combo'];
+    var picks = [], i, j, tmp;
+    for (i = 0; i < pool.length; i++) picks.push(pool[i]);
+    for (i = picks.length - 1; i > 0; i--) {
+      j = rand(i + 1);
+      tmp = picks[i]; picks[i] = picks[j]; picks[j] = tmp;
+    }
+    upgradeChoices = picks.slice(0, 3);
+    upgradeRects = [];
+    upgradeSel = 0;
+    state = 'upgrade';
+    releaseKeys();
+    updateHud();
+  }
+
+  function applyUpgrade(id) {
+    if (state !== 'upgrade' || !UPGRADE_DEFS[id]) return;
+    var p = player;
+    if (id === 'damage') upDamage++;
+    else if (id === 'speed') upSpeed++;
+    else if (id === 'heal') p.hp = Math.min(p.maxHp, p.hp + 45);
+    else if (id === 'guard') upGuard++;
+    else if (id === 'combo') upCombo++;
+
+    upgradesTaken++;
+    addScore(25);
+    state = 'running';
+    last = now();
+    phase = 'breather';
+    breatherT = 2;
+    banner = { title: UPGRADE_DEFS[id].title.toUpperCase() + '!',
+               sub: 'Next wave in 2s', t: 2, t0: 2 };
+    upgradeChoices = [];
+    upgradeRects = [];
+    updateHud();
+  }
+
+  function upgradeAt(x, y) {
+    for (var i = 0; i < upgradeRects.length; i++) {
+      var r = upgradeRects[i];
+      if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
+        applyUpgrade(upgradeChoices[i]);
+        return true;
+      }
+    }
+    return false;
+  }
+
   function reset() {
     score = 0; wave = 1; knockouts = 0;
     combo = 0; comboT = 0;
     enemies = []; particles = []; pops = [];
-    flashT = 0; shake = 0;
+    pickups = []; shockwaves = []; hitFlashes = [];
+    flashT = 0; shake = 0; hitStop = 0;
+    upDamage = 0; upSpeed = 0; upGuard = 0; upCombo = 0; comboBonus = 0;
+    dmgBoostT = 0; speedT = 0; shieldCharges = 0;
+    leftSideHits = 0; rightSideHits = 0; effectsSpawned = 0; shockSpawned = 0;
+    pickupsDropped = 0; pickupsTaken = 0;
+    upgradesTaken = 0; upgradeChoices = []; upgradeRects = []; upgradeSel = 0;
     keys.left = keys.right = keys.block = false;
     player = makePlayer();
     beginWave(1);
@@ -211,6 +346,56 @@
     return bestE;
   }
 
+  function pickPickupType() {
+    var table = [['heal', 30], ['damage', 22], ['speed', 20], ['shield', 16], ['combo', 12]];
+    var total = 0, i, r;
+    for (i = 0; i < table.length; i++) total += table[i][1];
+    r = Math.random() * total;
+    for (i = 0; i < table.length; i++) {
+      r -= table[i][1];
+      if (r <= 0) return table[i][0];
+    }
+    return 'heal';
+  }
+
+  function spawnPickup(x, type) {
+    pickups.push({
+      x: clamp(x, 34, W - 34),
+      y: GROUND - 46,
+      type: type || pickPickupType(),
+      t: Math.random() * TAU,
+      life: 15
+    });
+    pickupsDropped++;
+    if (pickups.length > 8) pickups.shift();
+  }
+
+  function collectPickup(pk) {
+    var col = PICKUP_DEFS[pk.type].col;
+    burst(pk.x, pk.y, col, 12);
+    addShockwave(pk.x, pk.y, 34, 0.26, col, 2.5, false);
+    if (pk.type === 'heal') {
+      var before = player.hp;
+      player.hp = Math.min(player.maxHp, player.hp + 24);
+      pop(pk.x, pk.y - 18, '+' + Math.round(player.hp - before) + ' HP', '#2ee6a6', 15);
+    } else if (pk.type === 'damage') {
+      dmgBoostT = 12;
+      pop(pk.x, pk.y - 18, 'DAMAGE UP', '#fb7185', 14);
+    } else if (pk.type === 'speed') {
+      speedT = 12;
+      pop(pk.x, pk.y - 18, 'SPEED UP', '#22d3ee', 14);
+    } else if (pk.type === 'shield') {
+      shieldCharges = Math.min(3, shieldCharges + 1);
+      pop(pk.x, pk.y - 18, 'SHIELD +1', '#a78bfa', 14);
+    } else {
+      comboBonus = Math.min(3, comboBonus + 0.5);
+      comboT = comboWindow();
+      pop(pk.x, pk.y - 18, 'COMBO +', '#facc15', 14);
+    }
+    addScore(20);
+    updateHud();
+  }
+
   function knockout(e, dir) {
     e.state = 'knocked';
     e.knock = {
@@ -226,10 +411,42 @@
     pop(e.x, GROUND - 74, 'KNOCKOUT +' + gain, '#facc15', 17);
     burst(e.x, GROUND - 50, e.col, 16, true);
     shake = Math.max(shake, 7);
+    if (Math.random() < 0.55) spawnPickup(e.x);
+  }
+
+  /* resolve every connecting strike and its feedback */
+  function hitFeedback(x, y, facing, type, dmg, leftSide) {
+    effectsSpawned++;
+    if (leftSide) {
+      /* player is to the LEFT of the target and swinging rightwards:
+         a big orange/white directional cone plus a double shockwave */
+      leftSideHits++;
+      burstCone(x, y, 1, '#fb923c', 300, 16, 0.62);
+      burstCone(x, y, 1, '#ffffff', 220, 9, 0.42);
+      addShockwave(x, y, type === 'kick' ? 64 : 54, 0.36, '#fb923c', 5, true);
+      addShockwave(x, y, type === 'kick' ? 36 : 30, 0.24, '#ffffff', 2.5, false);
+      addHitFlash(x, y, 1, '#fdba74');
+      hitStop = Math.max(hitStop, type === 'kick' ? 0.085 : 0.065);
+      shake = Math.max(shake, type === 'kick' ? 11 : 8);
+      pop(x + 22, y - 30, 'LEFT ' + (type === 'kick' ? 'KICK' : 'HIT'), '#fdba74', 12);
+    } else {
+      /* strikes coming back the other way stay readable with a cyan/amber ring */
+      rightSideHits++;
+      var col = type === 'kick' ? '#f59e0b' : '#22d3ee';
+      burstCone(x, y, -1, col, 210, 9, 0.8);
+      burstCone(x, y, -1, '#e8eefc', 150, 4, 0.55);
+      addShockwave(x, y, type === 'kick' ? 42 : 34, 0.28, col, 3.5, false);
+      addHitFlash(x, y, -1, col);
+      hitStop = Math.max(hitStop, type === 'kick' ? 0.05 : 0.035);
+      shake = Math.max(shake, type === 'kick' ? 7 : 4);
+    }
+    pop(x, y - 4, '−' + dmg, '#ffffff', 17);
   }
 
   function playerStrike() {
     var atk = ATK[player.atk];
+    var mult = 1 + upDamage * 0.18 + (dmgBoostT > 0 ? 0.45 : 0);
+    var dmg = Math.max(1, Math.round(atk.dmg * mult));
     var hitAny = false;
     for (var i = 0; i < enemies.length; i++) {
       var e = enemies[i];
@@ -238,19 +455,21 @@
       if (dx < -14 || dx > atk.reach) continue;
       e.lastHitId = player.atkId;
       hitAny = true;
-      e.hp -= atk.dmg;
+      e.hp -= dmg;
       e.hurtT = atk.stun;
       e.flashT = 0.14;
       e.kbV = player.face * atk.kb;
       e.state = 'hurt';
       e.t = atk.stun;
       combo++;
-      comboT = 1.5;
+      comboT = comboWindow();
       var gain = atk.pts + Math.min(combo, 20) * 2;
       addScore(gain);
-      var cx = player.x + player.face * (atk.reach * 0.6);
-      pop(cx, GROUND - 58, '+' + gain, '#e8eefc', 14);
-      burst(cx, GROUND - 54, player.atk === 'kick' ? '#f59e0b' : '#22d3ee', 8);
+      var cx = e.x - player.face * 12;
+      var cy = GROUND - 52;
+      var fromLeft = player.face > 0 && e.x > player.x;
+      hitFeedback(cx, cy, player.face, player.atk, dmg, fromLeft);
+      pop(cx, GROUND - 86, '+' + gain, '#e8eefc', 14);
       if (e.hp <= 0) knockout(e, player.face);
     }
     if (hitAny) shake = Math.max(shake, player.atk === 'kick' ? 6 : 3);
@@ -259,7 +478,21 @@
   function hurtPlayer(dmg, fromX) {
     if (state !== 'running' || player.invuln > 0) return;
     var blocked = isBlocking();
-    var d = blocked ? Math.max(1, Math.round(dmg * 0.3)) : dmg;
+
+    if (!blocked && shieldCharges > 0) {
+      shieldCharges--;
+      player.invuln = 0.5;
+      player.hurtT = 0.12;
+      pop(player.x, GROUND - 80, 'SHIELD ABSORB', '#c4b5fd', 13);
+      burst(player.x, GROUND - 50, '#a78bfa', 12);
+      addShockwave(player.x, GROUND - 50, 44, 0.3, '#a78bfa', 3, true);
+      shake = Math.max(shake, 5);
+      updateHud();
+      return;
+    }
+
+    var guardFactor = Math.max(0.12, GUARD_BASE - upGuard * 0.05);
+    var d = blocked ? Math.max(1, Math.round(dmg * guardFactor)) : dmg;
     player.hp -= d;
     player.hurtT = blocked ? 0.18 : 0.34;
     player.invuln = blocked ? 0.3 : 0.55;
@@ -275,6 +508,7 @@
     } else {
       pop(player.x, GROUND - 76, 'GUARD −' + d, '#2ee6a6', 13);
       burst(player.x, GROUND - 46, '#2ee6a6', 5);
+      addShockwave(player.x, GROUND - 48, 30, 0.22, '#2ee6a6', 2.5, false);
     }
     updateHud();
     if (player.hp <= 0) {
@@ -444,7 +678,8 @@
       if (keys.left) vx -= 1;
       if (keys.right) vx += 1;
     }
-    var sp = p.speed * (isBlocking() ? 0.4 : 1);
+    var sp = p.speed * (1 + upSpeed * 0.12) * (speedT > 0 ? 1.35 : 1) *
+             (isBlocking() ? 0.4 : 1);
     if (vx !== 0) {
       p.x = clamp(p.x + vx * sp * dt, 24, W - 24);
       p.walkP += dt * sp * 0.05;
@@ -503,6 +738,8 @@
     tGlobal += dt;
     if (flashT > 0) flashT -= dt;
     if (shake > 0) shake = Math.max(0, shake - dt * 55);
+    if (dmgBoostT > 0) dmgBoostT = Math.max(0, dmgBoostT - dt);
+    if (speedT > 0) speedT = Math.max(0, speedT - dt);
 
     if (comboT > 0) {
       comboT -= dt;
@@ -530,6 +767,30 @@
       }
     }
 
+    /* pickups dropped by defeated rivals */
+    for (i = pickups.length - 1; i >= 0; i--) {
+      var pk = pickups[i];
+      pk.t += dt;
+      pk.life -= dt;
+      if (pk.life <= 0) { pickups.splice(i, 1); continue; }
+      if (state === 'running' && player &&
+          Math.abs(pk.x - player.x) < 30 && player.hp > 0) {
+        pickups.splice(i, 1);
+        pickupsTaken++;
+        collectPickup(pk);
+      }
+    }
+
+    /* impact rings and directional flashes age out */
+    for (i = shockwaves.length - 1; i >= 0; i--) {
+      shockwaves[i].t += dt;
+      if (shockwaves[i].t >= shockwaves[i].life) shockwaves.splice(i, 1);
+    }
+    for (i = hitFlashes.length - 1; i >= 0; i--) {
+      hitFlashes[i].t += dt;
+      if (hitFlashes[i].t >= hitFlashes[i].life) hitFlashes.splice(i, 1);
+    }
+
     /* spawning */
     if (phase === 'fight' && spawnLeft > 0) {
       spawnT -= dt;
@@ -540,22 +801,29 @@
       }
     }
 
-    /* wave clear → two-second breather */
-    if (phase === 'fight' && spawnLeft === 0) {
+    /* wave clear → two-second breather (or an upgrade every third wave) */
+    if (state === 'running' && phase === 'fight' && spawnLeft === 0) {
       var alive = 0;
       for (i = 0; i < enemies.length; i++) {
         if (enemies[i].state !== 'knocked') alive++;
       }
       if (alive === 0) {
-        phase = 'breather';
-        breatherT = 2;
         var bonus = 30 * wave;
         addScore(bonus);
         player.hp = Math.min(player.maxHp, player.hp + 12);
-        banner = { title: 'WAVE ' + wave + ' CLEAR', sub: '+' + bonus + ' · next wave in 2s', t: 2, t0: 2 };
+        banner = { title: 'WAVE ' + wave + ' CLEAR', sub: '+' + bonus, t: 2, t0: 2 };
+        if (wave % 3 === 0) {
+          /* every third wave: freeze the arena and offer three upgrades */
+          openUpgrade();
+          banner.sub = 'Choose an upgrade';
+        } else {
+          phase = 'breather';
+          breatherT = 2;
+          banner.sub = '+' + bonus + ' · next wave in 2s';
+        }
         updateHud();
       }
-    } else if (phase === 'breather') {
+    } else if (state === 'running' && phase === 'breather') {
       breatherT -= dt;
       if (breatherT <= 0) beginWave(wave + 1);
     }
@@ -792,6 +1060,26 @@
       ctx.fillText(comboT.toFixed(1) + 's to keep it', 18, 86);
     }
 
+    /* active pickup boosts */
+    var by2 = 112;
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = '700 12px ' + FONT;
+    ctx.textAlign = 'left';
+    if (dmgBoostT > 0) {
+      ctx.fillStyle = '#fb7185';
+      ctx.fillText('DAMAGE +45%  ' + Math.ceil(dmgBoostT) + 's', 18, by2);
+      by2 += 18;
+    }
+    if (speedT > 0) {
+      ctx.fillStyle = '#22d3ee';
+      ctx.fillText('SPEED +35%  ' + Math.ceil(speedT) + 's', 18, by2);
+      by2 += 18;
+    }
+    if (shieldCharges > 0) {
+      ctx.fillStyle = '#c4b5fd';
+      ctx.fillText('SHIELD ×' + shieldCharges, 18, by2);
+    }
+
     /* wave label top-right */
     ctx.textAlign = 'right';
     ctx.fillStyle = 'rgba(147,163,194,.95)';
@@ -799,6 +1087,174 @@
     ctx.fillText('WAVE ' + wave + '  ·  KOs ' + knockouts, W - 16, 32);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
+  }
+
+  function drawPickup(pk) {
+    var col = PICKUP_DEFS[pk.type].col;
+    var bob = Math.sin(tGlobal * 3 + pk.t) * 4;
+    var x = pk.x, y = pk.y + bob;
+    ctx.save();
+    ctx.globalAlpha = pk.life < 2.5 ? 0.45 + 0.55 * Math.abs(Math.sin(tGlobal * 8)) : 1;
+    ctx.shadowColor = col;
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = 'rgba(6,10,20,.9)';
+    ctx.beginPath();
+    ctx.arc(x, y, 13, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = col;
+    ctx.strokeStyle = col;
+    if (pk.type === 'heal') {
+      ctx.fillRect(x - 2.5, y - 8, 5, 16);
+      ctx.fillRect(x - 8, y - 2.5, 16, 5);
+    } else if (pk.type === 'damage') {
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x - 6, y + 7); ctx.lineTo(x + 6, y - 7);
+      ctx.moveTo(x + 1, y - 7); ctx.lineTo(x + 7, y - 7); ctx.lineTo(x + 7, y - 1);
+      ctx.stroke();
+    } else if (pk.type === 'speed') {
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(x - 7, y - 7); ctx.lineTo(x, y); ctx.lineTo(x - 7, y + 7);
+      ctx.moveTo(x + 1, y - 7); ctx.lineTo(x + 8, y); ctx.lineTo(x + 1, y + 7);
+      ctx.stroke();
+    } else if (pk.type === 'shield') {
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.arc(x, y, 7, 0, TAU);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      drawStar(x, y, 8, tGlobal * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(5,7,14,.55)';
+    ctx.beginPath();
+    ctx.ellipse(pk.x, GROUND + 3, 11, 3, 0, 0, TAU);
+    ctx.fill();
+  }
+
+  function drawEffects() {
+    var i, f, rr;
+    for (i = 0; i < shockwaves.length; i++) {
+      var s = shockwaves[i];
+      f = s.t / s.life;
+      rr = s.maxR * (0.2 + 0.8 * f);
+      ctx.globalAlpha = Math.max(0, 1 - f);
+      ctx.strokeStyle = s.col;
+      ctx.lineWidth = Math.max(0.8, s.width * (1 - f * 0.55));
+      ctx.beginPath();
+      ctx.ellipse(s.x, s.y, rr, rr * 0.82, 0, 0, TAU);
+      ctx.stroke();
+      if (s.dbl) {
+        ctx.globalAlpha = Math.max(0, 1 - f) * 0.8;
+        ctx.lineWidth = Math.max(0.7, s.width * 0.55 * (1 - f));
+        ctx.beginPath();
+        ctx.ellipse(s.x - 6, s.y, rr * 0.62, rr * 0.5, 0, 0, TAU);
+        ctx.stroke();
+      }
+    }
+    for (i = 0; i < hitFlashes.length; i++) {
+      var h = hitFlashes[i];
+      f = h.t / h.life;
+      ctx.globalAlpha = Math.max(0, 1 - f) * 0.95;
+      ctx.fillStyle = h.col;
+      ctx.beginPath();
+      ctx.moveTo(h.x, h.y);
+      ctx.lineTo(h.x + h.dir * 62, h.y - 30);
+      ctx.lineTo(h.x + h.dir * 62, h.y + 30);
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = Math.max(0, 1 - f);
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(h.x, h.y);
+      ctx.lineTo(h.x + h.dir * 36, h.y - 14);
+      ctx.lineTo(h.x + h.dir * 36, h.y + 14);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawUpgradePanel() {
+    ctx.save();
+    ctx.fillStyle = 'rgba(4,7,14,.84)';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#facc15';
+    ctx.font = '800 26px ' + FONT;
+    ctx.fillText('WAVE ' + wave + ' CLEAR — CHOOSE AN UPGRADE', W / 2, 150);
+    ctx.fillStyle = 'rgba(232,238,252,.78)';
+    ctx.font = '600 13px ' + FONT;
+    ctx.fillText('Press 1, 2 or 3 — or click a card. The boost lasts all run.', W / 2, 180);
+
+    var cw = 154, ch = 176, gap = 16;
+    var total = cw * 3 + gap * 2;
+    var x0 = (W - total) / 2, y0 = 220;
+    upgradeRects = [];
+
+    for (var i = 0; i < upgradeChoices.length; i++) {
+      var id = upgradeChoices[i], def = UPGRADE_DEFS[id];
+      var x = x0 + i * (cw + gap);
+      upgradeRects.push({ x: x, y: y0, w: cw, h: ch });
+
+      ctx.fillStyle = 'rgba(15,23,42,.94)';
+      roundRect(x, y0, cw, ch, 13);
+      ctx.fill();
+      ctx.strokeStyle = def.col;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = def.col;
+      ctx.font = '800 14px ' + FONT;
+      ctx.fillText(def.title, x + cw / 2, y0 + 34);
+      ctx.fillStyle = 'rgba(232,238,252,.8)';
+      ctx.font = '600 12px ' + FONT;
+      ctx.fillText(def.desc, x + cw / 2, y0 + 60);
+
+      ctx.strokeStyle = def.col;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      if (id === 'damage') {
+        ctx.moveTo(x + cw / 2 - 11, y0 + 108); ctx.lineTo(x + cw / 2 + 11, y0 + 86);
+        ctx.moveTo(x + cw / 2 + 3, y0 + 86); ctx.lineTo(x + cw / 2 + 11, y0 + 86); ctx.lineTo(x + cw / 2 + 11, y0 + 95);
+      } else if (id === 'speed') {
+        ctx.moveTo(x + cw / 2 - 12, y0 + 90); ctx.lineTo(x + cw / 2, y0 + 102); ctx.lineTo(x + cw / 2 - 12, y0 + 114);
+        ctx.moveTo(x + cw / 2 + 1, y0 + 90); ctx.lineTo(x + cw / 2 + 13, y0 + 102); ctx.lineTo(x + cw / 2 + 1, y0 + 114);
+      } else if (id === 'heal') {
+        ctx.moveTo(x + cw / 2 - 12, y0 + 102); ctx.lineTo(x + cw / 2 + 12, y0 + 102);
+        ctx.moveTo(x + cw / 2, y0 + 90); ctx.lineTo(x + cw / 2, y0 + 114);
+      } else if (id === 'guard') {
+        ctx.arc(x + cw / 2, y0 + 102, 13, 0, TAU);
+      } else {
+        drawStarOutline(x + cw / 2, y0 + 102, 14, tGlobal);
+      }
+      ctx.stroke();
+
+      ctx.fillStyle = def.col;
+      ctx.font = '700 12px ' + FONT;
+      ctx.fillText('[' + (i + 1) + ']', x + cw / 2, y0 + ch - 18);
+    }
+    ctx.restore();
+  }
+
+  function drawStarOutline(x, y, r, rot) {
+    for (var i = 0; i < 10; i++) {
+      var rad = i % 2 === 0 ? r : r * 0.45;
+      var a = rot + (i * Math.PI) / 5 - Math.PI / 2;
+      var px = x + Math.cos(a) * rad, py = y + Math.sin(a) * rad;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
   }
 
   function draw(t) {
@@ -811,6 +1267,8 @@
 
     /* knockouts first (behind), then standing rivals, then the player */
     var i;
+    for (i = 0; i < pickups.length; i++) drawPickup(pickups[i]);
+
     for (i = 0; i < enemies.length; i++) {
       if (enemies[i].state === 'knocked') drawEnemy(enemies[i], t);
     }
@@ -826,6 +1284,25 @@
       if (!(player.invuln > 0 && Math.floor(t / 90) % 2 === 1 && player.hurtT <= 0)) {
         drawStickman(player.x, GROUND, player.face, PLAYER_COL, player.pose,
           { headband: '#e8eefc', flash: player.hurtT > 0 && Math.floor(t / 60) % 2 === 0 });
+      }
+
+      /* shield charges shimmer as a bubble around the fighter */
+      if (shieldCharges > 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.5 + 0.25 * Math.sin(tGlobal * 5);
+        ctx.strokeStyle = '#a78bfa';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(player.x, GROUND - 42, 30, 44, 0, 0, TAU);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#c4b5fd';
+        for (var sc = 0; sc < shieldCharges; sc++) {
+          ctx.beginPath();
+          ctx.arc(player.x - 12 + sc * 12, GROUND - 94, 3, 0, TAU);
+          ctx.fill();
+        }
+        ctx.restore();
       }
 
       /* strike arc flourish */
@@ -850,6 +1327,9 @@
       else ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
     }
     ctx.globalAlpha = 1;
+
+    /* impact rings and directional bursts sit above the sparks */
+    drawEffects();
 
     /* floating texts */
     ctx.textAlign = 'center';
@@ -897,6 +1377,8 @@
       ctx.fillText('PAUSED', W / 2, 34);
       ctx.textAlign = 'left';
     }
+
+    if (state === 'upgrade') drawUpgradePanel();
   }
 
   /* ---------------- loop ---------------- */
@@ -907,7 +1389,12 @@
     last = t;
     if (!(dt > 0)) dt = 0;
     if (dt > 0.05) dt = 0.05;
-    if (state === 'running') update(dt);
+    if (state === 'running' && hitStop > 0) {
+      /* brief freeze on impact so every hit reads */
+      hitStop = Math.max(0, hitStop - dt);
+    } else if (state === 'running') {
+      update(dt);
+    }
     draw(t);
   }
 
@@ -991,6 +1478,15 @@
     var k = e.key;
     if (k === undefined || k === null) return;
 
+    /* the between-wave upgrade cards take 1 / 2 / 3 */
+    if (state === 'upgrade') {
+      if (k === '1' || k === '2' || k === '3') {
+        var pick = parseInt(k, 10) - 1;
+        if (pick >= 0 && pick < upgradeChoices.length) applyUpgrade(upgradeChoices[pick]);
+      }
+      return;
+    }
+
     if (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowDown' ||
         k === ' ' || k === 'Enter') {
       if (e.preventDefault) e.preventDefault();
@@ -1033,6 +1529,7 @@
       function on() {
         if (state === 'ready' || state === 'over') { start(); return; }
         if (state === 'paused') { resume(); return; }
+        if (state === 'upgrade') return;
         if (act === 'left') keys.left = true;
         else if (act === 'right') keys.right = true;
         else if (act === 'block') keys.block = true;
@@ -1051,8 +1548,17 @@
     })(padBtns[b]);
   }
 
-  /* click the arena to punch */
-  canvas.addEventListener('pointerdown', function () {
+  /* click the arena to punch, or to claim an upgrade card */
+  canvas.addEventListener('pointerdown', function (ev) {
+    if (state === 'upgrade') {
+      var rect = canvas.getBoundingClientRect
+        ? canvas.getBoundingClientRect()
+        : { left: 0, top: 0, width: W, height: H };
+      var cx = (ev.clientX - rect.left) * (W / rect.width);
+      var cy = (ev.clientY - rect.top) * (H / rect.height);
+      upgradeAt(cx, cy);
+      return;
+    }
     if (state === 'ready' || state === 'over') { start(); return; }
     if (state === 'running') tryAttack('punch');
   });
@@ -1069,7 +1575,7 @@
     Object.defineProperty(window, '__stickmanFighter', {
       value: Object.freeze({
         snapshot: function () {
-          var list = [];
+          var list = [], plist = [];
           for (var i = 0; i < enemies.length; i++) {
             var e = enemies[i];
             list.push({
@@ -1079,6 +1585,13 @@
               knocked: e.state === 'knocked'
             });
           }
+          for (var k = 0; k < pickups.length; k++) {
+            plist.push({
+              type: pickups[k].type,
+              x: Math.round(pickups[k].x),
+              life: Math.round(pickups[k].life * 10) / 10
+            });
+          }
           return {
             state: state,
             score: score,
@@ -1086,11 +1599,43 @@
             wave: wave,
             knockouts: knockouts,
             hp: player ? player.hp : 0,
+            maxHp: player ? player.maxHp : 0,
             playerX: player ? Math.round(player.x * 10) / 10 : 0,
             combo: combo,
+            comboT: Math.round(comboT * 100) / 100,
+            comboWindow: Math.round(comboWindow() * 100) / 100,
             phase: phase,
             spawnLeft: spawnLeft,
-            enemies: list
+            hitStop: Math.round(hitStop * 1000) / 1000,
+            enemies: list,
+            pickups: plist,
+            upgrades: {
+              damage: upDamage,
+              speed: upSpeed,
+              guard: upGuard,
+              combo: upCombo,
+              taken: upgradesTaken
+            },
+            upgradeChoices: upgradeChoices.slice(),
+            active: {
+              dmgBoostT: Math.round(dmgBoostT * 10) / 10,
+              speedT: Math.round(speedT * 10) / 10,
+              shieldCharges: shieldCharges,
+              comboBonus: comboBonus,
+              guardBlock: Math.max(0.12, GUARD_BASE - upGuard * 0.05)
+            },
+            effects: {
+              leftSideHits: leftSideHits,
+              rightSideHits: rightSideHits,
+              totalHits: effectsSpawned,
+              shockwavesActive: shockwaves.length,
+              flashesActive: hitFlashes.length,
+              shockwavesSpawned: shockSpawned
+            },
+            counters: {
+              pickupsDropped: pickupsDropped,
+              pickupsTaken: pickupsTaken
+            }
           };
         }
       }),
