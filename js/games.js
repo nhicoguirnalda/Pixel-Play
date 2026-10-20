@@ -112,7 +112,7 @@ var GAMES = [
     icon: '💫', c1: '#f472b6', c2: '#8b5cf6',
     plays: '920K', playsN: 920000, rating: 4.7, added: 14,
     controls: 'Arrows / WASD',
-    desc: 'Dodge swirling bullet patterns and auto-fire at a glowing boss through four escalating phases.',
+    desc: 'Dodge swirling bullet patterns, auto-fire at three cycling bosses and grab power-ups between fights.',
     url: 'games/bullet-ballet.html'
   },
   {
