@@ -232,7 +232,7 @@
         Ammo: reloadT > 0 ? '…' : ammo + '/' + MAG
       },
       state === 'paused' ? '⏸ Paused · Mission ' + mission
-        : (document.pointerLockElement !== canvas ? '🖱 Click the view to aim · Space jump · F fire' : hint + ' · Space = Jump')
+        : (document.pointerLockElement !== canvas ? '🖱 Move to aim · click or F to fire · Space jump' : hint + ' · Space = Jump')
     );
   }
 
@@ -1094,17 +1094,19 @@
       tapStart = { x: ev.clientX, y: ev.clientY, t: now() };
       return;
     }
-    if (document.pointerLockElement !== canvas && canvas.requestPointerLock) {
-      /* first click locks the mouse (like a classic PC shooter); locked clicks fire */
-      try {
-        var pr = canvas.requestPointerLock();
-        if (pr && pr.catch) pr.catch(function () { /* lock refused */ });
-      } catch (e) { /* pointer lock unavailable */ }
-      return;
-    }
     if (document.pointerLockElement !== canvas) {
+      /* Aim at the click point first, then ask the browser for the pointer so
+         the view can sweep freely. Some browsers and embedded frames refuse
+         the lock (and presses of Esc drop it), so the request must never
+         swallow the shot — the click still fires either way. */
       var p1 = toCanvas(ev.clientX, ev.clientY);
       if (p1) { crossX = p1.x; crossY = p1.y; }
+      if (canvas.requestPointerLock) {
+        try {
+          var pr = canvas.requestPointerLock();
+          if (pr && pr.catch) pr.catch(function () { /* lock refused */ });
+        } catch (e) { /* pointer lock unavailable */ }
+      }
     }
     fire();
   });
@@ -1166,10 +1168,12 @@
   ensureLoop();
   GameShell.overlay.show({
     title: 'Scope Elite',
-    msg: 'Three timed missions from the watchtower. Click the view to lock the mouse ' +
-         'and sweep the valley, hold Shift to steady the scope, press Space to hop the ' +
-         'tower and F or a click to fire — then clear the quota of roaming bots before ' +
-         'the clock runs out. Every bot that escapes costs your tower a point of integrity.',
+    msg: 'Three timed missions from the watchtower. Move the mouse to place the crosshair ' +
+         'and left click — or press F — to fire; a click also locks the mouse so the ' +
+         'valley sweeps freely, and firing keeps working while you are scoped. Hold ' +
+         'Shift to steady the scope, press Space to hop the tower, and clear the quota ' +
+         'of roaming bots before the clock runs out. Every bot that escapes costs your ' +
+         'tower a point of integrity.',
     stats: [{ label: 'Best', value: best }],
     btn: '▶ Play',
     action: start
