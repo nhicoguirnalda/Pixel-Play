@@ -1,8 +1,8 @@
 # PixelPlay — free browser games portal (ad-ready)
 
 A complete, self-contained browser-game website in the style of Y8 / Poki / CrazyGames:
-a homepage with search + category filters, a catalogue of **35 original HTML5 games**
-(10 shooting, 5 first-person shooters, 7 stickman, 5 word games, a block-stacking
+a homepage with search + category filters, a catalogue of **30 original HTML5 games**
+(8 shooting, 4 first-person shooters, 5 stickman, 5 word games, a block-stacking
 classic and more), game pages with ads, and all the content/legal pages you need to
 get approved by an ad network.
 
@@ -40,8 +40,6 @@ games/mine-field.html      Mine Field            (puzzle / minesweeper)
 games/pong-arena.html      Pong Arena            (sports)
 games/tic-tac-toe.html     Tic Tac Toe           (board)
 
-games/space-blaster.html    Space Blaster         (shooting / space)
-games/asteroid-storm.html   Asteroid Storm        (shooting / space)
 games/bubble-burst.html     Bubble Burst          (shooting / aim)
 games/sky-defense.html      Sky Defense           (shooting / aim)
 games/neon-squadron.html    Neon Squadron         (shooting / space)
@@ -52,7 +50,6 @@ games/turret-guard.html     Turret Guard          (shooting / defense)
 games/rift-raider.html      Rift Raider           (shooting / space)
 
 games/neon-blocks.html      Neon Blocks           (puzzle / block stacker)
-games/strike-zone.html      Strike Zone           (fps / raycast shooter)
 games/defuse-squad.html     Defuse Squad          (fps / objective)
 games/wavebreak.html        Wavebreak             (fps / wave survival)
 games/scope-elite.html      Scope Elite           (fps / precision)
@@ -61,9 +58,7 @@ games/breach-point.html     Breach Point          (fps / timed breach)
 games/stickman-sprint.html  Stickman Sprint       (stickman / endless runner)
 games/hook-hero.html        Hook Hero             (stickman / rope swing)
 games/stickman-fighter.html Stickman Fighter      (stickman / arena brawler)
-games/sky-archer.html       Sky Archer            (stickman / archery)
 games/stickman-climb.html   Stickman Climb        (stickman / pickaxe climber)
-games/pin-escape.html       Pin Escape            (stickman / pull-the-pin)
 games/stickman-rider.html   Stickman Rider        (stickman / trials bike)
 
 games/daily-word.html       Daily Word            (word / 6-guess deduction)

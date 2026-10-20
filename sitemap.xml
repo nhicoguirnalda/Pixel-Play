@@ -64,20 +64,6 @@
   </url>
 
   <url>
-    <loc>https://yourdomain.com/games/space-blaster.html</loc>
-    <lastmod>2026-10-17</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <url>
-    <loc>https://yourdomain.com/games/asteroid-storm.html</loc>
-    <lastmod>2026-10-17</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <url>
     <loc>https://yourdomain.com/games/bubble-burst.html</loc>
     <lastmod>2026-10-17</lastmod>
     <changefreq>monthly</changefreq>
@@ -141,13 +127,6 @@
   </url>
 
   <url>
-    <loc>https://yourdomain.com/games/strike-zone.html</loc>
-    <lastmod>2026-10-19</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <url>
     <loc>https://yourdomain.com/games/defuse-squad.html</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>monthly</changefreq>
@@ -197,21 +176,7 @@
   </url>
 
   <url>
-    <loc>https://yourdomain.com/games/sky-archer.html</loc>
-    <lastmod>2026-10-19</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <url>
     <loc>https://yourdomain.com/games/stickman-climb.html</loc>
-    <lastmod>2026-10-19</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <url>
-    <loc>https://yourdomain.com/games/pin-escape.html</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>

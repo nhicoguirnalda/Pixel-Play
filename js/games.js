@@ -76,22 +76,6 @@ var GAMES = [
     url: 'games/tic-tac-toe.html'
   },
   {
-    id: 'space-blaster', title: 'Space Blaster', cat: 'shooter',
-    icon: '🚀', c1: '#22d3ee', c2: '#7c5cff',
-    plays: '1.2M', playsN: 1200000, rating: 4.7, added: 8,
-    controls: 'Arrows / WASD',
-    desc: 'Defend the last line: slide your ship, blast descending alien formations and survive wave after wave of return fire.',
-    url: 'games/space-blaster.html'
-  },
-  {
-    id: 'asteroid-storm', title: 'Asteroid Storm', cat: 'shooter',
-    icon: '☄️', c1: '#f59e0b', c2: '#ef4444',
-    plays: '840K', playsN: 840000, rating: 4.6, added: 9,
-    controls: 'Arrows / Space',
-    desc: 'Spin, thrust and shoot — big asteroids split into smaller, faster chunks as you clear wave after wave of drifting rock.',
-    url: 'games/asteroid-storm.html'
-  },
-  {
     id: 'bubble-burst', title: 'Bubble Burst', cat: 'shooter',
     icon: '🫧', c1: '#38bdf8', c2: '#a855f7',
     plays: '1.5M', playsN: 1500000, rating: 4.8, added: 10,
@@ -164,14 +148,6 @@ var GAMES = [
     url: 'games/neon-blocks.html'
   },
   {
-    id: 'strike-zone', title: 'Strike Zone', cat: 'fps',
-    icon: '🔫', c1: '#ef4444', c2: '#a3e635',
-    plays: '1.4M', playsN: 1400000, rating: 4.7, added: 19,
-    controls: 'WASD + Mouse',
-    desc: 'Clear every room of hostile bots: strafe through the maze, line up your crosshair and drop each target before it opens fire.',
-    url: 'games/strike-zone.html'
-  },
-  {
     id: 'defuse-squad', title: 'Defuse Squad', cat: 'fps',
     icon: '💣', c1: '#f59e0b', c2: '#0ea5e9',
     plays: '980K', playsN: 980000, rating: 4.6, added: 20,
@@ -228,28 +204,12 @@ var GAMES = [
     url: 'games/stickman-fighter.html'
   },
   {
-    id: 'sky-archer', title: 'Sky Archer', cat: 'stickman',
-    icon: '🏹', c1: '#4ade80', c2: '#0ea5e9',
-    plays: '780K', playsN: 780000, rating: 4.7, added: 27,
-    controls: 'Mouse / Space',
-    desc: 'Draw your bow, read the crosswind and land bullseyes on floating towers across three precision rounds.',
-    url: 'games/sky-archer.html'
-  },
-  {
     id: 'stickman-climb', title: 'Stickman Climb', cat: 'stickman',
     icon: '🧗', c1: '#a855f7', c2: '#f59e0b',
     plays: '310K', playsN: 310000, rating: 4.6, added: 28,
     controls: 'Arrows / A D',
     desc: 'Hammer two pickaxes into a neon cliff, swing around overhangs and climb as high as your nerves allow.',
     url: 'games/stickman-climb.html'
-  },
-  {
-    id: 'pin-escape', title: 'Pin Escape', cat: 'stickman',
-    icon: '📍', c1: '#f97316', c2: '#0ea5e9',
-    plays: '540K', playsN: 540000, rating: 4.8, added: 29,
-    controls: 'Click / Tap',
-    desc: 'Pull the pins in the right order and guide your stickman past lava, water and boulders to the treasure.',
-    url: 'games/pin-escape.html'
   },
   {
     id: 'stickman-rider', title: 'Stickman Rider', cat: 'stickman',
