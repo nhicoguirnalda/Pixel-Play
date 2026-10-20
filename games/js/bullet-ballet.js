@@ -2,7 +2,9 @@
    Bullet Ballet — original game for PixelPlay
    Single-arena boss bullet-hell. You move a glowing orb with the
    arrow keys / WASD / d-pad while it auto-fires at a boss in the
-   centre that cycles ring, spiral and aimed bullet patterns.
+   centre. Three boss archetypes cycle with distinct silhouettes,
+   colours and patterns, dropping pickups between phases. Clearing
+   a boss offers a three-card upgrade choice (1 / 2 / 3 or click).
    ============================================================ */
 
 (function () {
@@ -18,48 +20,104 @@
 
   var PAD = 16;                 /* arena wall padding */
   var PLAYER_R = 9;
-  var PLAYER_SPEED = 258;       /* px per second */
+  var PLAYER_SPEED = 268;       /* px per second */
   var MAX_HP = 100;
   var HIT_DAMAGE = 10;
-  var INVULN_MS = 1300;
+  var INVULN_MS = 1000;         /* tighter than the old 1300ms window */
   var KNOCKBACK = 195;          /* px per second of push */
-  var FIRE_MS = 170;            /* auto-fire interval */
-  var SHOT_SPEED = 560;
-  var SHOT_DMG = 7;
+  var BASE_FIRE_MS = 170;       /* starting auto-fire interval */
+  var SHOT_SPEED = 620;
+  var BASE_DMG = 7;
   var SHOT_R = 5;
   var SHOT_SCORE = 10;
 
-  var PHASES = 4;
-  var PHASE_HP = 380;
-  var BOSS_R = 46;
-  var MAX_BULLETS = 460;
-  var PATTERN_MS = 6200;        /* how long the boss holds one pattern */
+  var MAX_BULLETS = 520;
+  var MAX_SPARKS = 200;
+  var MAX_STREAMS = 4;
+  var MAX_SHIELD = 3;
+  var PATTERN_MS = 6200;
+
+  /* ---------------- boss archetypes ---------------- */
+
+  var BOSSES = [
+    {
+      name: 'Petal Weaver', shape: 'petals',
+      col: '#f472b6', glow: '#8b5cf6', dark: '#6d28d9',
+      phaseHp: 300, phases: 4, r: 46,
+      seq: [0, 2, 1, 2], rageAlt: 4, bSpeed: 1.0, spinRate: 0.65
+    },
+    {
+      name: 'Prism Warden', shape: 'diamond',
+      col: '#38bdf8', glow: '#0ea5e9', dark: '#1d4ed8',
+      phaseHp: 340, phases: 4, r: 44,
+      seq: [3, 1, 2, 4], rageAlt: 0, bSpeed: 1.08, spinRate: 0.82
+    },
+    {
+      name: 'Ember Crown', shape: 'crown',
+      col: '#fbbf24', glow: '#f97316', dark: '#b45309',
+      phaseHp: 380, phases: 5, r: 50,
+      seq: [4, 2, 3, 1, 2], rageAlt: 3, bSpeed: 1.16, spinRate: 0.98
+    }
+  ];
 
   /* ---------------- mutable game state ---------------- */
 
-  var state = 'ready';          /* ready | running | paused | over */
+  var state = 'ready';          /* ready | running | paused | choosing | over */
   var best = GameShell.best.get(BEST_KEY, 0);
   var newBest = false;
 
-  var player = { x: CX, y: H - 120, hp: MAX_HP, inv: 0, kx: 0, ky: 0, fireT: 0 };
-  var boss = { hp: PHASE_HP, phase: 1, spin: 0, hurt: 0 };
+  var player = {
+    x: CX, y: H - 120, hp: MAX_HP, inv: 0, kx: 0, ky: 0, fireT: 0,
+    dmg: BASE_DMG, fireMs: BASE_FIRE_MS, streams: 1, shield: 0, slowMs: 0
+  };
+  var boss = { hp: 0, phaseHp: 0, phase: 1, spin: 0, hurt: 0, rage: false, def: BOSSES[0] };
+  var bossIndex = 0, cycle = 0, bossNumber = 1;
   var bullets = [];             /* enemy bullets */
   var shots = [];               /* our auto-fire bullets */
   var sparks = [];              /* cosmetic debris */
+  var pickups = [];             /* dropped power-ups */
+  var floaters = [];            /* short floating pickup labels */
 
-  var pattern = 0;              /* 0 ring | 1 spiral | 2 aimed */
-  var PATTERN_SEQ = [0, 2, 1, 2];   /* aimed volleys are the anti-camping beat */
+  var pattern = 0;              /* 0 ring | 1 spiral | 2 aimed | 3 gates | 4 crossfire */
   var patStep = 0;
   var patternT = PATTERN_MS;
   var emitT = 500;
   var spiralA = 0;
+  var emitCount = 0;
   var calmMs = 0;               /* breather after a phase is cleared */
   var score = 0;
-  var banner = '', bannerMs = 0;
-  var shake = 0;
+  var banner = '', bannerSub = '', bannerMs = 0;
+  var shake = 0, hudT = 0;
+
+  var pendingChoices = [];
 
   var keys = { up: false, down: false, left: false, right: false };
   var rafId = 0, lastT = 0;
+
+  /* ---------------- upgrade pool ---------------- */
+
+  var UPGRADES = [
+    {
+      id: 'damage', name: 'Focused Beam', icon: '✦', desc: '+2 shot damage',
+      apply: function () { player.dmg += 2; }
+    },
+    {
+      id: 'rate', name: 'Quick Trigger', icon: '⚡', desc: '-14% fire interval',
+      apply: function () { player.fireMs = Math.max(72, Math.round(player.fireMs * 0.86)); }
+    },
+    {
+      id: 'shot', name: 'Split Shot', icon: '⋔', desc: '+1 auto-fire stream',
+      apply: function () { player.streams = Math.min(MAX_STREAMS, player.streams + 1); }
+    },
+    {
+      id: 'shield', name: 'Aegis Shield', icon: '⛨', desc: '+2 shield charges',
+      apply: function () { player.shield = Math.min(MAX_SHIELD, player.shield + 2); }
+    },
+    {
+      id: 'heal', name: 'Field Repair', icon: '✚', desc: '+45 HP',
+      apply: function () { player.hp = Math.min(MAX_HP, player.hp + 45); }
+    }
+  ];
 
   /* ---------------- small helpers ---------------- */
 
@@ -69,14 +127,44 @@
 
   function shownBest() { return Math.max(best, score); }
 
+  function rr(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
   function updateHud() {
+    var right;
+    if (state === 'paused') right = '⏸ Paused';
+    else if (state === 'choosing') right = 'Choose an upgrade';
+    else right = 'Boss ' + bossNumber + ' · ' + boss.def.name +
+      (player.slowMs > 0 ? ' · ◷ slow' : '') + (boss.rage ? ' · RAGE' : '');
+
     GameShell.hud(
-      { Score: score, Best: shownBest(), HP: Math.max(0, Math.round(player.hp)) },
-      state === 'paused' ? '⏸ Paused' : 'Boss ' + boss.phase
+      {
+        Score: score,
+        Best: shownBest(),
+        HP: Math.max(0, Math.round(player.hp)),
+        Shield: player.shield
+      },
+      right
     );
   }
 
-  function say(msg) { banner = msg; bannerMs = 1500; }
+  function say(msg, sub, ms) {
+    banner = msg;
+    bannerSub = sub || '';
+    bannerMs = ms || 1500;
+  }
+
+  function floater(x, y, txt, col) {
+    floaters.push({ x: x, y: y, txt: txt, col: col || '#e8eefc', life: 900, max: 900 });
+    if (floaters.length > 18) floaters.shift();
+  }
 
   /* ---------------- setup ---------------- */
 
@@ -88,32 +176,58 @@
     player.kx = 0;
     player.ky = 0;
     player.fireT = 0;
-    boss.hp = PHASE_HP;
-    boss.phase = 1;
-    boss.spin = 0;
-    boss.hurt = 0;
+    player.dmg = BASE_DMG;
+    player.fireMs = BASE_FIRE_MS;
+    player.streams = 1;
+    player.shield = 0;
+    player.slowMs = 0;
+
+    bossIndex = 0;
+    cycle = 0;
+    bossNumber = 1;
     bullets.length = 0;
     shots.length = 0;
     sparks.length = 0;
-    pattern = 0;
-    patternT = PATTERN_MS;
-    emitT = 600;
-    spiralA = 0;
+    pickups.length = 0;
+    floaters.length = 0;
+    pendingChoices = [];
     patStep = 0;
+    emitCount = 0;
     calmMs = 0;
     score = 0;
     banner = '';
+    bannerSub = '';
     bannerMs = 0;
     shake = 0;
+    hudT = 0;
     newBest = false;
     keys.up = keys.down = keys.left = keys.right = false;
+    spawnBoss(0);
+  }
+
+  function spawnBoss(idx) {
+    var def = BOSSES[idx];
+    boss.def = def;
+    var scale = 1 + cycle * 0.24;
+    boss.phaseHp = Math.round(def.phaseHp * scale);
+    boss.hp = boss.phaseHp;
+    boss.phase = 1;
+    boss.spin = 0;
+    boss.hurt = 0;
+    boss.rage = false;
+    bullets.length = 0;
+    shots.length = 0;
+    emitCount = 0;
+    patStep = 0;
+    pattern = def.seq[0];
+    setPattern(pattern);
   }
 
   function setPattern(p) {
     pattern = p;
     patternT = PATTERN_MS;
-    emitT = 420;
-    if (p === 1) spiralA = Math.random() * Math.PI * 2;
+    emitT = Math.min(emitT, 420);
+    if (p === 1 || p === 4) spiralA = Math.random() * Math.PI * 2;
   }
 
   /* ---------------- bullets ---------------- */
@@ -128,41 +242,73 @@
     });
   }
 
-  function emit() {
+  /* Each pattern returns how long to wait before the next volley. */
+  function emitPattern(p, rageMode) {
+    var def = boss.def;
     var ph = boss.phase;
-    var col = ph >= 3 ? '#8b5cf6' : '#f472b6';
+    var spdMul = def.bSpeed * (1 + cycle * 0.14) * (rageMode ? 1.12 : 1);
+    var col = rageMode ? '#fb7185' : def.col;
+    var n, i, cd, base, off, sp, arms;
 
-    if (pattern === 0) {
+    if (p === 0) {
       /* expanding ring of evenly spaced bullets */
-      var n = 10 + ph * 3;
-      var off = Math.random() * Math.PI * 2;
-      var sp = 124 + ph * 16;
-      for (var i = 0; i < n; i++) {
+      n = 9 + ph * 3;
+      off = Math.random() * Math.PI * 2;
+      sp = (145 + ph * 15) * spdMul;
+      for (i = 0; i < n; i++) {
         addBullet(CX, CY, off + (i / n) * Math.PI * 2, sp, 6, col);
       }
-      emitT = Math.max(880, 1540 - ph * 140);
-    } else if (pattern === 1) {
-      /* rotating spiral */
-      var step = 0.34 + ph * 0.03;
-      addBullet(CX, CY, spiralA, 140 + ph * 14, 6, col);
-      if (ph >= 3) addBullet(CX, CY, spiralA + Math.PI, 140 + ph * 12, 6, col);
-      spiralA += step;
-      emitT = Math.max(58, 108 - ph * 10);
-    } else {
-      /* spread of aim-assisted shots — tighter so dodging actually matters */
-      var base = Math.atan2(player.y - CY, player.x - CX);
-      var count = Math.min(6, 2 + ph);
-      var spread = 0.22;
-      var asp = 185 + ph * 18;
-      for (var j = 0; j < count; j++) {
-        var t = count === 1 ? 0.5 : j / (count - 1);
-        addBullet(CX, CY, base + (t - 0.5) * spread, asp, 6, '#f472b6');
+      cd = Math.max(720, 1480 - ph * 130);
+
+    } else if (p === 1) {
+      /* rotating spiral, extra arms as phases climb */
+      arms = ph >= 4 ? 3 : (ph >= 2 ? 2 : 1);
+      sp = (155 + ph * 14) * spdMul;
+      for (i = 0; i < arms; i++) {
+        addBullet(CX, CY, spiralA + (i / arms) * Math.PI * 2, sp, 5.5, col);
       }
-      emitT = Math.max(800, 1270 - ph * 90);
+      spiralA += 0.30 + ph * 0.035;
+      cd = Math.max(48, 95 - ph * 8);
+
+    } else if (p === 2) {
+      /* aim-assisted spread, tighter than before */
+      base = Math.atan2(player.y - CY, player.x - CX);
+      n = Math.min(7, 2 + ph);
+      sp = (200 + ph * 20) * spdMul;
+      for (i = 0; i < n; i++) {
+        var t = n === 1 ? 0.5 : i / (n - 1);
+        addBullet(CX, CY, base + (t - 0.5) * 0.30, sp, 6, rageMode ? '#fb7185' : def.glow);
+      }
+      cd = Math.max(650, 1150 - ph * 80);
+
+    } else if (p === 3) {
+      /* gate ring — a dense ring with two deliberate safe gaps */
+      n = 18 + ph * 3;
+      off = Math.random() * Math.PI * 2;
+      sp = (120 + ph * 10) * spdMul;
+      var gapA = Math.floor(Math.random() * n);
+      var gapB = (gapA + Math.floor(n / 2)) % n;
+      for (i = 0; i < n; i++) {
+        if ((i - gapA + n) % n < 3 || (i - gapB + n) % n < 3) continue;
+        addBullet(CX, CY, off + (i / n) * Math.PI * 2, sp, 5.5, col);
+      }
+      cd = Math.max(880, 1680 - ph * 140);
+
+    } else {
+      /* rotating four-spoke crossfire */
+      sp = (175 + ph * 16) * spdMul;
+      for (i = 0; i < 4; i++) {
+        addBullet(CX, CY, spiralA + (i / 4) * Math.PI * 2, sp, 5, col);
+      }
+      spiralA += 0.19;
+      cd = Math.max(105, 165 - ph * 10);
     }
+
+    return cd;
   }
 
   function spark(x, y, col, n) {
+    if (sparks.length > MAX_SPARKS) return;
     for (var i = 0; i < n; i++) {
       var a = Math.random() * Math.PI * 2;
       var s = rnd(40, 190);
@@ -176,10 +322,19 @@
   }
 
   function hurtPlayer() {
+    if (player.shield > 0) {
+      player.shield--;
+      player.inv = Math.round(INVULN_MS * 0.7);
+      spark(player.x, player.y, '#38bdf8', 16);
+      floater(player.x, player.y - 20, 'SHIELD', '#7dd3fc');
+      updateHud();
+      return;
+    }
     player.hp -= HIT_DAMAGE;
     player.inv = INVULN_MS;
     shake = 12;
     spark(player.x, player.y, '#f472b6', 14);
+    floater(player.x, player.y - 20, '-' + HIT_DAMAGE, '#fca5a5');
     updateHud();
     if (player.hp <= 0) {
       player.hp = 0;
@@ -188,26 +343,142 @@
   }
 
   function damageBoss(amount) {
+    if (state !== 'running') return;
     boss.hp -= amount;
     boss.hurt = 90;
-    if (boss.hp > 0) return;
+    if (boss.hp > 0) {
+      /* rage: below 30% of the phase, patterns mix and shots speed up */
+      if (!boss.rage && boss.hp <= boss.phaseHp * 0.3) {
+        boss.rage = true;
+        emitT = Math.min(emitT, 160);
+        shake = Math.max(shake, 10);
+        say('RAGE', boss.def.name + ' is cornered', 1200);
+        updateHud();
+      }
+      return;
+    }
 
-    if (boss.phase < PHASES) {
+    if (boss.phase < boss.def.phases) {
       boss.phase++;
-      boss.hp = PHASE_HP;
-      bullets.length = 0;         /* clear the floor for the next phase */
-      calmMs = 1000;
-      score += 250;
+      boss.hp = boss.phaseHp;
+      boss.rage = false;
+      bullets.length = 0;          /* clear the floor for the next phase */
+      calmMs = 900;
+      score += 250 + boss.phase * 50;
       shake = 16;
-      say('Phase ' + boss.phase);
-      /* open each new phase with an aimed volley, then resume the beat */
-      setPattern(2);
-      patStep = 1;
+      dropPickup();
+      say('Phase ' + boss.phase, boss.def.name + ' · ' + boss.phase + ' of ' + boss.def.phases);
+      patStep = 0;
+      setPattern(boss.def.seq[0]);
       updateHud();
     } else {
       boss.hp = 0;
-      gameOver(true);
+      defeatBoss();
     }
+  }
+
+  /* ---------------- power-ups & upgrades ---------------- */
+
+  function dropPickup() {
+    var types = ['heal', 'shield', 'spread', 'slow', 'power'];
+    if (player.hp < 60) types.push('heal');
+    var type = types[Math.floor(Math.random() * types.length)];
+    var a = Math.random() * Math.PI * 2;
+    var rad = rnd(110, 205);
+    pickups.push({
+      x: clamp(CX + Math.cos(a) * rad, PAD + 20, W - PAD - 20),
+      y: clamp(CY + Math.sin(a) * rad, PAD + 20, H - PAD - 20),
+      type: type, life: 16000, max: 16000, bob: Math.random() * 6
+    });
+  }
+
+  function collectPickup(p) {
+    if (p.type === 'heal') {
+      player.hp = Math.min(MAX_HP, player.hp + 28);
+      floater(p.x, p.y, '+28 HP', '#6ee7b7');
+    } else if (p.type === 'shield') {
+      player.shield = Math.min(MAX_SHIELD, player.shield + 1);
+      floater(p.x, p.y, '+1 SHIELD', '#7dd3fc');
+    } else if (p.type === 'spread') {
+      if (player.streams < MAX_STREAMS) {
+        player.streams++;
+        floater(p.x, p.y, '+1 STREAM', '#f9a8d4');
+      } else {
+        player.dmg += 1;
+        floater(p.x, p.y, '+1 DMG', '#f9a8d4');
+      }
+    } else if (p.type === 'slow') {
+      player.slowMs = 3800;
+      floater(p.x, p.y, 'SLOW-MO', '#c4b5fd');
+    } else {
+      player.dmg += 2;
+      floater(p.x, p.y, '+2 DMG', '#fcd34d');
+    }
+    score += 40;
+    spark(p.x, p.y, '#fde68a', 12);
+    updateHud();
+  }
+
+  function rollChoices() {
+    var pool = [], i;
+    for (i = 0; i < UPGRADES.length; i++) {
+      var u = UPGRADES[i];
+      if (u.id === 'shot' && player.streams >= MAX_STREAMS) continue;
+      if (u.id === 'shield' && player.shield >= MAX_SHIELD) continue;
+      pool.push(u);
+    }
+    var out = [];
+    while (out.length < 3 && pool.length) {
+      out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    }
+    /* safety net so the panel always offers three distinct cards */
+    while (out.length < 3) out.push(UPGRADES[0]);
+    return out;
+  }
+
+  function defeatBoss() {
+    score += 900 + bossNumber * 150;
+    bullets.length = 0;
+    shots.length = 0;
+    pendingChoices = rollChoices();
+    state = 'choosing';
+    dropPickup();
+    say('BOSS DOWN', 'Choose an upgrade — 1 / 2 / 3 or click', 2000);
+    updateHud();
+  }
+
+  function applyChoice(i) {
+    if (state !== 'choosing') return;
+    var chosen = pendingChoices[i];
+    if (!chosen) return;
+    chosen.apply();
+    pendingChoices = [];
+
+    bossIndex++;
+    bossNumber++;
+    if (bossIndex >= BOSSES.length) {
+      bossIndex = 0;
+      cycle++;
+      score += 1200 + cycle * 400;
+      player.hp = Math.min(MAX_HP, player.hp + 15);
+      say(chosen.name + ' installed', 'Bosses return stronger — cycle ' + (cycle + 1), 2200);
+    } else {
+      say(chosen.name + ' installed', 'Next: ' + BOSSES[bossIndex].name, 2200);
+    }
+
+    spawnBoss(bossIndex);
+    state = 'running';
+    lastT = 0;
+    calmMs = 1500;
+    updateHud();
+  }
+
+  function choiceIndexAt(p) {
+    for (var i = 0; i < 3; i++) {
+      var x = cardX(i);
+      if (p.x >= x && p.x <= x + CARD.w && p.y >= CARD.y && p.y <= CARD.y + CARD.h) return i;
+    }
+    return -1;
   }
 
   /* ---------------- state changes ---------------- */
@@ -217,6 +488,7 @@
     state = 'running';
     lastT = 0;
     GameShell.overlay.hide();
+    say(boss.def.name, 'Boss ' + bossNumber + ' · dodge and auto-fire', 1800);
     updateHud();
     ensureLoop();
   }
@@ -231,7 +503,7 @@
       stats: [
         { label: 'Score', value: score },
         { label: 'HP', value: Math.max(0, Math.round(player.hp)) },
-        { label: 'Boss', value: boss.phase }
+        { label: 'Boss', value: bossNumber + ' · ' + boss.def.name }
       ],
       btn: '▶ Resume',
       action: resume
@@ -265,14 +537,13 @@
       title: won ? (newBest ? 'Boss defeated — new best!' : 'Boss defeated!')
                  : (newBest ? 'New high score!' : 'Overwhelmed'),
       msg: won
-        ? 'You cleared all ' + PHASES + ' phases and finished with ' + Math.max(0, Math.round(player.hp)) +
-          ' HP left. Score: ' + score + '.'
-        : 'The bullets caught up with you in phase ' + boss.phase + '. Score: ' + score +
-          '. Try again — circling beats sprinting.',
+        ? 'You cleared the arena with ' + Math.max(0, Math.round(player.hp)) + ' HP left. Score: ' + score + '.'
+        : 'You fell to the ' + boss.def.name + ' in phase ' + boss.phase + ' of boss ' + bossNumber +
+          '. Score: ' + score + '. Try again — collect shields and keep circling.',
       stats: [
         { label: 'Score', value: score },
         { label: 'Best', value: best },
-        { label: 'Boss phase', value: boss.phase }
+        { label: 'Boss reached', value: bossNumber }
       ],
       btn: '▶ Play again',
       action: start
@@ -281,13 +552,34 @@
 
   /* ---------------- update ---------------- */
 
+  function fireShots() {
+    var a = Math.atan2(CY - player.y, CX - player.x);
+    var n = player.streams;
+    for (var i = 0; i < n; i++) {
+      var off = (i - (n - 1) / 2) * 0.055;
+      var ang = a + off;
+      shots.push({
+        x: player.x + Math.cos(ang) * (PLAYER_R + 4),
+        y: player.y + Math.sin(ang) * (PLAYER_R + 4),
+        vx: Math.cos(ang) * SHOT_SPEED,
+        vy: Math.sin(ang) * SHOT_SPEED,
+        r: SHOT_R
+      });
+    }
+  }
+
   function update(dt) {
     var s = dt / 1000;
 
     if (shake > 0) shake = Math.max(0, shake - dt * 0.05);
     if (boss.hurt > 0) boss.hurt -= dt;
     if (bannerMs > 0) bannerMs -= dt;
-    boss.spin += s * (0.6 + boss.phase * 0.22);
+    if (player.slowMs > 0) player.slowMs = Math.max(0, player.slowMs - dt);
+    boss.spin += s * (boss.def.spinRate + boss.phase * 0.16);
+
+    /* keep the DOM HUD cheap even at maximum fire rate */
+    hudT -= dt;
+    if (hudT <= 0) { hudT = 200; updateHud(); }
 
     /* ---- player movement ---- */
     var dx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
@@ -311,7 +603,7 @@
     /* keep the orb out of the boss body */
     var bdx = player.x - CX, bdy = player.y - CY;
     var bd = Math.sqrt(bdx * bdx + bdy * bdy);
-    var minD = BOSS_R + PLAYER_R + 8;
+    var minD = boss.def.r + PLAYER_R + 8;
     if (bd < minD) {
       var ba = bd > 0.001 ? Math.atan2(bdy, bdx) : Math.random() * Math.PI * 2;
       player.x = CX + Math.cos(ba) * minD;
@@ -323,11 +615,8 @@
     /* ---- auto-fire ---- */
     player.fireT -= dt;
     if (player.fireT <= 0) {
-      player.fireT = FIRE_MS;
-      var a = Math.atan2(CY - player.y, CX - player.x);
-      var mx = player.x + Math.cos(a) * (PLAYER_R + 4);
-      var my = player.y + Math.sin(a) * (PLAYER_R + 4);
-      shots.push({ x: mx, y: my, vx: Math.cos(a) * SHOT_SPEED, vy: Math.sin(a) * SHOT_SPEED, r: SHOT_R });
+      player.fireT = player.fireMs;
+      fireShots();
     }
 
     /* ---- boss patterns ---- */
@@ -336,11 +625,18 @@
     } else {
       patternT -= dt;
       if (patternT <= 0) {
-        patStep = (patStep + 1) % PATTERN_SEQ.length;
-        setPattern(PATTERN_SEQ[patStep]);
+        patStep = (patStep + 1) % boss.def.seq.length;
+        setPattern(boss.def.seq[patStep]);
+        emitT = Math.min(emitT, 260);
       }
       emitT -= dt;
-      if (emitT <= 0) emit();
+      if (emitT <= 0) {
+        var use = pattern;
+        /* rage mixes a second pattern into the beat */
+        if (boss.rage && emitCount % 3 === 2) use = boss.def.rageAlt;
+        emitT = emitPattern(use, boss.rage) * (boss.rage ? 0.72 : 1);
+        emitCount++;
+      }
     }
 
     /* ---- our shots ---- */
@@ -349,28 +645,28 @@
       sh.x += sh.vx * s;
       sh.y += sh.vy * s;
       var bx = sh.x - CX, by = sh.y - CY;
-      if (bx * bx + by * by <= (BOSS_R + sh.r) * (BOSS_R + sh.r)) {
+      if (bx * bx + by * by <= (boss.def.r + sh.r) * (boss.def.r + sh.r)) {
         shots.splice(i, 1);
         spark(sh.x, sh.y, '#fde68a', 5);
         score += SHOT_SCORE;
-        damageBoss(SHOT_DMG);
-        updateHud();
+        damageBoss(player.dmg);
         if (state !== 'running') return;
         continue;
       }
       if (sh.x < -20 || sh.x > W + 20 || sh.y < -20 || sh.y > H + 20) shots.splice(i, 1);
     }
 
-    /* ---- enemy bullets ---- */
+    /* ---- enemy bullets (slow-motion pickup halves their speed) ---- */
+    var bs = player.slowMs > 0 ? s * 0.55 : s;
     for (var j = bullets.length - 1; j >= 0; j--) {
       var b = bullets[j];
-      b.x += b.vx * s;
-      b.y += b.vy * s;
+      b.x += b.vx * bs;
+      b.y += b.vy * bs;
 
       if (player.inv <= 0) {
         var px = b.x - player.x, py = b.y - player.y;
-        var rr = PLAYER_R + b.r;
-        if (px * px + py * py <= rr * rr) {
+        var rr2 = PLAYER_R + b.r;
+        if (px * px + py * py <= rr2 * rr2) {
           bullets.splice(j, 1);
           /* knock the player away along the bullet's own path */
           var len = Math.sqrt(b.vx * b.vx + b.vy * b.vy) || 1;
@@ -384,21 +680,50 @@
       if (b.x < -30 || b.x > W + 30 || b.y < -30 || b.y > H + 30) bullets.splice(j, 1);
     }
 
+    /* ---- pickups ---- */
+    for (var k = pickups.length - 1; k >= 0; k--) {
+      var p = pickups[k];
+      p.life -= dt;
+      if (p.life <= 0) { pickups.splice(k, 1); continue; }
+      var pdx = player.x - p.x, pdy = player.y - p.y;
+      var pd = Math.sqrt(pdx * pdx + pdy * pdy);
+      if (pd < 95 && pd > 0.01) {
+        /* gentle magnet so pickups are not fiddly on a phone */
+        p.x += (pdx / pd) * 150 * s;
+        p.y += (pdy / pd) * 150 * s;
+        pdx = player.x - p.x;
+        pdy = player.y - p.y;
+        pd = Math.sqrt(pdx * pdx + pdy * pdy);
+      }
+      if (pd <= PLAYER_R + 16) {
+        collectPickup(p);
+        pickups.splice(k, 1);
+      }
+    }
+
     /* ---- sparks ---- */
-    for (var k = sparks.length - 1; k >= 0; k--) {
-      var sp = sparks[k];
+    for (var m = sparks.length - 1; m >= 0; m--) {
+      var sp = sparks[m];
       sp.life -= dt;
-      if (sp.life <= 0) { sparks.splice(k, 1); continue; }
+      if (sp.life <= 0) { sparks.splice(m, 1); continue; }
       sp.x += sp.vx * s;
       sp.y += sp.vy * s;
       sp.vx *= 0.97;
       sp.vy *= 0.97;
+    }
+
+    /* ---- floating labels ---- */
+    for (var f = floaters.length - 1; f >= 0; f--) {
+      floaters[f].y -= 26 * s;
+      floaters[f].life -= dt;
+      if (floaters[f].life <= 0) floaters.splice(f, 1);
     }
   }
 
   /* ---------------- draw ---------------- */
 
   function drawArena(t) {
+    var def = boss.def;
     var g = ctx.createRadialGradient(CX, CY, 40, CX, CY, W * 0.72);
     g.addColorStop(0, '#141031');
     g.addColorStop(0.55, '#0a0e21');
@@ -426,20 +751,17 @@
       ctx.fillRect(x, y, sz, sz);
     }
 
-    /* arena frame */
-    ctx.strokeStyle = 'rgba(244, 114, 182, .16)';
+    /* arena frame picks up the current boss colour */
+    ctx.save();
+    ctx.globalAlpha = 0.18;
+    ctx.strokeStyle = def.col;
     ctx.lineWidth = 2;
     ctx.strokeRect(PAD - 4.5, PAD - 4.5, W - (PAD - 4.5) * 2, H - (PAD - 4.5) * 2);
+    ctx.restore();
   }
 
-  function drawBoss(t) {
-    var pulse = 1 + Math.sin(t / 260) * 0.03;
-    ctx.save();
-    ctx.translate(CX, CY);
-    ctx.rotate(boss.spin);
-
-    /* outer petals */
-    ctx.strokeStyle = boss.hurt > 0 ? 'rgba(255,255,255,.9)' : 'rgba(139, 92, 246, .75)';
+  function drawPetals(def) {
+    ctx.strokeStyle = boss.hurt > 0 ? 'rgba(255,255,255,.9)' : def.col;
     ctx.lineWidth = 3;
     for (var i = 0; i < 6; i++) {
       var a = (i / 6) * Math.PI * 2;
@@ -447,30 +769,104 @@
       ctx.ellipse(Math.cos(a) * 34, Math.sin(a) * 34, 20, 9, a, 0, Math.PI * 2);
       ctx.stroke();
     }
+  }
+
+  function drawDiamond(def) {
+    ctx.strokeStyle = boss.hurt > 0 ? 'rgba(255,255,255,.95)' : def.col;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, -54); ctx.lineTo(45, 0); ctx.lineTo(0, 54); ctx.lineTo(-45, 0);
+    ctx.closePath();
+    ctx.stroke();
+
+    ctx.save();
+    ctx.rotate(-boss.spin * 1.9);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = boss.hurt > 0 ? 'rgba(255,255,255,.8)' : def.glow;
+    ctx.strokeRect(-26, -26, 52, 52);
+    ctx.restore();
+
+    ctx.strokeStyle = def.glow;
+    ctx.lineWidth = 1.5;
+    for (var i = 0; i < 4; i++) {
+      var a = boss.spin * 1.4 + (i / 4) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * 30, Math.sin(a) * 30);
+      ctx.lineTo(Math.cos(a) * 58, Math.sin(a) * 58);
+      ctx.stroke();
+    }
+  }
+
+  function drawCrown(def) {
+    ctx.strokeStyle = boss.hurt > 0 ? 'rgba(255,255,255,.95)' : def.col;
+    ctx.lineWidth = 3;
+    /* six-sided crown with three long spikes */
+    ctx.beginPath();
+    for (var i = 0; i < 6; i++) {
+      var a = (i / 6) * Math.PI * 2;
+      var rad = i % 2 === 0 ? 50 : 34;
+      var x = Math.cos(a) * rad, y = Math.sin(a) * rad;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+
+    ctx.strokeStyle = def.glow;
+    ctx.lineWidth = 2;
+    for (var k = 0; k < 3; k++) {
+      var ang = boss.spin + (k / 3) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(ang) * 42, Math.sin(ang) * 42);
+      ctx.lineTo(Math.cos(ang) * 68, Math.sin(ang) * 68);
+      ctx.stroke();
+    }
+  }
+
+  function drawBoss(t) {
+    var def = boss.def;
+    var pulse = 1 + Math.sin(t / 260) * 0.03;
+
+    ctx.save();
+    ctx.translate(CX, CY);
+    ctx.rotate(boss.spin);
+    if (def.shape === 'petals') drawPetals(def);
+    else if (def.shape === 'diamond') drawDiamond(def);
+    else drawCrown(def);
     ctx.restore();
 
     ctx.save();
     ctx.translate(CX, CY);
-    ctx.shadowColor = boss.hurt > 0 ? '#ffffff' : '#8b5cf6';
-    ctx.shadowBlur = 34;
-    var bg = ctx.createRadialGradient(-12, -14, 4, 0, 0, BOSS_R * pulse);
+    ctx.shadowColor = boss.hurt > 0 ? '#ffffff' : def.glow;
+    ctx.shadowBlur = 30;
+    var bg = ctx.createRadialGradient(-12, -14, 4, 0, 0, def.r * pulse);
     bg.addColorStop(0, '#ffffff');
-    bg.addColorStop(0.4, boss.hurt > 0 ? '#fbcfe8' : '#f472b6');
-    bg.addColorStop(1, '#6d28d9');
+    bg.addColorStop(0.4, boss.hurt > 0 ? '#ffffff' : def.col);
+    bg.addColorStop(1, def.dark);
     ctx.fillStyle = bg;
     ctx.beginPath();
-    ctx.arc(0, 0, BOSS_R * pulse, 0, Math.PI * 2);
+    ctx.arc(0, 0, def.r * pulse, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
+    /* rage halo */
+    if (boss.rage) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(248, 113, 113, ' + (0.45 + Math.sin(t / 110) * 0.2) + ')';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(CX, CY, def.r + 14 + Math.sin(t / 150) * 3, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     /* health bar */
     var bw = W - 96, bx = 48, by = 16, bh = 12;
-    var frac = clamp(boss.hp / PHASE_HP, 0, 1);
+    var frac = clamp(boss.hp / boss.phaseHp, 0, 1);
     ctx.fillStyle = 'rgba(232,238,252,.10)';
     ctx.fillRect(bx, by, bw, bh);
     var hg = ctx.createLinearGradient(bx, 0, bx + bw, 0);
-    hg.addColorStop(0, '#f472b6');
-    hg.addColorStop(1, '#8b5cf6');
+    hg.addColorStop(0, boss.rage ? '#f87171' : def.col);
+    hg.addColorStop(1, def.glow);
     ctx.fillStyle = hg;
     ctx.fillRect(bx, by, bw * frac, bh);
     ctx.strokeStyle = 'rgba(232,238,252,.22)';
@@ -481,9 +877,47 @@
     ctx.font = '600 12px "Segoe UI", system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(232,238,252,.68)';
-    ctx.fillText('BOSS · PHASE ' + boss.phase + ' OF ' + PHASES, CX, by + bh + 6);
+    ctx.fillStyle = 'rgba(232,238,252,.72)';
+    ctx.fillText(
+      def.name.toUpperCase() + ' · PHASE ' + boss.phase + ' OF ' + def.phases +
+      (boss.rage ? ' · RAGE' : ''),
+      CX, by + bh + 6
+    );
     ctx.restore();
+  }
+
+  function drawPickups(t) {
+    for (var i = 0; i < pickups.length; i++) {
+      var p = pickups[i];
+      var col, glyph;
+      if (p.type === 'heal') { col = '#34d399'; glyph = '✚'; }
+      else if (p.type === 'shield') { col = '#38bdf8'; glyph = '⛨'; }
+      else if (p.type === 'spread') { col = '#f472b6'; glyph = '⋔'; }
+      else if (p.type === 'slow') { col = '#c4b5fd'; glyph = '◷'; }
+      else { col = '#fbbf24'; glyph = '✦'; }
+
+      var bob = Math.sin(t / 320 + p.bob) * 3;
+      var fade = p.life < 2500 ? (0.35 + 0.65 * Math.abs(Math.sin(t / 120))) : 1;
+      ctx.save();
+      ctx.globalAlpha = fade;
+      ctx.translate(p.x, p.y + bob);
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 16;
+      ctx.fillStyle = 'rgba(5,7,14,.9)';
+      rr(-13, -13, 26, 26, 8);
+      ctx.fill();
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 2;
+      rr(-13, -13, 26, 26, 8);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = col;
+      ctx.font = '700 15px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(glyph, 0, 1);
+      ctx.restore();
+    }
   }
 
   function drawPlayer(t) {
@@ -514,6 +948,17 @@
       ctx.restore();
     }
 
+    /* shield rings */
+    for (var s = 0; s < player.shield; s++) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(56, 189, 248, ' + (0.5 - s * 0.1) + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, PLAYER_R + 5 + s * 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     /* player HP strip along the bottom */
     var frac = clamp(player.hp / MAX_HP, 0, 1);
     var bx = 48, bw = W - 96, by = H - 26, bh = 8;
@@ -521,12 +966,15 @@
     ctx.fillRect(bx, by, bw, bh);
     ctx.fillStyle = frac > 0.5 ? '#22d3ee' : (frac > 0.25 ? '#fbbf24' : '#f43f5e');
     ctx.fillRect(bx, by, bw * frac, bh);
+
+    /* slow-motion timer tick */
+    if (player.slowMs > 0) {
+      ctx.fillStyle = 'rgba(196, 181, 253, .8)';
+      ctx.fillRect(bx, by - 5, bw * (player.slowMs / 3800), 3);
+    }
   }
 
   function drawShots() {
-    ctx.save();
-    ctx.shadowColor = '#fde68a';
-    ctx.shadowBlur = 14;
     ctx.fillStyle = '#fef3c7';
     for (var i = 0; i < shots.length; i++) {
       var s2 = shots[i];
@@ -534,21 +982,36 @@
       ctx.arc(s2.x, s2.y, s2.r, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.restore();
+    ctx.fillStyle = 'rgba(253, 230, 138, .28)';
+    for (var j = 0; j < shots.length; j++) {
+      var s3 = shots[j];
+      ctx.beginPath();
+      ctx.arc(s3.x, s3.y, s3.r * 2.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   function drawBullets() {
-    for (var i = 0; i < bullets.length; i++) {
-      var b = bullets[i];
-      ctx.save();
-      ctx.shadowColor = b.c;
-      ctx.shadowBlur = 12;
+    /* two cheap circles per bullet — no per-bullet shadow blur, so dense
+       patterns stay 60fps friendly */
+    var i, b;
+    ctx.fillStyle = 'rgba(244, 114, 182, .16)';
+    for (i = 0; i < bullets.length; i++) {
+      b = bullets[i];
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = b.c;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r * 1.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    for (i = 0; i < bullets.length; i++) {
+      b = bullets[i];
       ctx.fillStyle = b.c;
       ctx.beginPath();
       ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
       ctx.fill();
-      ctx.restore();
-      ctx.fillStyle = 'rgba(255,255,255,.8)';
+      ctx.fillStyle = 'rgba(255,255,255,.82)';
       ctx.beginPath();
       ctx.arc(b.x - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.32, 0, Math.PI * 2);
       ctx.fill();
@@ -565,6 +1028,20 @@
     ctx.globalAlpha = 1;
   }
 
+  function drawFloaters() {
+    ctx.save();
+    ctx.font = '700 13px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (var i = 0; i < floaters.length; i++) {
+      var f = floaters[i];
+      ctx.globalAlpha = Math.max(0, Math.min(1, f.life / f.max));
+      ctx.fillStyle = f.col;
+      ctx.fillText(f.txt, f.x, f.y);
+    }
+    ctx.restore();
+  }
+
   function drawBanner() {
     if (bannerMs <= 0 || !banner) return;
     ctx.save();
@@ -575,7 +1052,71 @@
     ctx.fillStyle = '#fde68a';
     ctx.shadowColor = '#f472b6';
     ctx.shadowBlur = 22;
-    ctx.fillText(banner, CX, CY - 96);
+    ctx.fillText(banner, CX, CY - 118);
+    if (bannerSub) {
+      ctx.shadowBlur = 0;
+      ctx.font = '600 14px "Segoe UI", system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(232,238,252,.75)';
+      ctx.fillText(bannerSub, CX, CY - 86);
+    }
+    ctx.restore();
+  }
+
+  /* ---------------- upgrade choice cards ---------------- */
+
+  var CARD = { w: 164, h: 136, gap: 14, y: 252 };
+
+  function cardX(i) { return (W - (CARD.w * 3 + CARD.gap * 2)) / 2 + i * (CARD.w + CARD.gap); }
+
+  function drawChoices(t) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(5, 7, 14, .82)';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '700 28px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = '#fde68a';
+    ctx.shadowColor = boss.def.col;
+    ctx.shadowBlur = 18;
+    ctx.fillText('BOSS DOWN', CX, 176);
+    ctx.shadowBlur = 0;
+    ctx.font = '600 14px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(232,238,252,.82)';
+    ctx.fillText('Choose an upgrade — press 1, 2, 3 or click a card', CX, 210);
+
+    for (var i = 0; i < 3; i++) {
+      var u = pendingChoices[i];
+      if (!u) continue;
+      var x = cardX(i);
+      var lift = Math.sin(t / 420 + i) * 2;
+      ctx.save();
+      ctx.translate(0, lift);
+      ctx.fillStyle = 'rgba(255,255,255,.055)';
+      rr(x, CARD.y, CARD.w, CARD.h, 14);
+      ctx.fill();
+      ctx.strokeStyle = boss.def.col;
+      ctx.lineWidth = 2;
+      rr(x, CARD.y, CARD.w, CARD.h, 14);
+      ctx.stroke();
+
+      ctx.fillStyle = boss.def.glow;
+      ctx.font = '700 26px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText(u.icon, x + CARD.w / 2, CARD.y + 34);
+
+      ctx.fillStyle = '#e8eefc';
+      ctx.font = '700 15px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText(u.name, x + CARD.w / 2, CARD.y + 70);
+
+      ctx.fillStyle = 'rgba(232,238,252,.72)';
+      ctx.font = '600 12px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText(u.desc, x + CARD.w / 2, CARD.y + 94);
+
+      ctx.fillStyle = 'rgba(253, 230, 138, .9)';
+      ctx.font = '700 12px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText('[' + (i + 1) + ']', x + CARD.w / 2, CARD.y + 118);
+      ctx.restore();
+    }
     ctx.restore();
   }
 
@@ -586,12 +1127,16 @@
     }
     drawArena(t);
     drawBoss(t);
+    drawPickups(t);
     drawShots();
     drawBullets();
     drawSparks();
     drawPlayer(t);
+    drawFloaters();
     drawBanner();
     ctx.restore();
+
+    if (state === 'choosing') drawChoices(t);
   }
 
   /* ---------------- loop ---------------- */
@@ -625,6 +1170,19 @@
     setDir(name, true);
   }
 
+  function toCanvas(e) {
+    if (typeof e.clientX !== 'number' || typeof e.clientY !== 'number') {
+      return { x: 0, y: 0 };
+    }
+    var rect = canvas.getBoundingClientRect();
+    var sx = rect.width ? W / rect.width : 1;
+    var sy = rect.height ? H / rect.height : 1;
+    return {
+      x: clamp((e.clientX - rect.left) * sx, 0, W),
+      y: clamp((e.clientY - rect.top) * sy, 0, H)
+    };
+  }
+
   document.addEventListener('keydown', function (e) {
     var tag = e.target && e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -633,6 +1191,15 @@
     var k = e.key;
     if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight' || k === ' ') {
       e.preventDefault();
+    }
+
+    if (state === 'choosing') {
+      if (k === '1' || k === '2' || k === '3') {
+        applyChoice(parseInt(k, 10) - 1);
+        return;
+      }
+      if (k === 'r' || k === 'R') { start(); return; }
+      return;
     }
 
     if (k === 'ArrowUp' || k === 'w' || k === 'W') steer('up');
@@ -676,6 +1243,11 @@
 
   canvas.addEventListener('pointerdown', function (e) {
     e.preventDefault();
+    if (state === 'choosing') {
+      var idx = choiceIndexAt(toCanvas(e));
+      if (idx >= 0) applyChoice(idx);
+      return;
+    }
     if (state === 'ready' || state === 'over') start();
     else if (state === 'running') pause();
     else if (state === 'paused') resume();
@@ -702,6 +1274,72 @@
     if (state === 'running') pause();
   });
 
+  /* ---------------- read-only test hook ---------------- */
+
+  window.__bulletBallet = {
+    state: function () {
+      return {
+        state: state,
+        score: score,
+        hp: Math.max(0, Math.round(player.hp)),
+        shield: player.shield,
+        slowMs: Math.round(player.slowMs),
+        boss: bossNumber,
+        bossName: boss.def.name,
+        phase: boss.phase,
+        phases: boss.def.phases,
+        rage: boss.rage,
+        bossHp: boss.hp,
+        phaseHp: boss.phaseHp,
+        cycle: cycle,
+        bullets: bullets.length,
+        shots: shots.length,
+        pickups: pickups.length,
+        x: player.x,
+        y: player.y
+      };
+    },
+    wave: function () { return bossNumber; },
+    bossHp: function () { return boss.hp; },
+    powerups: function () {
+      var out = [], i;
+      for (i = 0; i < pickups.length; i++) {
+        out.push({
+          type: pickups[i].type,
+          x: Math.round(pickups[i].x),
+          y: Math.round(pickups[i].y),
+          life: Math.round(pickups[i].life)
+        });
+      }
+      return out;
+    },
+    upgrades: function () {
+      return {
+        damage: player.dmg,
+        fireMs: player.fireMs,
+        streams: player.streams,
+        shieldMax: MAX_SHIELD,
+        shield: player.shield
+      };
+    },
+    choices: function () {
+      var out = [], i;
+      for (i = 0; i < pendingChoices.length; i++) out.push(pendingChoices[i].id);
+      return out;
+    },
+    threats: function () {
+      var out = [], i;
+      for (i = 0; i < bullets.length; i++) {
+        out.push({
+          x: bullets[i].x, y: bullets[i].y,
+          vx: bullets[i].vx, vy: bullets[i].vy,
+          r: bullets[i].r
+        });
+      }
+      return out;
+    }
+  };
+
   /* ---------------- boot ---------------- */
 
   reset();
@@ -709,7 +1347,7 @@
   ensureLoop();
   GameShell.overlay.show({
     title: 'Bullet Ballet',
-    msg: 'Move with the arrow keys, WASD or the pad below — your orb fires by itself. Dodge the rings, spirals and aimed volleys while you wear the boss down through four phases.',
+    msg: 'Move with the arrow keys, WASD or the pad below — your orb fires by itself. Three bosses cycle through distinct bullet patterns; clear a boss to pick one of three upgrades, and grab the power-ups dropped between phases.',
     stats: [{ label: 'Best', value: best }],
     btn: '▶ Play',
     action: start
