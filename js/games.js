@@ -164,14 +164,6 @@ var GAMES = [
     url: 'games/wavebreak.html'
   },
   {
-    id: 'scope-elite', title: 'Scope Elite', cat: 'fps',
-    icon: '🔭', c1: '#0ea5e9', c2: '#f59e0b',
-    plays: '760K', playsN: 760000, rating: 4.4, added: 22,
-    controls: 'Mouse / Touch',
-    desc: 'Peek from cover, steady your scope and pick off moving targets at long range before the clock runs out on each mission.',
-    url: 'games/scope-elite.html'
-  },
-  {
     id: 'breach-point', title: 'Breach Point', cat: 'fps',
     icon: '💥', c1: '#ec4899', c2: '#6366f1',
     plays: '640K', playsN: 640000, rating: 4.5, added: 23,
