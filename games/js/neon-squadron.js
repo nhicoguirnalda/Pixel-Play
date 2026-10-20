@@ -1,7 +1,9 @@
 /* ============================================================
    Neon Squadron — original game for PixelPlay
-   Vertical scrolling shoot-'em-up: formation waves, a boss
-   every fifth wave, timed power-ups. Keyboard + on-screen pad.
+   Vertical scrolling shoot-'em-up: formation waves, three boss
+   archetypes every fourth wave, eight power-up types and a
+   three-choice upgrade panel after each boss.
+   Keyboard + on-screen pad.
    ============================================================ */
 
 (function () {
@@ -26,13 +28,56 @@
   var bullets = [], eBullets = [], enemies = [], powers = [], sparks = [], stars = [];
 
   var fireCd = 0, invuln = 0, shield = 0;
-  var rapidMs = 0, spreadMs = 0;
+  var rapidMs = 0, spreadMs = 0, homingMs = 0, laserMs = 0;
+  var magnetMs = 0, doubleMs = 0, bombCharges = 0;
   var between = false, waveGap = 0;
+
+  var choosing = false, pendingUpgrade = false, choices = [];
+  var upg = { dmg: 0, rate: 0, shield: 0, bomb: 0, life: 0 };
+  var flashT = 0, phaseFlash = 0, phaseFlashText = '', shotSeq = 0;
 
   var SHIP_SPEED = 5.4;              /* px per 60fps frame */
   var BULLET_SPEED = 11;
   var EBULLET = 4.0;
   var FIRE_MS = 190, RAPID_FIRE_MS = 85;
+  var POWER_MS = 10000;
+  var POWER_TIMES = {
+    rapid: 10000, spread: 10000, homing: 11000,
+    laser: 8000, magnet: 11000, double: 12000
+  };
+  var MAX_BOMBS = 3;
+  var BOSS_EVERY = 4;
+
+  var bombRect = { x: 10, y: H - 38, w: 118, h: 26 };
+
+  var POWER_DEFS = {
+    rapid:  { color: '#ec4899', icon: 'R', label: 'Rapid fire' },
+    spread: { color: '#22d3ee', icon: 'S', label: 'Spread shot' },
+    shield: { color: '#a3e635', icon: 'D', label: 'Shield' },
+    homing: { color: '#f59e0b', icon: 'H', label: 'Homing' },
+    laser:  { color: '#a78bfa', icon: 'L', label: 'Laser' },
+    bomb:   { color: '#facc15', icon: 'B', label: 'Bomb charge' },
+    magnet: { color: '#2dd4bf', icon: 'M', label: 'Magnet' },
+    double: { color: '#fb7185', icon: '2x', label: 'Double score' }
+  };
+
+  var DROP_TABLE = [
+    ['rapid', 16], ['spread', 16], ['shield', 12], ['homing', 12],
+    ['laser', 10], ['bomb', 9], ['magnet', 10], ['double', 9]
+  ];
+
+  var BOSS_NAMES = ['Bulwark Cruiser', 'Ring Warden', 'Lance Serpent'];
+  var BOSS_COLORS = ['#f472b6', '#2dd4bf', '#f59e0b'];
+
+  var UPG_DEFS = [
+    { id: 'dmg',    name: 'Plasma Rounds',  desc: '+1 bullet damage',     max: 5 },
+    { id: 'rate',   name: 'Cooling Coils',  desc: '14% faster fire',      max: 5 },
+    { id: 'shield', name: 'Aegis Plating',  desc: '+1 shield charge',     max: 3 },
+    { id: 'bomb',   name: 'Bomb Bay',       desc: '+1 screen bomb',       max: 3 },
+    { id: 'life',   name: 'Spare Hull',     desc: '+1 life',              max: 3 }
+  ];
+
+  var FALLBACK_UPG = { id: 'score', name: 'Bounty Cache', desc: '+1500 score', max: 99 };
 
   /* ---------------- helpers ---------------- */
 
@@ -68,30 +113,50 @@
     }
   }
 
+  function shieldMax() { return 1 + upg.shield; }
+
+  function addScore(n) {
+    score += Math.round(n * (doubleMs > 0 ? 2 : 1));
+  }
+
+  function findBoss() {
+    for (var i = 0; i < enemies.length; i++) {
+      if (enemies[i].boss) return enemies[i];
+    }
+    return null;
+  }
+
   function updateHud() {
     GameShell.hud(
-      { Score: score, Best: Math.max(best, score), Lives: lives },
-      state === 'paused' ? '⏸ Paused' : 'Wave ' + wave
+      { Score: score, Best: Math.max(best, score), Lives: lives, Bombs: bombCharges },
+      state === 'paused' ? '⏸ Paused'
+        : (choosing ? '★ Upgrade ready' : 'Wave ' + wave)
     );
   }
 
   /* ---------------- waves ---------------- */
 
   function spawnBoss() {
-    var lvl = Math.floor(wave / 5);
-    var hp = 26 + lvl * 20;
+    var n = Math.floor(wave / BOSS_EVERY);
+    var arch = (n - 1) % 3;
+    if (arch < 0) arch = 0;
+    var hp = Math.round((70 + wave * 10) * (1 + (n - 1) * 0.03));
     enemies.push({
-      x: W / 2, y: -120, baseX: W / 2, dir: 1,
-      w: 152, h: 78, r: 74,
-      hp: hp, maxHp: hp, vy: 1.1, amp: 0, phase: 0,
-      fireCd: 1100, boss: true, hitFlash: 0
+      x: W / 2, y: -150, baseX: W / 2, dir: 1,
+      w: arch === 0 ? 152 : 122,
+      h: arch === 0 ? 78 : 108,
+      r: 72,
+      hp: hp, maxHp: hp, vy: 1.4,
+      boss: true, arch: arch, name: BOSS_NAMES[arch], color: BOSS_COLORS[arch],
+      hitFlash: 0, phase: 1, phase2: false, t: 0,
+      fireCd: 1200, heavyCd: 4600, heavyTele: 0, heavyKind: 0, aimAngle: Math.PI / 2
     });
   }
 
   function spawnWave() {
     enemies = [];
     eBullets = [];
-    if (wave % 5 === 0) { spawnBoss(); return; }
+    if (wave % BOSS_EVERY === 0) { spawnBoss(); return; }
 
     var cols = 6;
     var rows = Math.min(4, 1 + Math.floor((wave + 1) / 2));
@@ -118,37 +183,248 @@
 
   function shoot() {
     var y = ship.y - 22;
-    var sp = spreadMs > 0;
-    bullets.push({ x: ship.x, y: y, vx: 0, vy: -BULLET_SPEED, r: 4.5, dmg: 1 });
-    if (sp) {
-      bullets.push({ x: ship.x - 11, y: y + 8, vx: -2.6, vy: -BULLET_SPEED * 0.94, r: 4, dmg: 1 });
-      bullets.push({ x: ship.x + 11, y: y + 8, vx: 2.6, vy: -BULLET_SPEED * 0.94, r: 4, dmg: 1 });
-    }
-  }
+    var dmg = 1 + upg.dmg;
+    shotSeq++;
 
-  function bossFire(e) {
-    var n = 5;
-    for (var i = 0; i < n; i++) {
-      var spread = -0.55 + (i / (n - 1)) * 1.1;
-      eBullets.push({
-        x: e.x, y: e.y + e.h / 2, r: 6,
-        vx: Math.sin(spread) * EBULLET * 1.15,
-        vy: Math.cos(spread) * EBULLET * 1.15
+    if (laserMs > 0) {
+      bullets.push({
+        x: ship.x, y: y, vx: 0, vy: -BULLET_SPEED * 1.45,
+        r: 4, dmg: dmg + 1, pierce: 5, hits: [], laser: true
+      });
+    } else {
+      bullets.push({ x: ship.x, y: y, vx: 0, vy: -BULLET_SPEED, r: 4.5, dmg: dmg });
+      if (spreadMs > 0) {
+        bullets.push({ x: ship.x - 11, y: y + 8, vx: -2.6, vy: -BULLET_SPEED * 0.94, r: 4, dmg: dmg });
+        bullets.push({ x: ship.x + 11, y: y + 8, vx: 2.6, vy: -BULLET_SPEED * 0.94, r: 4, dmg: dmg });
+      }
+    }
+
+    if (homingMs > 0 && shotSeq % 2 === 0) {
+      var side = Math.floor(shotSeq / 2) % 2 ? -1 : 1;
+      bullets.push({
+        x: ship.x + side * 15, y: y + 6,
+        vx: side * 2.4, vy: -6.4, r: 4,
+        dmg: Math.max(1, 1 + Math.floor(upg.dmg / 2)),
+        homing: true, speed: 7.6
       });
     }
   }
 
+  function bossFan(e, count, speed, spread) {
+    var base = Math.atan2(ship.y - e.y, ship.x - e.x);
+    for (var i = 0; i < count; i++) {
+      var a = base + (-spread + (i / (count - 1)) * spread * 2) * 0.5;
+      eBullets.push({
+        x: e.x, y: e.y + e.h / 2 - 10, r: 6,
+        vx: Math.cos(a) * speed, vy: Math.sin(a) * speed
+      });
+    }
+  }
+
+  function bossRing(e, count, speed, offset, gaps) {
+    for (var i = 0; i < count; i++) {
+      if (gaps && i % gaps === 0) continue;
+      var a = offset + (i / count) * Math.PI * 2;
+      eBullets.push({
+        x: e.x, y: e.y, r: 6,
+        vx: Math.cos(a) * speed, vy: Math.sin(a) * speed
+      });
+    }
+  }
+
+  function bossAimed(e, count, speed, spread) {
+    var base = Math.atan2(ship.y - e.y, ship.x - e.x);
+    for (var i = 0; i < count; i++) {
+      var a = base + (-spread + (i / (count - 1)) * spread * 2);
+      eBullets.push({
+        x: e.x, y: e.y + 20, r: 5,
+        vx: Math.cos(a) * speed, vy: Math.sin(a) * speed
+      });
+    }
+  }
+
+  function bossNormalFire(e) {
+    var p2 = e.phase === 2;
+    if (e.arch === 0) {
+      bossFan(e, p2 ? 7 : 5, 3.7, p2 ? 1.15 : 0.9);
+      e.fireCd = p2 ? 1050 : 1450;
+    } else if (e.arch === 1) {
+      bossRing(e, p2 ? 14 : 10, 3.3, e.t * 0.0016, 0);
+      e.fireCd = p2 ? 1150 : 1600;
+    } else {
+      bossAimed(e, p2 ? 5 : 3, p2 ? 4.9 : 4.3, 0.20);
+      e.fireCd = p2 ? 880 : 1250;
+    }
+  }
+
+  function bossHeavyFire(e) {
+    if (e.arch === 0) {
+      /* three telegraphed lanes — stand between them */
+      var lanes = [W * 0.24, W * 0.5, W * 0.76];
+      for (var l = 0; l < lanes.length; l++) {
+        for (var i = 0; i < 5; i++) {
+          eBullets.push({
+            x: lanes[l], y: e.y + 40 + i * 34, r: 7,
+            vx: 0, vy: 5.2
+          });
+        }
+      }
+      spark(W / 2, e.y + 40, 26, e.color, 1.2);
+    } else if (e.arch === 1) {
+      /* dense ring with three safe gaps */
+      bossRing(e, 24, 3.6, e.t * 0.0008, 8);
+      spark(e.x, e.y, 36, e.color, 1.4);
+    } else {
+      /* fast lance along the telegraphed line — step aside */
+      var a = e.aimAngle;
+      for (var k = 0; k < 8; k++) {
+        eBullets.push({
+          x: e.x + Math.cos(a) * (50 + k * 32),
+          y: e.y + Math.sin(a) * (50 + k * 32),
+          r: 8, vx: Math.cos(a) * 8.4, vy: Math.sin(a) * 8.4
+        });
+      }
+      spark(e.x + Math.cos(a) * 50, e.y + Math.sin(a) * 50, 28, e.color, 1.4);
+    }
+    e.fireCd = 900;
+  }
+
+  function updateBoss(e, dt, k) {
+    e.t += dt;
+    if (e.hitFlash > 0) e.hitFlash -= dt;
+    if (e.y < 132) {
+      e.y += e.vy * k;
+      return;
+    }
+
+    var n = Math.floor(wave / BOSS_EVERY);
+    if (e.arch === 0) {
+      e.x += (1.2 + n * 0.12) * k * e.dir;
+      if (e.x < 104) { e.x = 104; e.dir = 1; }
+      if (e.x > W - 104) { e.x = W - 104; e.dir = -1; }
+    } else if (e.arch === 1) {
+      e.x = W / 2 + Math.sin(e.t * 0.0009) * 150;
+      e.y = 132 + Math.sin(e.t * 0.0013) * 14;
+    } else {
+      e.x += (ship.x - e.x) * 0.012 * k;
+      e.x = clamp(e.x, 92, W - 92);
+      e.y = 128 + Math.sin(e.t * 0.0015) * 18;
+    }
+
+    if (e.hp <= e.maxHp * 0.5 && !e.phase2) {
+      e.phase2 = true;
+      e.phase = 2;
+      e.heavyCd = Math.min(e.heavyCd, 2200);
+      phaseFlash = 1600;
+      phaseFlashText = e.name.toUpperCase() + ' — PHASE 2';
+      spark(e.x, e.y, 44, e.color, 1.7);
+    }
+
+    if (e.heavyTele > 0) {
+      e.heavyTele -= dt;
+      if (e.heavyTele <= 0) {
+        e.heavyTele = 0;
+        bossHeavyFire(e);
+      }
+      return;
+    }
+
+    e.fireCd -= dt;
+    e.heavyCd -= dt;
+
+    if (e.heavyCd <= 0) {
+      e.heavyCd = e.phase === 2 ? 5400 : 7000;
+      e.heavyTele = 1100;
+      e.heavyKind = e.arch;
+      e.aimAngle = Math.atan2(ship.y - e.y, ship.x - e.x);
+      e.fireCd = 500;
+      return;
+    }
+
+    if (e.fireCd <= 0) bossNormalFire(e);
+  }
+
   function dropPower(x, y) {
-    var kinds = ['rapid', 'spread', 'shield'];
-    var kind = kinds[Math.floor(Math.random() * kinds.length)];
-    powers.push({ x: x, y: y, vy: 1.5, r: 13, kind: kind, ttl: 9000, spin: 0 });
+    var roll = Math.random() * 100;
+    var kind = DROP_TABLE[0][0];
+    for (var i = 0; i < DROP_TABLE.length; i++) {
+      roll -= DROP_TABLE[i][1];
+      if (roll <= 0) { kind = DROP_TABLE[i][0]; break; }
+    }
+    powers.push({ x: x, y: y, vy: 1.5, r: 13, kind: kind, ttl: 11000, spin: 0 });
   }
 
   function applyPower(kind) {
-    if (kind === 'rapid') rapidMs = 9000;
-    else if (kind === 'spread') spreadMs = 9000;
-    else shield = 1;
-    spark(ship.x, ship.y - 10, 18, kind === 'shield' ? '#a3e635' : '#22d3ee', 0.9);
+    var def = POWER_DEFS[kind];
+    if (kind === 'rapid') rapidMs = POWER_MS;
+    else if (kind === 'spread') spreadMs = POWER_MS;
+    else if (kind === 'shield') shield = shieldMax();
+    else if (kind === 'homing') homingMs = 11000;
+    else if (kind === 'laser') laserMs = 8000;
+    else if (kind === 'bomb') bombCharges = Math.min(MAX_BOMBS, bombCharges + 1);
+    else if (kind === 'magnet') magnetMs = 11000;
+    else if (kind === 'double') doubleMs = 12000;
+    spark(ship.x, ship.y - 10, 18, def ? def.color : '#22d3ee', 0.9);
+    updateHud();
+  }
+
+  function detonate() {
+    if (state !== 'running' || choosing || bombCharges <= 0) return;
+    bombCharges--;
+    flashT = 420;
+    eBullets = [];
+    for (var i = enemies.length - 1; i >= 0; i--) {
+      damageEnemy(i, 6 + upg.dmg);
+    }
+    spark(ship.x, ship.y - 30, 48, '#facc15', 2);
+    updateHud();
+  }
+
+  /* ---------------- upgrades ---------------- */
+
+  function openUpgrade() {
+    if (choosing) return;
+    pendingUpgrade = false;
+    choosing = true;
+    between = true;
+    waveGap = 1500;
+
+    var pool = [];
+    for (var i = 0; i < UPG_DEFS.length; i++) {
+      if ((upg[UPG_DEFS[i].id] || 0) < UPG_DEFS[i].max) pool.push(UPG_DEFS[i]);
+    }
+    for (var j = pool.length - 1; j > 0; j--) {
+      var r = Math.floor(Math.random() * (j + 1));
+      var tmp = pool[j]; pool[j] = pool[r]; pool[r] = tmp;
+    }
+    choices = pool.slice(0, 3);
+    while (choices.length < 3) choices.push(FALLBACK_UPG);
+    updateHud();
+  }
+
+  function selectUpgrade(index) {
+    if (!choosing || !choices[index]) return;
+    var def = choices[index];
+    if (def.id === 'score') {
+      addScore(1500);
+    } else {
+      upg[def.id] = (upg[def.id] || 0) + 1;
+      if (def.id === 'life') lives = Math.min(9, lives + 1);
+      if (def.id === 'bomb') bombCharges = Math.min(MAX_BOMBS, bombCharges + 1);
+      if (def.id === 'shield') shield = shieldMax();
+    }
+    spark(ship.x, ship.y - 12, 22, '#facc15', 1.1);
+    choices = [];
+    choosing = false;
+    waveGap = 1200;
+    updateHud();
+  }
+
+  function cardRect(i) {
+    var cw = 156, gap = 14;
+    var total = cw * 3 + gap * 2;
+    var x0 = (W - total) / 2;
+    return { x: x0 + i * (cw + gap), y: H * 0.34, w: cw, h: 186 };
   }
 
   /* ---------------- state changes ---------------- */
@@ -159,8 +435,13 @@
     bullets = []; eBullets = []; enemies = []; powers = []; sparks = [];
     keys.left = keys.right = keys.up = keys.down = false;
     firing = false;
-    fireCd = 0; invuln = 1800; shield = 0; rapidMs = 0; spreadMs = 0;
+    fireCd = 0; invuln = 1800; shield = 0;
+    rapidMs = 0; spreadMs = 0; homingMs = 0; laserMs = 0;
+    magnetMs = 0; doubleMs = 0; bombCharges = 0;
     between = false; waveGap = 0;
+    choosing = false; pendingUpgrade = false; choices = [];
+    upg = { dmg: 0, rate: 0, shield: 0, bomb: 0, life: 0 };
+    flashT = 0; phaseFlash = 0; phaseFlashText = ''; shotSeq = 0;
     spawnWave();
     updateHud();
   }
@@ -225,9 +506,10 @@
   function damagePlayer() {
     if (state !== 'running' || invuln > 0) return false;
     if (shield > 0) {
-      shield = 0;
-      invuln = 900;
+      shield--;
+      invuln = 700;
       spark(ship.x, ship.y, 20, '#a3e635', 1.1);
+      updateHud();
       return true;
     }
     lives--;
@@ -240,25 +522,63 @@
 
   function damageEnemy(idx, dmg) {
     var e = enemies[idx];
+    if (!e) return 0;
     e.hp -= dmg;
     e.hitFlash = 90;
-    if (e.hp > 0) return;
+    if (e.hp > 0) return 0;
 
-    var worth = e.boss ? 1200 + Math.floor(wave / 5) * 300 : 100;
-    score += worth;
-    spark(e.x, e.y, e.boss ? 60 : 14, e.boss ? '#f472b6' : '#67e8f9', e.boss ? 1.7 : 1);
-    if (e.boss) { dropPower(e.x - 34, e.y); dropPower(e.x + 34, e.y); }
-    else if (Math.random() < 0.15) dropPower(e.x, e.y);
+    var worth = e.boss ? (1200 + wave * 120) : 100;
+    addScore(worth);
+    spark(e.x, e.y, e.boss ? 60 : 14, e.boss ? e.color : '#67e8f9', e.boss ? 1.7 : 1);
+    if (e.boss) {
+      pendingUpgrade = true;
+      dropPower(e.x - 40, e.y);
+      dropPower(e.x, e.y + 10);
+      dropPower(e.x + 40, e.y);
+    } else if (Math.random() < 0.16) {
+      dropPower(e.x, e.y);
+    }
     enemies.splice(idx, 1);
     updateHud();
+    return 1;
   }
 
   /* ---------------- update ---------------- */
 
+  function steerHoming(b, k) {
+    var bestD = 1e9, tx = 0, ty = 0, found = false;
+    for (var i = 0; i < enemies.length; i++) {
+      var dx = enemies[i].x - b.x, dy = enemies[i].y - b.y;
+      var d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; tx = enemies[i].x; ty = enemies[i].y; found = true; }
+    }
+    if (!found) return;
+    var want = Math.atan2(ty - b.y, tx - b.x);
+    var cur = Math.atan2(b.vy, b.vx);
+    var diff = want - cur;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    var turn = 0.15 * k;
+    if (diff > turn) diff = turn;
+    else if (diff < -turn) diff = -turn;
+    var ang = cur + diff;
+    var sp = b.speed || 7.4;
+    b.vx = Math.cos(ang) * sp;
+    b.vy = Math.sin(ang) * sp;
+  }
+
   function update(dt, k) {
+    if (choosing) return;
+
     if (invuln > 0) invuln -= dt;
-    if (rapidMs > 0) rapidMs -= dt;
-    if (spreadMs > 0) spreadMs -= dt;
+    if (rapidMs > 0) rapidMs = Math.max(0, rapidMs - dt);
+    if (spreadMs > 0) spreadMs = Math.max(0, spreadMs - dt);
+    if (homingMs > 0) homingMs = Math.max(0, homingMs - dt);
+    if (laserMs > 0) laserMs = Math.max(0, laserMs - dt);
+    if (magnetMs > 0) magnetMs = Math.max(0, magnetMs - dt);
+    if (doubleMs > 0) doubleMs = Math.max(0, doubleMs - dt);
+    if (flashT > 0) flashT -= dt;
+    if (phaseFlash > 0) phaseFlash -= dt;
 
     /* drift the starfield */
     for (var s = 0; s < stars.length; s++) {
@@ -280,45 +600,47 @@
     /* auto / held fire */
     fireCd -= dt;
     if (fireCd <= 0 && (firing || autoFire)) {
-      fireCd = rapidMs > 0 ? RAPID_FIRE_MS : FIRE_MS;
+      var baseCd = rapidMs > 0 ? RAPID_FIRE_MS : FIRE_MS;
+      fireCd = baseCd * Math.pow(0.86, upg.rate);
       shoot();
     }
 
     /* player bullets */
     for (var i = bullets.length - 1; i >= 0; i--) {
       var b = bullets[i];
+      if (b.homing) steerHoming(b, k);
       b.x += b.vx * k;
       b.y += b.vy * k;
-      if (b.y < -20 || b.x < -20 || b.x > W + 20) { bullets.splice(i, 1); continue; }
+      if (b.y < -24 || b.x < -24 || b.x > W + 24) { bullets.splice(i, 1); continue; }
+
+      var remove = false;
       for (var j = enemies.length - 1; j >= 0; j--) {
         var tgt = enemies[j];
         if (Math.abs(b.x - tgt.x) < tgt.w / 2 + b.r &&
             Math.abs(b.y - tgt.y) < tgt.h / 2 + b.r) {
-          bullets.splice(i, 1);
-          damageEnemy(j, b.dmg);
-          break;
+          if (b.pierce > 0) {
+            if (!b.hits) b.hits = [];
+            if (b.hits.indexOf(tgt) >= 0) continue;
+            b.hits.push(tgt);
+            b.pierce--;
+            damageEnemy(j, b.dmg);
+          } else {
+            remove = true;
+            damageEnemy(j, b.dmg);
+            break;
+          }
         }
       }
+      if (remove) bullets.splice(i, 1);
     }
 
     /* enemies */
     for (var e = enemies.length - 1; e >= 0; e--) {
       var en = enemies[e];
-      if (en.hitFlash > 0) en.hitFlash -= dt;
+      if (en.hitFlash > 0 && !en.boss) en.hitFlash -= dt;
 
       if (en.boss) {
-        if (en.y < 132) {
-          en.y += en.vy * k;
-        } else {
-          en.x += (1.5 + Math.floor(wave / 5) * 0.25) * k * en.dir;
-          if (en.x < 112) { en.x = 112; en.dir = 1; }
-          if (en.x > W - 112) { en.x = W - 112; en.dir = -1; }
-        }
-        en.fireCd -= dt;
-        if (en.fireCd <= 0 && en.y > 0) {
-          en.fireCd = Math.max(680, 1300 - Math.floor(wave / 5) * 120);
-          bossFire(en);
-        }
+        updateBoss(en, dt, k);
       } else {
         en.y += en.vy * k;
         en.phase += 0.022 * k;
@@ -330,7 +652,7 @@
         }
       }
 
-      if (en.y > H + 74) { enemies.splice(e, 1); continue; }
+      if (!en.boss && en.y > H + 74) { enemies.splice(e, 1); continue; }
 
       if (hitsShip(en.x, en.y, en.w / 2, en.h / 2) && damagePlayer()) {
         spark(en.x, en.y, 14, '#f9a8d4', 1);
@@ -361,6 +683,14 @@
       pw.y += pw.vy * k;
       pw.spin += 0.05 * k;
       pw.ttl -= dt;
+      if (magnetMs > 0) {
+        var mx = ship.x - pw.x, my = ship.y - pw.y;
+        var md = Math.sqrt(mx * mx + my * my) || 1;
+        if (md < 280) {
+          pw.x += (mx / md) * 4.2 * k;
+          pw.y += (my / md) * 4.2 * k;
+        }
+      }
       if (pw.y > H + 30 || pw.ttl <= 0) { powers.splice(p, 1); continue; }
       if (Math.abs(pw.x - ship.x) < 24 && Math.abs(pw.y - ship.y) < 26) {
         powers.splice(p, 1);
@@ -383,10 +713,13 @@
     if (enemies.length === 0) {
       if (!between) {
         between = true;
-        waveGap = 1400;
-        score += 200 + wave * 60;
+        waveGap = 1500;
+        addScore(200 + wave * 60);
         updateHud();
-      } else {
+      }
+      if (pendingUpgrade) {
+        openUpgrade();
+      } else if (!choosing) {
         waveGap -= dt;
         if (waveGap <= 0) {
           between = false;
@@ -440,6 +773,14 @@
     ctx.closePath();
     ctx.fill();
 
+    if (laserMs > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = '#a78bfa';
+      ctx.fillRect(x - 1.5, y - 34, 3, 16);
+      ctx.restore();
+    }
+
     if (shield > 0) {
       ctx.save();
       ctx.strokeStyle = 'rgba(163,230,53,.85)';
@@ -449,42 +790,160 @@
       ctx.beginPath();
       ctx.arc(x, y, 24 + Math.sin(t / 240) * 2, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.fillStyle = '#d9f99d';
+      for (var s = 0; s < shield; s++) {
+        var a = t / 500 + (s / shield) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.arc(x + Math.cos(a) * 27, y + Math.sin(a) * 27, 2.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
     }
   }
 
-  function drawEnemy(e) {
-    var hurt = e.hitFlash > 0;
-    if (e.boss) {
-      ctx.save();
-      ctx.shadowColor = hurt ? '#ffffff' : '#f472b6';
-      ctx.shadowBlur = 24;
-      ctx.fillStyle = hurt ? '#fbcfe8' : '#6d2148';
-      roundRect(e.x - e.w / 2, e.y - e.h / 2, e.w, e.h, 16);
-      ctx.fill();
-      ctx.fillStyle = hurt ? '#ffffff' : '#f472b6';
+  function drawBossTelegraph(e) {
+    if (e.heavyTele <= 0) return;
+    var pulse = 0.35 + 0.25 * Math.sin(e.t / 70);
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    if (e.arch === 0) {
+      var lanes = [W * 0.24, W * 0.5, W * 0.76];
+      ctx.fillStyle = '#fbbf24';
+      for (var l = 0; l < lanes.length; l++) {
+        ctx.fillRect(lanes[l] - 9, e.y + 30, 18, H - e.y);
+      }
+      ctx.strokeStyle = '#fef08a';
+      ctx.lineWidth = 2;
+      for (var l2 = 0; l2 < lanes.length; l2++) {
+        ctx.strokeRect(lanes[l2] - 11, e.y + 30, 22, H - e.y);
+      }
+    } else if (e.arch === 1) {
+      ctx.strokeStyle = '#5eead4';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([10, 8]);
       ctx.beginPath();
-      ctx.arc(e.x, e.y, 24, 0, Math.PI * 2);
+      ctx.arc(e.x, e.y, 70 + (1 - e.heavyTele / 1100) * 110, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(45,212,191,.12)';
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, 180, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      var a = e.aimAngle;
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 4;
+      ctx.setLineDash([16, 10]);
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y);
+      ctx.lineTo(e.x + Math.cos(a) * 900, e.y + Math.sin(a) * 900);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.lineWidth = 10;
+      ctx.globalAlpha = pulse * 0.35;
+      ctx.strokeStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y);
+      ctx.lineTo(e.x + Math.cos(a) * 900, e.y + Math.sin(a) * 900);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.95;
+    ctx.fillStyle = '#fef3c7';
+    ctx.font = '800 16px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('!', e.x, e.y - e.h / 2 - 34);
+    ctx.restore();
+  }
+
+  function drawBoss(e) {
+    var hurt = e.hitFlash > 0;
+    var col = e.color;
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.shadowColor = hurt ? '#ffffff' : col;
+    ctx.shadowBlur = 24;
+    ctx.fillStyle = hurt ? '#ffffff' : (e.phase2 ? '#7f1d1d' : '#3b1230');
+
+    if (e.arch === 0) {
+      roundRect(-e.w / 2, -e.h / 2, e.w, e.h, 16);
+      ctx.fill();
+      ctx.fillStyle = hurt ? '#ffffff' : col;
+      ctx.fillRect(-e.w / 2 - 14, -12, 20, 24);
+      ctx.fillRect(e.w / 2 - 6, -12, 20, 24);
+      ctx.beginPath();
+      ctx.arc(0, 0, 26, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#0b1224';
       ctx.beginPath();
-      ctx.arc(e.x, e.y, 10, 0, Math.PI * 2);
+      ctx.arc(0, 0, 11, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = hurt ? '#ffffff' : 'rgba(249,168,212,.9)';
-      ctx.fillRect(e.x - 62, e.y + 20, 26, 8);
-      ctx.fillRect(e.x + 36, e.y + 20, 26, 8);
-      ctx.restore();
-
-      /* health bar */
-      var frac = Math.max(0, e.hp / e.maxHp);
-      ctx.fillStyle = 'rgba(255,255,255,.12)';
-      roundRect(e.x - 76, e.y - e.h / 2 - 18, 152, 9, 4);
+    } else if (e.arch === 1) {
+      ctx.beginPath();
+      ctx.arc(0, 0, 52, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = frac > 0.4 ? '#f472b6' : '#fbbf24';
-      roundRect(e.x - 76, e.y - e.h / 2 - 18, 152 * frac, 9, 4);
+      ctx.rotate(e.t * 0.0012);
+      ctx.fillStyle = hurt ? '#ffffff' : col;
+      for (var i = 0; i < 4; i++) {
+        ctx.save();
+        ctx.rotate((i / 4) * Math.PI * 2);
+        ctx.beginPath();
+        ctx.moveTo(38, -11);
+        ctx.lineTo(78, 0);
+        ctx.lineTo(38, 11);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(80, 0, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.rotate(-e.t * 0.0012);
+      ctx.fillStyle = '#0b1224';
+      ctx.beginPath();
+      ctx.arc(0, 0, 22, 0, Math.PI * 2);
       ctx.fill();
-      return;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(0, 0, 12, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(0, -66);
+      ctx.lineTo(58, -16);
+      ctx.lineTo(42, 52);
+      ctx.lineTo(0, 72);
+      ctx.lineTo(-42, 52);
+      ctx.lineTo(-58, -16);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = hurt ? '#ffffff' : col;
+      ctx.beginPath();
+      ctx.moveTo(0, -46);
+      ctx.lineTo(24, 0);
+      ctx.lineTo(0, 38);
+      ctx.lineTo(-24, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#0b1224';
+      ctx.beginPath();
+      ctx.arc(0, 0, 12, 0, Math.PI * 2);
+      ctx.fill();
     }
+    ctx.restore();
+
+    /* health bar above the boss */
+    var frac = Math.max(0, e.hp / e.maxHp);
+    ctx.fillStyle = 'rgba(255,255,255,.12)';
+    roundRect(e.x - 76, e.y - e.h / 2 - 18, 152, 9, 4);
+    ctx.fill();
+    ctx.fillStyle = frac > 0.4 ? e.color : '#fbbf24';
+    roundRect(e.x - 76, e.y - e.h / 2 - 18, 152 * frac, 9, 4);
+    ctx.fill();
+  }
+
+  function drawEnemy(e) {
+    if (e.boss) { drawBossTelegraph(e); drawBoss(e); return; }
+    var hurt = e.hitFlash > 0;
 
     ctx.save();
     ctx.shadowColor = hurt ? '#ffffff' : '#22d3ee';
@@ -506,8 +965,9 @@
   }
 
   function drawPower(pw) {
-    var col = pw.kind === 'rapid' ? '#ec4899' : (pw.kind === 'spread' ? '#22d3ee' : '#a3e635');
-    var letter = pw.kind === 'rapid' ? 'R' : (pw.kind === 'spread' ? 'S' : 'D');
+    var def = POWER_DEFS[pw.kind] || POWER_DEFS.rapid;
+    var col = def.color;
+    var letter = def.icon;
     var blink = pw.ttl < 2400 && Math.floor(pw.ttl / 180) % 2 === 0;
 
     ctx.save();
@@ -524,24 +984,210 @@
     ctx.save();
     ctx.globalAlpha = blink ? 0.35 : 1;
     ctx.fillStyle = col;
-    ctx.font = '700 14px "Segoe UI", system-ui, sans-serif';
+    ctx.font = '700 ' + (letter.length > 1 ? '12px' : '14px') + ' "Segoe UI", system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(letter, pw.x, pw.y + 1);
     ctx.restore();
   }
 
+  function drawBullets() {
+    for (var i = 0; i < bullets.length; i++) {
+      var b = bullets[i];
+      if (b.laser) {
+        ctx.save();
+        ctx.shadowColor = '#a78bfa';
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = '#ddd6fe';
+        ctx.fillRect(b.x - 2.5, b.y - 26, 5, 34);
+        ctx.fillStyle = 'rgba(167,139,250,.45)';
+        ctx.fillRect(b.x - 6, b.y - 22, 12, 28);
+        ctx.restore();
+      } else if (b.homing) {
+        ctx.save();
+        ctx.translate(b.x, b.y);
+        ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI / 2);
+        ctx.shadowColor = '#f59e0b';
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = '#fde68a';
+        ctx.beginPath();
+        ctx.moveTo(0, -8); ctx.lineTo(5, 6); ctx.lineTo(0, 3); ctx.lineTo(-5, 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      } else {
+        ctx.fillStyle = '#a5f3fc';
+        ctx.fillRect(b.x - 2, b.y - 9, 4, 14);
+      }
+    }
+  }
+
+  function drawPowerChips() {
+    var chips = [];
+    if (rapidMs > 0) chips.push({ id: 'rapid', ms: rapidMs });
+    if (spreadMs > 0) chips.push({ id: 'spread', ms: spreadMs });
+    if (homingMs > 0) chips.push({ id: 'homing', ms: homingMs });
+    if (laserMs > 0) chips.push({ id: 'laser', ms: laserMs });
+    if (magnetMs > 0) chips.push({ id: 'magnet', ms: magnetMs });
+    if (doubleMs > 0) chips.push({ id: 'double', ms: doubleMs });
+    if (shield > 0) chips.push({ id: 'shield', ms: 0 });
+
+    for (var i = 0; i < chips.length; i++) {
+      var def = POWER_DEFS[chips[i].id];
+      var x = 12, y = 62 + i * 26;
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = 'rgba(8,13,26,.72)';
+      roundRect(x, y, 92, 21, 6);
+      ctx.fill();
+      ctx.strokeStyle = def.color;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = def.color;
+      ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(def.icon, x + 6, y + 11);
+      ctx.fillStyle = 'rgba(232,238,252,.9)';
+      ctx.font = '600 10px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText(def.label, x + 23, y + 11);
+      if (chips[i].ms > 0) {
+        var pct = clamp(chips[i].ms / (POWER_TIMES[chips[i].id] || POWER_MS), 0, 1);
+        ctx.fillStyle = 'rgba(255,255,255,.18)';
+        ctx.fillRect(x + 23, y + 17, 62, 2);
+        ctx.fillStyle = def.color;
+        ctx.fillRect(x + 23, y + 17, 62 * pct, 2);
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawBossBar() {
+    var boss = findBoss();
+    if (!boss) return;
+    var bw = 368, bx = (W - bw) / 2, by = 14;
+    var frac = Math.max(0, boss.hp / boss.maxHp);
+    ctx.save();
+    ctx.fillStyle = 'rgba(5,7,14,.75)';
+    roundRect(bx - 6, by - 4, bw + 12, 30, 8);
+    ctx.fill();
+    ctx.fillStyle = boss.color;
+    ctx.font = '700 12px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(boss.name + '  ·  PHASE ' + boss.phase, W / 2, by + 3);
+    ctx.fillStyle = 'rgba(255,255,255,.15)';
+    roundRect(bx, by + 11, bw, 9, 4);
+    ctx.fill();
+    ctx.fillStyle = frac > 0.4 ? boss.color : '#fbbf24';
+    roundRect(bx, by + 11, Math.max(0, bw * frac), 9, 4);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawBombButton() {
+    ctx.save();
+    ctx.globalAlpha = bombCharges > 0 ? 0.95 : 0.4;
+    ctx.fillStyle = 'rgba(8,13,26,.78)';
+    roundRect(bombRect.x, bombRect.y, bombRect.w, bombRect.h, 7);
+    ctx.fill();
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = '#facc15';
+    ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('X  BOMB ×' + bombCharges, bombRect.x + 8, bombRect.y + 13);
+    ctx.restore();
+  }
+
+  function drawUpgradeSummary() {
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = 'rgba(147,163,194,.9)';
+    ctx.font = '600 10px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('DMG ' + (1 + upg.dmg) + '  ·  RATE ' + upg.rate +
+                 '  ·  SHIELD ' + shieldMax() + '  ·  BOMB ' + bombCharges,
+                 W - 10, H - 22);
+    ctx.restore();
+  }
+
+  function drawUpgradePanel() {
+    if (!choosing) return;
+    ctx.save();
+    ctx.fillStyle = 'rgba(3,6,13,.82)';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = '#e8eefc';
+    ctx.font = '800 30px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Boss destroyed — upgrade!', W / 2, H * 0.22);
+    ctx.font = '600 13px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = '#93a3c2';
+    ctx.fillText('Press 1, 2 or 3 — or click a card. Upgrades last for this run.', W / 2, H * 0.22 + 30);
+
+    for (var i = 0; i < 3; i++) {
+      var def = choices[i];
+      if (!def) continue;
+      var r = cardRect(i);
+      var lvl = (upg[def.id] || 0);
+      ctx.fillStyle = 'rgba(13,21,38,.96)';
+      roundRect(r.x, r.y, r.w, r.h, 12);
+      ctx.fill();
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(34,211,238,.16)';
+      roundRect(r.x + 12, r.y + 12, 26, 26, 6);
+      ctx.fill();
+      ctx.fillStyle = '#22d3ee';
+      ctx.font = '800 15px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(i + 1), r.x + 25, r.y + 25);
+
+      ctx.fillStyle = '#e8eefc';
+      ctx.font = '700 15px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText(def.name, r.x + r.w / 2, r.y + 70);
+
+      ctx.fillStyle = '#93a3c2';
+      ctx.font = '600 12px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText(def.desc, r.x + r.w / 2, r.y + 96);
+
+      ctx.fillStyle = '#facc15';
+      ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
+      if (def.id === 'score') ctx.fillText('Bonus', r.x + r.w / 2, r.y + 138);
+      else ctx.fillText('Lv ' + lvl + ' → ' + (lvl + 1) + ' / ' + def.max, r.x + r.w / 2, r.y + 138);
+
+      ctx.fillStyle = 'rgba(147,163,194,.7)';
+      ctx.font = '600 10px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText('click or press ' + (i + 1), r.x + r.w / 2, r.y + 166);
+    }
+
+    ctx.fillStyle = 'rgba(147,163,194,.8)';
+    ctx.font = '600 11px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Shield charges: ' + shieldMax() + '   ·   Bombs: ' + bombCharges +
+                 '   ·   Lives: ' + lives, W / 2, H * 0.34 + 214);
+    ctx.restore();
+  }
+
   function drawBanner() {
-    if (!between) return;
+    if (!between || choosing) return;
+    var next = wave + 1;
     ctx.save();
     ctx.font = '800 40px "Segoe UI", system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = 'rgba(232,238,252,.9)';
-    ctx.fillText('Wave ' + (wave + 1), W / 2, H * 0.42);
+    ctx.fillText('Wave ' + next, W / 2, H * 0.42);
     ctx.font = '600 15px "Segoe UI", system-ui, sans-serif';
     ctx.fillStyle = 'rgba(147,163,194,.95)';
-    ctx.fillText(wave + 1 === 6 || (wave + 1) % 5 === 0 ? 'Boss incoming…' : 'Get ready…', W / 2, H * 0.42 + 34);
+    ctx.fillText(next % BOSS_EVERY === 0 ? 'Boss incoming…' : 'Get ready…', W / 2, H * 0.42 + 34);
     ctx.restore();
   }
 
@@ -563,11 +1209,7 @@
     ctx.save();
     ctx.shadowColor = '#22d3ee';
     ctx.shadowBlur = 10;
-    for (var i = 0; i < bullets.length; i++) {
-      var b = bullets[i];
-      ctx.fillStyle = '#a5f3fc';
-      ctx.fillRect(b.x - 2, b.y - 9, 4, 14);
-    }
+    drawBullets();
     ctx.restore();
 
     /* enemy bullets */
@@ -576,7 +1218,7 @@
     ctx.shadowBlur = 10;
     for (var m = 0; m < eBullets.length; m++) {
       var eb = eBullets[m];
-      ctx.fillStyle = '#fecdd3';
+      ctx.fillStyle = eb.r > 6 ? '#fed7aa' : '#fecdd3';
       ctx.beginPath();
       ctx.arc(eb.x, eb.y, eb.r, 0, Math.PI * 2);
       ctx.fill();
@@ -596,7 +1238,32 @@
     }
     ctx.globalAlpha = 1;
 
+    drawPowerChips();
+    drawBossBar();
+    drawBombButton();
+    drawUpgradeSummary();
     drawBanner();
+
+    if (phaseFlash > 0) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, phaseFlash / 500);
+      ctx.fillStyle = '#fef3c7';
+      ctx.font = '800 24px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(phaseFlashText, W / 2, H * 0.30);
+      ctx.restore();
+    }
+
+    if (flashT > 0) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(0.55, flashT / 700);
+      ctx.fillStyle = '#fef9c3';
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    drawUpgradePanel();
   }
 
   /* ---------------- loop ---------------- */
@@ -617,12 +1284,35 @@
 
   /* ---------------- input ---------------- */
 
+  function pointerToArena(e) {
+    var rect = canvas.getBoundingClientRect();
+    var sx = rect.width ? W / rect.width : 1;
+    var sy = rect.height ? H / rect.height : 1;
+    return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+  }
+
+  function inRect(px, py, r) {
+    return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
+  }
+
   document.addEventListener('keydown', function (e) {
     var tag = e.target && e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     if (tag === 'BUTTON' && (e.key === ' ' || e.key === 'Enter')) return;
 
     var key = e.key;
+
+    if (choosing) {
+      if (key === '1' || key === '2' || key === '3') {
+        e.preventDefault();
+        selectUpgrade(parseInt(key, 10) - 1);
+      } else if (key === 'p' || key === 'P' || key === 'Escape') {
+        if (state === 'paused') resume();
+        else pause();
+      }
+      return;
+    }
+
     if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' ||
         key === 'ArrowRight' || key === ' ') {
       e.preventDefault();
@@ -632,7 +1322,9 @@
     else if (key === 'ArrowRight' || key === 'd' || key === 'D') keys.right = true;
     else if (key === 'ArrowUp' || key === 'w' || key === 'W') keys.up = true;
     else if (key === 'ArrowDown' || key === 's' || key === 'S') keys.down = true;
-    else if (key === ' ') {
+    else if (key === 'x' || key === 'X' || key === 'b' || key === 'B') {
+      detonate();
+    } else if (key === ' ') {
       firing = true;
       if (state === 'ready' || state === 'over') start();
       else if (state === 'paused') resume();
@@ -681,8 +1373,22 @@
     })(padBtns[b]);
   }
 
-  canvas.addEventListener('pointerdown', function () {
-    if (state === 'ready' || state === 'over') start();
+  canvas.addEventListener('pointerdown', function (e) {
+    if (choosing) {
+      var p = pointerToArena(e);
+      for (var i = 0; i < 3; i++) {
+        if (choices[i] && inRect(p.x, p.y, cardRect(i))) {
+          selectUpgrade(i);
+          return;
+        }
+      }
+      return;
+    }
+    if (state === 'ready' || state === 'over') { start(); return; }
+    if (state === 'running' && bombCharges > 0) {
+      var q = pointerToArena(e);
+      if (inRect(q.x, q.y, bombRect)) detonate();
+    }
   });
 
   var actionBtns = document.querySelectorAll('[data-action]');
@@ -704,6 +1410,49 @@
     if (state === 'running') pause();
   });
 
+  /* ---------------- read-only test hook ---------------- */
+
+  window.__neonSquadron = {
+    state: function () { return state; },
+    wave: function () { return wave; },
+    score: function () { return score; },
+    lives: function () { return lives; },
+    ship: function () { return { x: ship.x, y: ship.y }; },
+    boss: function () {
+      var b = findBoss();
+      if (!b) return null;
+      return {
+        archetype: b.arch, name: b.name,
+        hp: b.hp, maxHp: b.maxHp, phase: b.phase,
+        x: b.x, y: b.y,
+        telegraph: b.heavyTele > 0
+      };
+    },
+    powerups: function () {
+      var active = [];
+      if (rapidMs > 0) active.push({ kind: 'rapid', remaining: rapidMs });
+      if (spreadMs > 0) active.push({ kind: 'spread', remaining: spreadMs });
+      if (homingMs > 0) active.push({ kind: 'homing', remaining: homingMs });
+      if (laserMs > 0) active.push({ kind: 'laser', remaining: laserMs });
+      if (magnetMs > 0) active.push({ kind: 'magnet', remaining: magnetMs });
+      if (doubleMs > 0) active.push({ kind: 'double', remaining: doubleMs });
+      var drops = [];
+      for (var i = 0; i < powers.length; i++) {
+        drops.push({ kind: powers[i].kind, x: powers[i].x, y: powers[i].y });
+      }
+      return { active: active, shield: shield, bombs: bombCharges, drops: drops };
+    },
+    upgrades: function () {
+      var picked = [];
+      for (var i = 0; i < choices.length; i++) picked.push(choices[i].id);
+      return {
+        dmg: upg.dmg, rate: upg.rate, shield: upg.shield,
+        bomb: upg.bomb, life: upg.life,
+        choosing: choosing, choices: picked
+      };
+    }
+  };
+
   /* ---------------- boot ---------------- */
 
   initStars();
@@ -712,7 +1461,7 @@
   ensureLoop();
   GameShell.overlay.show({
     title: 'Neon Squadron',
-    msg: 'Fly with the arrow keys or WASD and shoot with Space — auto-fire is already on. Clear every alien wave, grab the power-ups and watch out for the boss every fifth wave.',
+    msg: 'Fly with the arrow keys or WASD and shoot with Space — auto-fire is already on. Bosses arrive every fourth wave: dodge their telegraphed heavy attack, then pick an upgrade with 1, 2 or 3. Grab power-ups, and press X (or tap the bomb chip) to clear the screen.',
     stats: [{ label: 'Best', value: best }],
     btn: '▶ Play',
     action: start
