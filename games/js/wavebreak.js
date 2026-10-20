@@ -98,11 +98,17 @@
   var queue = [], spawnT = 0, waveEndT = 0, breatherT = 0;
   var flow = null, flowT = 0;
   var player = { x: 10.5, y: 10.5, dir: 0, z: 0, vz: 0, onGround: true };
-  var keys = { f: false, b: false, l: false, r: false, turnL: false, turnR: false, fire: false, jump: false };
+  var keys = { f: false, b: false, l: false, r: false, turnL: false, turnR: false, fire: false, jump: false, aimUp: false, aimDown: false };
   var fireCd = 0, mag = 14, reloading = false, reloadT = 0;
   var upgrades = { fire: 0, dmg: 0, armor: 0 };
   var hitMarker = 0, damageFlash = 0, shake = 0, muzzle = 0, recoil = 0;
   var bob = 0, bobT = 0, flashBanner = 0;
+  var aimY = H / 2;                 /* vertical reticle position, screen px */
+  var AIM_MARGIN = H * 0.28;        /* how far the reticle can travel up or down */
+  var AIM_KEY_SPEED = 340;          /* px per second with ArrowUp / ArrowDown */
+  var hitPops = [];
+  var lastHit = { dist: 0, dmg: 0, mult: 1 };
+  var hits = 0;
   var rafId = 0, last = 0;
   var zbuf = new Float32Array(COLS);
   var hudSig = '';
@@ -121,6 +127,22 @@
   }
   function now() {
     return (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  }
+
+  /* ---------------- aiming / damage falloff ---------------- */
+
+  function horizonY() {
+    return H / 2 + bob + player.z * 260;
+  }
+
+  function clampAim(y) {
+    return clamp(y, H / 2 - AIM_MARGIN, H / 2 + AIM_MARGIN);
+  }
+
+  /* Shots land harder up close and lose punch with distance:
+     ~x1.65 point-blank, x1.0 at mid range, x0.5 at maximum range. */
+  function damageMultiplier(dist) {
+    return clamp(1.65 - dist * 0.045, 0.5, 1.65);
   }
 
   function castRay(px, py, rdx, rdy) {
@@ -234,7 +256,7 @@
   function updateHud(force) {
     var right;
     if (state === 'paused') right = '⏸ Paused · Wave ' + wave;
-    else if (phase === 'wave' && document.pointerLockElement !== canvas) right = '🖱 Click the view to aim · Space jump · F fire';
+    else if (phase === 'wave' && document.pointerLockElement !== canvas) right = '🖱 Click the view to aim up/down · Space jump · F fire';
     else right = '⬡ ' + credits + ' credits' + (combo > 1 && phase === 'wave' ? ' · ×' + combo : '') + ' · Space = Jump';
     var sig = [score, Math.max(best, score), wave, Math.max(0, Math.ceil(hp)), right].join('|');
     if (!force && sig === hudSig) return;
@@ -293,6 +315,7 @@
       creditsPay: creditsPay, scoreBase: scoreBase,
       fireT: rnd(0.8, 2.0), interval: interval,
       orbSpeed: orbSpeed, dmg: dmg,
+      alt: type === 'heavy' ? rnd(-0.06, 0.30) : rnd(-0.16, 0.34),
       flash: 0, wob: Math.random() * TAU
     });
     puffs.push({ x: c.x, y: c.y, t: 0, life: 0.4 });
@@ -380,6 +403,32 @@
     reloadT = RELOAD_TIME;
   }
 
+  function pickTarget() {
+    var rdx = Math.cos(player.dir), rdy = Math.sin(player.dir);
+    var horizon = horizonY();
+    var best = null, bestDist = 1e9;
+    for (var i = 0; i < drones.length; i++) {
+      var d = drones[i];
+      var vx = d.x - player.x, vy = d.y - player.y;
+      var along = vx * rdx + vy * rdy;
+      if (along <= 0.3 || along > 26) continue;
+      var perp = Math.abs(vx * rdy - vy * rdx);
+      if (perp > 0.34 * d.scale) continue;
+      /* Match the projection used by renderSprites so the reticle has to sit
+         on the drone's drawn body, not merely on its compass bearing. */
+      var size = Math.abs(H / along) * 0.9 * d.scale;
+      var baseY = horizon + (H * 0.5) / along - (d.alt || 0) * (H / along);
+      var top = baseY - size * 0.90;
+      var bot = baseY - size * 0.20;
+      if (aimY < top || aimY > bot) continue;
+      if (along >= bestDist) continue;
+      if (losBlocked(player.x, player.y, d.x, d.y)) continue;
+      bestDist = along;
+      best = d;
+    }
+    return best ? { drone: best, dist: bestDist } : null;
+  }
+
   function shoot() {
     if (state !== 'running' || phase !== 'wave') return;
     if (reloading || fireCd > 0) return;
@@ -392,25 +441,23 @@
     shake = Math.max(shake, 2.5);
 
     var rdx = Math.cos(player.dir), rdy = Math.sin(player.dir);
-    var hitD2 = null, hitDist = 1e9;
-    for (var i = 0; i < drones.length; i++) {
-      var d2 = drones[i];
-      var vx = d2.x - player.x, vy = d2.y - player.y;
-      var along = vx * rdx + vy * rdy;
-      if (along <= 0 || along > 26) continue;
-      var perp = Math.abs(vx * rdy - vy * rdx);
-      if (perp > 0.34 * d2.scale) continue;
-      if (along < hitDist && !losBlocked(player.x, player.y, d2.x, d2.y)) {
-        hitDist = along;
-        hitD2 = d2;
-      }
-    }
+    var target = pickTarget();
     var wallHit = castRay(player.x, player.y, rdx, rdy).dist;
-    if (hitD2 && hitDist < wallHit) {
+    if (target && target.dist < wallHit) {
+      var hitD2 = target.drone;
+      var mult = damageMultiplier(target.dist);
+      var dmg = (1 + upgrades.dmg) * mult;
       hitMarker = 1;
-      hitD2.hp -= 1 + upgrades.dmg;
+      hits++;
+      lastHit = { dist: target.dist, dmg: dmg, mult: mult };
+      hitD2.hp -= dmg;
       hitD2.flash = 0.12;
       score += 5;
+      hitPops.push({
+        x: W / 2 + rnd(-11, 11), y: aimY - 12,
+        t: 0, life: 0.65, val: dmg, mult: mult
+      });
+      if (hitPops.length > 24) hitPops.shift();
       if (hitD2.hp <= 0) {
         var idx = drones.indexOf(hitD2);
         if (idx >= 0) drones.splice(idx, 1);
@@ -434,6 +481,10 @@
     credits = 0; kills = 0; shots = 0; combo = 1; comboT = 0;
     upgrades.fire = upgrades.dmg = upgrades.armor = 0;
     drones.length = 0; orbs.length = 0; puffs.length = 0;
+    hitPops.length = 0;
+    aimY = H / 2;
+    lastHit = { dist: 0, dmg: 0, mult: 1 };
+    hits = 0;
     player.x = 10.5; player.y = 10.5; player.dir = 0;
     reloading = false; mag = MAG_SIZE; fireCd = 0;
     releaseKeys();
@@ -502,6 +553,7 @@
   function releaseKeys() {
     keys.f = keys.b = keys.l = keys.r = false;
     keys.turnL = keys.turnR = keys.fire = keys.jump = false;
+    keys.aimUp = keys.aimDown = false;
   }
 
   /* ---------------- update ---------------- */
@@ -522,6 +574,10 @@
       player.vz = 0;
       player.onGround = true;
     }
+
+    if (keys.aimUp) aimY -= AIM_KEY_SPEED * dt;
+    if (keys.aimDown) aimY += AIM_KEY_SPEED * dt;
+    aimY = clampAim(aimY);
 
     if (comboT > 0) {
       comboT -= dt;
@@ -602,6 +658,10 @@
     for (i = puffs.length - 1; i >= 0; i--) {
       puffs[i].t += dt;
       if (puffs[i].t >= puffs[i].life) puffs.splice(i, 1);
+    }
+    for (i = hitPops.length - 1; i >= 0; i--) {
+      hitPops[i].t += dt;
+      if (hitPops[i].t >= hitPops[i].life) hitPops.splice(i, 1);
     }
     if (hitMarker > 0) hitMarker -= dt * 3.2;
     if (damageFlash > 0) damageFlash -= dt * 1.7;
@@ -719,7 +779,7 @@
     var i;
     for (i = 0; i < drones.length; i++) {
       var d = drones[i];
-      list.push({ x: d.x - player.x, y: d.y - player.y, kind: 'drone', ref: d, scale: 0.9 * d.scale });
+      list.push({ x: d.x - player.x, y: d.y - player.y, kind: 'drone', ref: d, scale: 0.9 * d.scale, alt: d.alt || 0 });
     }
     for (i = 0; i < orbs.length; i++) {
       var o = orbs[i];
@@ -743,7 +803,7 @@
       if (s2.trY <= 0.15) continue;
       var screenX = (W / 2) * (1 + s2.trX / s2.trY);
       var size = Math.abs(H / s2.trY) * s2.scale;
-      var baseY = horizon + (H * 0.5) / s2.trY;
+      var baseY = horizon + (H * 0.5) / s2.trY - (s2.alt || 0) * (H / s2.trY);
       if (screenX < -size || screenX > W + size) continue;
 
       var halfW = size * (s2.kind === 'orb' ? 0.5 : 0.46);
@@ -821,7 +881,7 @@
   }
 
   function drawCrosshair() {
-    var cx = W / 2, cy = H / 2;
+    var cx = W / 2, cy = aimY;
     ctx.strokeStyle = 'rgba(232,238,252,.9)';
     ctx.lineWidth = 2;
     var g = 6, l = 8;
@@ -850,6 +910,30 @@
       ctx.textAlign = 'left';
       ctx.fillText('×' + combo, cx + 26, cy - 18);
     }
+    /* Range + damage multiplier readout while a drone is under the reticle. */
+    if (state === 'running' && phase === 'wave') {
+      var tgt = pickTarget();
+      if (tgt) {
+        var mult = damageMultiplier(tgt.dist);
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 12px "Segoe UI", system-ui, sans-serif';
+        ctx.fillStyle = mult >= 1.1 ? '#2ee6a6' : (mult <= 0.8 ? '#ff9db4' : 'rgba(232,238,252,.85)');
+        ctx.fillText(tgt.dist.toFixed(1) + 'm · ×' + mult.toFixed(2), cx, cy + 34);
+      }
+    }
+  }
+
+  function drawHitPops() {
+    for (var i = 0; i < hitPops.length; i++) {
+      var p = hitPops[i];
+      var f = 1 - p.t / p.life;
+      ctx.globalAlpha = clamp(f * 1.5, 0, 1);
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 15px "Segoe UI", system-ui, sans-serif';
+      ctx.fillStyle = p.mult >= 1.1 ? '#ffd166' : (p.mult <= 0.8 ? '#9aa7c7' : '#e8eefc');
+      ctx.fillText('-' + p.val.toFixed(1), p.x, p.y - (1 - f) * 30);
+    }
+    ctx.globalAlpha = 1;
   }
 
   function drawMinimap() {
@@ -972,7 +1056,7 @@
 
     var dirX = Math.cos(player.dir), dirY = Math.sin(player.dir);
     var plX = -dirY * FOV_PLANE, plY = dirX * FOV_PLANE;
-    var horizon = H / 2 + bob + player.z * 260;
+    var horizon = horizonY();
 
     ctx.save();
     if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
@@ -983,6 +1067,7 @@
     ctx.restore();
 
     drawCrosshair();
+    drawHitPops();
     drawMinimap();
     drawStatus();
 
@@ -1029,7 +1114,7 @@
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     var k = e.key;
 
-    if (k === 'ArrowLeft' || k === 'ArrowRight' || k === ' ') e.preventDefault();
+    if (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowDown' || k === ' ') e.preventDefault();
 
     if (k === 'w' || k === 'W') keys.f = true;
     else if (k === 's' || k === 'S') keys.b = true;
@@ -1037,6 +1122,8 @@
     else if (k === 'd' || k === 'D') keys.r = true;
     else if (k === 'ArrowLeft') keys.turnL = true;
     else if (k === 'ArrowRight') keys.turnR = true;
+    else if (k === 'ArrowUp') keys.aimUp = true;
+    else if (k === 'ArrowDown') keys.aimDown = true;
     else if (k === ' ') {
       if (e.repeat) return;
       if (state === 'ready' || state === 'over') start();
@@ -1077,6 +1164,8 @@
     else if (k === 'd' || k === 'D') keys.r = false;
     else if (k === 'ArrowLeft') keys.turnL = false;
     else if (k === 'ArrowRight') keys.turnR = false;
+    else if (k === 'ArrowUp') keys.aimUp = false;
+    else if (k === 'ArrowDown') keys.aimDown = false;
     else if (k === 'f' || k === 'F') keys.fire = false;
     else if (k === ' ') keys.jump = false;
   });
@@ -1092,12 +1181,16 @@
         else if (act === 'jump') keys.jump = true;
         else if (act === 'left') keys.turnL = true;
         else if (act === 'right') keys.turnR = true;
+        else if (act === 'aimUp') keys.aimUp = true;
+        else if (act === 'aimDown') keys.aimDown = true;
       }
       function off() {
         if (act === 'fire') keys.fire = false;
         else if (act === 'jump') keys.jump = false;
         else if (act === 'left') keys.turnL = false;
         else if (act === 'right') keys.turnR = false;
+        else if (act === 'aimUp') keys.aimUp = false;
+        else if (act === 'aimDown') keys.aimDown = false;
       }
       btn.addEventListener('pointerdown', function (ev) { ev.preventDefault(); on(); });
       btn.addEventListener('pointerup', off);
@@ -1106,7 +1199,7 @@
     })(padBtns[pb]);
   }
 
-  var dragX = null;
+  var dragX = null, dragY = null;
   canvas.addEventListener('pointerdown', function (ev) {
     if (state !== 'running') return;
     if (phase === 'breather') {
@@ -1129,6 +1222,7 @@
         canvas.requestPointerLock) {
       /* first click locks the mouse (like a classic PC shooter); locked clicks fire */
       dragX = ev.clientX;
+      dragY = ev.clientY;
       try {
         var pr = canvas.requestPointerLock();
         if (pr && pr.catch) pr.catch(function () { /* lock refused */ });
@@ -1136,28 +1230,38 @@
       return;
     }
     dragX = ev.clientX;
+    dragY = ev.clientY;
     if (ev.button === 0 || ev.button === undefined) keys.fire = true;
   });
 
   window.addEventListener('pointerup', function () {
     keys.fire = false;
     dragX = null;
+    dragY = null;
   });
 
   document.addEventListener('mousemove', function (e) {
     if (state !== 'running' || phase !== 'wave') return;
     if (document.pointerLockElement === canvas) {
       var mx = e.movementX || 0;
+      var my = e.movementY || 0;
       player.dir = normAng(player.dir + mx * 0.0024);
+      aimY = clampAim(aimY + my * 0.9);
     } else if (dragX !== null && e.clientX !== undefined) {
       player.dir = normAng(player.dir + (e.clientX - dragX) * 0.005);
       dragX = e.clientX;
+      if (dragY !== null && e.clientY !== undefined) {
+        aimY = clampAim(aimY + (e.clientY - dragY) * 0.8);
+        dragY = e.clientY;
+      }
     }
   });
 
   document.addEventListener('pointerlockchange', function () {
     if (document.pointerLockElement === canvas) updateHud(true);
-    else if (state === 'running') pause();
+    /* Losing the lock mid-fight pauses; the wave-clear breather deliberately
+       releases it so the upgrade buttons can be clicked. */
+    else if (state === 'running' && phase === 'wave') pause();
   });
 
   document.addEventListener('visibilitychange', function () {
@@ -1175,7 +1279,7 @@
   ensureLoop();
   GameShell.overlay.show({
     title: 'Wavebreak',
-    msg: 'Endless drones, one blaster. Survive the waves, bank credits from every kill and spend them on faster fire, more damage or heavier armor between rounds. Move with WASD, jump with Space, fire with F or a click, and click the view to lock the mouse. How deep can you go?',
+    msg: 'Endless drones, one blaster. Survive the waves, bank credits from every kill and spend them on faster fire, more damage or heavier armor between rounds. Move with WASD, jump with Space and fire with F or a click. Aim up and down with the mouse, the arrow keys or the ▲▼ buttons — shots hit hardest up close and lose power at range. Click the view to lock the mouse. How deep can you go?',
     stats: [{ label: 'Best', value: best }],
     btn: '▶ Play',
     action: start
@@ -1192,8 +1296,18 @@
       upgrades: { fire: upgrades.fire, dmg: upgrades.dmg, armor: upgrades.armor },
       costs: { fire: fireCost(), dmg: dmgCost(), armor: armorCost() },
       ammo: mag, reloading: reloading,
+      aim: { y: aimY, min: H / 2 - AIM_MARGIN, max: H / 2 + AIM_MARGIN, margin: AIM_MARGIN },
+      crosshair: { x: W / 2, y: aimY },
+      lastHit: { dist: lastHit.dist, dmg: lastHit.dmg, mult: lastHit.mult },
+      hits: hits,
+      multAt: function (d) { return damageMultiplier(d); },
+      hitPops: hitPops.length,
+      target: (function () {
+        var t = pickTarget();
+        return t ? { type: t.drone.type, dist: t.dist, mult: damageMultiplier(t.dist) } : null;
+      })(),
       player: { x: player.x, y: player.y, dir: player.dir, z: player.z, onGround: player.onGround },
-      drones: drones.map(function (d) { return { x: d.x, y: d.y, hp: d.hp, type: d.type }; }),
+      drones: drones.map(function (d) { return { x: d.x, y: d.y, hp: d.hp, maxHp: d.maxHp, type: d.type, alt: d.alt, scale: d.scale }; }),
       queued: queue.length,
       map: MAP.slice()
     };
