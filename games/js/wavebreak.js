@@ -99,9 +99,9 @@
   var flow = null, flowT = 0;
   var player = { x: 10.5, y: 10.5, dir: 0, z: 0, vz: 0, onGround: true };
   var keys = { f: false, b: false, l: false, r: false, turnL: false, turnR: false, fire: false, jump: false, aimUp: false, aimDown: false };
-  var fireCd = 0, mag = 14, reloading = false, reloadT = 0;
+  var fireCd = 0;
   var upgrades = { fire: 0, dmg: 0, armor: 0 };
-  var hitMarker = 0, damageFlash = 0, shake = 0, muzzle = 0, recoil = 0;
+  var hitMarker = 0, damageFlash = 0, shake = 0, muzzle = 0, recoil = 0, tracer = 0;
   var bob = 0, bobT = 0, flashBanner = 0;
   var aimY = H / 2;                 /* vertical reticle position, screen px */
   var AIM_MARGIN = H * 0.28;        /* how far the reticle can travel up or down */
@@ -114,11 +114,65 @@
   var hudSig = '';
   var menuRects = [];
 
-  var MAG_SIZE = 14, FIRE_CD = 0.16, RELOAD_TIME = 1.0;
+  /* ---------------- weapons ---------------- */
+
+  /* Three right-handed guns. Ammo and reload timers are tracked per slot,
+     so switching never refills a magazine; only a wave-clear resupply does. */
+  var WEAPONS = [
+    {
+      id: 'blaster', name: 'Blaster', slot: 1,
+      mag: 14, fireCd: 0.16, reloadTime: 1.0, damage: 1.0, recoil: 1.0,
+      sfx: 'shoot', sfx2: '', accent: '#22d3ee', accent2: '#8b5cf6',
+      muzzleX: -126, muzzleY: -13, flash: 20
+    },
+    {
+      id: 'rifle', name: 'Rifle', slot: 2,
+      mag: 8, fireCd: 0.44, reloadTime: 1.55, damage: 2.6, recoil: 2.4,
+      sfx: 'laser', sfx2: 'thud', accent: '#f59e0b', accent2: '#ff7a45',
+      muzzleX: -184, muzzleY: -12, flash: 26
+    },
+    {
+      id: 'smg', name: 'SMG', slot: 3,
+      mag: 26, fireCd: 0.085, reloadTime: 1.3, damage: 0.62, recoil: 0.45,
+      sfx: 'shoot', sfx2: 'point', accent: '#2ee6a6', accent2: '#22d3ee',
+      muzzleX: -110, muzzleY: -10, flash: 16
+    }
+  ];
+  var gun = 0;
+  var ammo = [WEAPONS[0].mag, WEAPONS[1].mag, WEAPONS[2].mag];
+  var reloadT = [0, 0, 0];          /* seconds left per weapon, 0 = not reloading */
+  var gunY = H * 0.57;              /* smoothed vertical anchor of the right-side gun */
+  var VM_BASE_Y = H * 0.57;
+  var VM_AIM_TRAVEL = H * 0.20;
 
   /* ---------------- helpers ---------------- */
 
   function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+  function sfx(name) {
+    if (window.PixelPlayAudio && window.PixelPlayAudio.sfx) {
+      try { window.PixelPlayAudio.sfx(name); } catch (e) { /* audio unavailable */ }
+    }
+  }
+
+  function weapon() { return WEAPONS[gun]; }
+  function isReloading() { return reloadT[gun] > 0; }
+
+  function selectWeapon(idx) {
+    if (idx < 0 || idx >= WEAPONS.length || idx === gun) return false;
+    gun = idx;
+    /* Fixed draw time on a swap: never faster than the new gun's own cycle,
+       and a long Rifle cooldown does not carry over to the SMG. */
+    fireCd = 0.15;
+    sfx('select');
+    updateHud(true);
+    return true;
+  }
+
+  function cycleWeapon() {
+    return selectWeapon((gun + 1) % WEAPONS.length);
+  }
+
   function rnd(a, b) { return a + Math.random() * (b - a); }
   function normAng(a) {
     while (a > Math.PI) a -= TAU;
@@ -243,22 +297,29 @@
       hp = Math.min(maxHp, hp + 40);
     }
     flashBanner = 0.8;
+    sfx('coin');
     updateHud(true);
     return true;
   }
 
   function fireCooldown() {
-    return Math.max(FIRE_CD * 0.5, FIRE_CD * Math.pow(0.85, upgrades.fire));
+    var w = weapon();
+    return Math.max(w.fireCd * 0.5, w.fireCd * Math.pow(0.85, upgrades.fire));
+  }
+
+  function ammoText() {
+    var w = weapon();
+    return w.name + ' ' + (isReloading() ? 'reloading' : ammo[gun] + '/' + w.mag);
   }
 
   /* ---------------- HUD ---------------- */
 
   function updateHud(force) {
-    var right;
-    if (state === 'paused') right = '⏸ Paused · Wave ' + wave;
-    else if (phase === 'wave' && document.pointerLockElement !== canvas) right = '🖱 Click the view to aim up/down · Space jump · F fire';
-    else right = '⬡ ' + credits + ' credits' + (combo > 1 && phase === 'wave' ? ' · ×' + combo : '') + ' · Space = Jump';
-    var sig = [score, Math.max(best, score), wave, Math.max(0, Math.ceil(hp)), right].join('|');
+    var right, wtxt = ammoText();
+    if (state === 'paused') right = '⏸ Paused · Wave ' + wave + ' · ' + wtxt;
+    else if (phase === 'wave' && document.pointerLockElement !== canvas) right = '🖱 Click to aim · ' + wtxt + ' · 1/2/3 or Q switch · Space jump';
+    else right = '⬡ ' + credits + ' credits' + (combo > 1 && phase === 'wave' ? ' · ×' + combo : '') + ' · ' + wtxt + ' · Space jump';
+    var sig = [score, Math.max(best, score), wave, Math.max(0, Math.ceil(hp)), gun, ammo[gun], isReloading(), right].join('|');
     if (!force && sig === hudSig) return;
     hudSig = sig;
     GameShell.hud(
@@ -282,6 +343,7 @@
     }
     spawnT = 0.9;
     waveEndT = 0;
+    if (state === 'running') sfx('powerup');   /* wave-start cue */
     updateHud(true);
   }
 
@@ -388,6 +450,7 @@
         damageFlash = 0.5;
         shake = 8;
         combo = 1; comboT = 0;
+        sfx('thud');
         orbs.splice(i, 1);
         updateHud();
         if (hp <= 0) { hp = 0; gameOver(); return; }
@@ -398,9 +461,12 @@
   /* ---------------- shooting ---------------- */
 
   function beginReload() {
-    if (reloading || mag === MAG_SIZE) return;
-    reloading = true;
-    reloadT = RELOAD_TIME;
+    var w = weapon();
+    if (isReloading() || ammo[gun] >= w.mag) return false;
+    reloadT[gun] = w.reloadTime;
+    sfx('reload');
+    updateHud(true);
+    return true;
   }
 
   function pickTarget() {
@@ -430,15 +496,19 @@
   }
 
   function shoot() {
+    var w = weapon();
     if (state !== 'running' || phase !== 'wave') return;
-    if (reloading || fireCd > 0) return;
-    if (mag <= 0) { beginReload(); return; }
+    if (isReloading() || fireCd > 0) return;
+    if (ammo[gun] <= 0) { beginReload(); return; }
     fireCd = fireCooldown();
-    mag--;
+    ammo[gun]--;
     shots++;
-    muzzle = 0.06;
-    recoil = 1;
-    shake = Math.max(shake, 2.5);
+    muzzle = w.id === 'rifle' ? 0.09 : 0.06;
+    tracer = 1;
+    recoil = w.recoil;
+    shake = Math.max(shake, 1.6 + w.recoil * 0.8);
+    sfx(w.sfx);
+    if (w.sfx2) sfx(w.sfx2);
 
     var rdx = Math.cos(player.dir), rdy = Math.sin(player.dir);
     var target = pickTarget();
@@ -446,13 +516,14 @@
     if (target && target.dist < wallHit) {
       var hitD2 = target.drone;
       var mult = damageMultiplier(target.dist);
-      var dmg = (1 + upgrades.dmg) * mult;
+      var dmg = (w.damage + upgrades.dmg) * mult;
       hitMarker = 1;
       hits++;
       lastHit = { dist: target.dist, dmg: dmg, mult: mult };
       hitD2.hp -= dmg;
       hitD2.flash = 0.12;
       score += 5;
+      sfx('hit');
       hitPops.push({
         x: W / 2 + rnd(-11, 11), y: aimY - 12,
         t: 0, life: 0.65, val: dmg, mult: mult
@@ -468,10 +539,11 @@
         comboT = 2.6;
         score += hitD2.scoreBase * combo;
         puffs.push({ x: hitD2.x, y: hitD2.y, t: 0, life: 0.45 });
+        sfx('explode');
         updateHud();
       }
     }
-    if (mag <= 0) beginReload();
+    if (ammo[gun] <= 0) beginReload();
   }
 
   /* ---------------- state transitions ---------------- */
@@ -483,10 +555,15 @@
     drones.length = 0; orbs.length = 0; puffs.length = 0;
     hitPops.length = 0;
     aimY = H / 2;
+    gunY = VM_BASE_Y;
     lastHit = { dist: 0, dmg: 0, mult: 1 };
     hits = 0;
     player.x = 10.5; player.y = 10.5; player.dir = 0;
-    reloading = false; mag = MAG_SIZE; fireCd = 0;
+    gun = 0; fireCd = 0;
+    for (var i = 0; i < WEAPONS.length; i++) {
+      ammo[i] = WEAPONS[i].mag;
+      reloadT[i] = 0;
+    }
     releaseKeys();
     state = 'running';
     startWave();
@@ -534,6 +611,7 @@
       best = score;
       GameShell.best.set(BEST_KEY, best);
     }
+    sfx('lose');
     updateHud(true);
     GameShell.overlay.show({
       title: isBest ? 'New high score!' : 'Overrun',
@@ -566,6 +644,7 @@
       player.vz = JUMP_VEL;
       player.onGround = false;
       keys.jump = false;
+      sfx('jump');
     }
     player.z += player.vz * dt;
     player.vz -= GRAVITY * dt;
@@ -578,6 +657,13 @@
     if (keys.aimUp) aimY -= AIM_KEY_SPEED * dt;
     if (keys.aimDown) aimY += AIM_KEY_SPEED * dt;
     aimY = clampAim(aimY);
+
+    /* The right-hand viewmodel tracks the reticle smoothly. The clamp only
+       bites at the far ends, keeping the whole silhouette on screen. */
+    var aimT = (aimY - H / 2) / AIM_MARGIN;
+    var gunTarget = VM_BASE_Y + aimT * VM_AIM_TRAVEL;
+    gunY += (gunTarget - gunY) * Math.min(1, dt * 12);
+    gunY = clamp(gunY, H * 0.24, H * 0.80);
 
     if (comboT > 0) {
       comboT -= dt;
@@ -610,9 +696,13 @@
     /* firing / reload */
     if (fireCd > 0) fireCd -= dt;
     if (keys.fire) shoot();
-    if (reloading) {
-      reloadT -= dt;
-      if (reloadT <= 0) { reloading = false; mag = MAG_SIZE; }
+    if (reloadT[gun] > 0) {
+      reloadT[gun] -= dt;
+      if (reloadT[gun] <= 0) {
+        reloadT[gun] = 0;
+        ammo[gun] = weapon().mag;
+        sfx('select');
+      }
     }
 
     if (phase === 'wave') {
@@ -632,10 +722,14 @@
           drones.length = 0;
           orbs.length = 0;
           hp = Math.min(maxHp, hp + 30);
-          reloading = false;
-          mag = MAG_SIZE;
+          /* Deliberate between-wave resupply: every magazine is topped up. */
+          for (i = 0; i < WEAPONS.length; i++) {
+            ammo[i] = WEAPONS[i].mag;
+            reloadT[i] = 0;
+          }
           combo = 1;
           comboT = 0;
+          sfx('win');
           try {
             if (document.exitPointerLock && document.pointerLockElement) document.exitPointerLock();
           } catch (e) { /* pointer lock unavailable */ }
@@ -668,6 +762,7 @@
     if (shake > 0) shake = Math.max(0, shake - dt * 26);
     if (muzzle > 0) muzzle -= dt;
     if (recoil > 0) recoil = Math.max(0, recoil - dt * 7);
+    if (tracer > 0) tracer = Math.max(0, tracer - dt * 10);
 
     updateHud();
   }
@@ -835,44 +930,175 @@
 
   /* ---------------- rendering: viewmodel + overlays ---------------- */
 
-  function drawViewmodel() {
-    var bx = W / 2 + 34 + recoil * 3;
-    var by = H - 64 + recoil * 9 + bob * 0.6;
-    ctx.save();
-    ctx.translate(bx, by);
-    ctx.fillStyle = '#332a58';
-    rr(-9, -86, 18, 58, 5);
+  /* One geometry source for the right-side gun so the muzzle flash, the shot
+     tracer and the test hook all agree. Recoil kicks it right and up. */
+  function viewmodelGeom() {
+    var w = weapon();
+    var bx = W - 44 + recoil * 9;
+    var by = gunY - recoil * 11 + bob * 0.55;
+    return { w: w, x: bx, y: by, muzzleX: bx + w.muzzleX, muzzleY: by + w.muzzleY };
+  }
+
+  function drawForearm() {
+    ctx.fillStyle = '#241d3f';
+    ctx.beginPath();
+    ctx.moveTo(22, 4);
+    ctx.lineTo(82, 32);
+    ctx.lineTo(72, 94);
+    ctx.lineTo(8, 62);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#3a2f63';
+    rr(2, 6, 38, 46, 11);
     ctx.fill();
     ctx.fillStyle = '#4a3c80';
-    rr(-12, -52, 24, 22, 6);
+    rr(8, 13, 24, 13, 5);
     ctx.fill();
-    rr(-30, -34, 60, 44, 8);
-    ctx.fillStyle = '#2c2350';
-    ctx.fill();
-    ctx.fillStyle = '#8b5cf6';
-    rr(-26, -30, 52, 8, 4);
-    ctx.fill();
-    ctx.fillStyle = '#22d3ee';
-    rr(-30, -6, 12, 26, 4);
-    ctx.fill();
+  }
+
+  function drawBlasterModel(w) {
+    /* grip first, then slide/body over it */
     ctx.fillStyle = '#1d1838';
-    rr(-14, 4, 26, 42, 6);
+    rr(-36, -6, 30, 64, 9);
     ctx.fill();
-    ctx.fillStyle = '#22d3ee';
+    ctx.fillStyle = '#2c2350';
+    rr(-132, -32, 122, 34, 10);
+    ctx.fill();
+    ctx.fillStyle = '#4a3c80';
+    rr(-76, -24, 64, 26, 8);
+    ctx.fill();
+    ctx.fillStyle = '#645a92';
+    rr(-116, -38, 72, 7, 3);
+    ctx.fill();
+    ctx.fillStyle = w.accent2;
+    rr(-124, -24, 28, 10, 5);
+    ctx.fill();
+    ctx.fillStyle = w.accent;
+    rr(-114, -27, 58, 6, 3);
+    ctx.fill();
     ctx.beginPath();
-    ctx.arc(16, -12, 6, 0, TAU);
+    ctx.arc(-110, -10, 6, 0, TAU);
     ctx.fill();
+    ctx.fillStyle = '#645a92';
+    rr(-134, -22, 8, 18, 3);
+    ctx.fill();
+  }
+
+  function drawRifleModel(w) {
+    ctx.fillStyle = '#1d1838';
+    rr(-40, -4, 30, 72, 9);
+    ctx.fill();
+    rr(-90, 0, 28, 46, 6);
+    ctx.fill();
+    ctx.fillStyle = '#2a2148';
+    rr(-184, -24, 152, 20, 5);
+    ctx.fill();
+    ctx.fillStyle = '#3a2f63';
+    rr(-168, -31, 84, 33, 7);
+    ctx.fill();
+    ctx.fillStyle = '#4a3c80';
+    rr(-84, -35, 80, 39, 8);
+    ctx.fill();
+    ctx.fillStyle = '#2c2350';
+    rr(-18, -28, 50, 34, 8);
+    ctx.fill();
+    ctx.fillStyle = '#12101f';
+    rr(-142, -51, 56, 15, 6);
+    ctx.fill();
+    ctx.fillStyle = w.accent;
+    ctx.beginPath();
+    ctx.arc(-132, -43, 5, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = w.accent2;
+    rr(-178, -19, 52, 5, 2);
+    ctx.fill();
+    ctx.fillStyle = w.accent;
+    rr(-72, -27, 44, 6, 3);
+    ctx.fill();
+    ctx.fillStyle = '#645a92';
+    rr(-184, -29, 10, 28, 3);
+    ctx.fill();
+  }
+
+  function drawSMGModel(w) {
+    ctx.fillStyle = '#1d1838';
+    rr(-36, -4, 30, 66, 9);
+    ctx.fill();
+    rr(-92, 6, 25, 56, 6);
+    ctx.fill();
+    ctx.fillStyle = '#3a2f63';
+    rr(-104, 6, 20, 38, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#645a92';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(-8, -18);
+    ctx.lineTo(28, -30);
+    ctx.lineTo(32, -2);
+    ctx.stroke();
+    ctx.fillStyle = '#2c2350';
+    rr(-116, -32, 112, 40, 9);
+    ctx.fill();
+    ctx.fillStyle = '#645a92';
+    rr(-98, -40, 72, 11, 4);
+    ctx.fill();
+    ctx.fillStyle = w.accent2;
+    rr(-112, -25, 38, 7, 3);
+    ctx.fill();
+    ctx.fillStyle = w.accent;
+    rr(-64, -23, 20, 7, 3);
+    ctx.fill();
+    rr(-86, -12, 34, 5, 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(-104, -10, 5, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = '#645a92';
+    rr(-118, -22, 8, 20, 3);
+    ctx.fill();
+  }
+
+  function drawViewmodel() {
+    var g = viewmodelGeom();
+    if (tracer > 0) {
+      ctx.save();
+      ctx.globalAlpha = clamp(tracer, 0, 1) * 0.7;
+      ctx.strokeStyle = g.w.accent;
+      ctx.lineWidth = g.w.id === 'rifle' ? 3 : 2;
+      ctx.beginPath();
+      ctx.moveTo(g.muzzleX, g.muzzleY);
+      ctx.lineTo(W / 2, aimY);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.translate(g.x, g.y);
+    drawForearm();
+    if (g.w.id === 'rifle') drawRifleModel(g.w);
+    else if (g.w.id === 'smg') drawSMGModel(g.w);
+    else drawBlasterModel(g.w);
     ctx.restore();
 
     if (muzzle > 0) {
+      var mf = clamp(muzzle * 14, 0, 1);
+      var R = g.w.flash * (0.72 + 0.28 * mf);
       ctx.save();
-      ctx.translate(bx, by - 88);
-      ctx.fillStyle = 'rgba(190,235,255,.9)';
+      ctx.translate(g.muzzleX, g.muzzleY);
+      ctx.fillStyle = 'rgba(255,255,255,.30)';
       ctx.beginPath();
-      for (var i = 0; i < 8; i++) {
-        var a = i / 8 * TAU;
-        var r = i % 2 === 0 ? 22 : 9;
-        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r * 0.8);
+      ctx.ellipse(-R * 0.55, 0, R * 0.95, R * 0.34, 0, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.55)';
+      ctx.beginPath();
+      ctx.arc(0, 0, R * 0.46, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = g.w.accent;
+      ctx.beginPath();
+      for (var i = 0; i < 10; i++) {
+        var a = i / 10 * TAU;
+        var r2 = i % 2 === 0 ? R : R * 0.34;
+        ctx.lineTo(Math.cos(a) * r2, Math.sin(a) * r2 * 0.78);
       }
       ctx.closePath();
       ctx.fill();
@@ -985,19 +1211,40 @@
     var left = drones.length + queue.length;
     ctx.fillText('WAVE ' + wave + ' · ' + left + ' left', W / 2, 28);
 
-    /* ammo */
-    ctx.textAlign = 'right';
-    ctx.fillStyle = 'rgba(5,8,16,.6)';
-    rr(W - 108, H - 40, 98, 28, 8);
+    /* weapon + ammo panel (bottom-left, clear of the right-side gun) */
+    var w = weapon();
+    var bx = 12, by = H - 60, bw = 216, bh = 50;
+    ctx.fillStyle = 'rgba(5,8,16,.68)';
+    rr(bx, by, bw, bh, 9);
     ctx.fill();
-    if (reloading) {
+    ctx.strokeStyle = 'rgba(139,92,246,.38)';
+    ctx.lineWidth = 1;
+    rr(bx, by, bw, bh, 9);
+    ctx.stroke();
+    ctx.textAlign = 'left';
+    ctx.fillStyle = w.accent;
+    ctx.font = 'bold 14px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(w.name.toUpperCase(), bx + 11, by + 19);
+    ctx.fillStyle = 'rgba(195,205,227,.62)';
+    ctx.font = '11px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(phase === 'breather' ? '1/2/3 BUY · Q CYCLE' : 'Q CYCLE · 1/2/3 SWITCH', bx + 11, by + 35);
+    ctx.textAlign = 'right';
+    if (isReloading()) {
       ctx.fillStyle = '#f59e0b';
       ctx.font = 'bold 13px "Segoe UI", system-ui, sans-serif';
-      ctx.fillText('RELOADING…', W - 20, H - 21);
+      ctx.fillText('RELOAD ' + Math.max(0, reloadT[gun]).toFixed(1) + 's', bx + bw - 11, by + 19);
+      var prog = 1 - reloadT[gun] / w.reloadTime;
+      ctx.fillStyle = 'rgba(255,255,255,.12)';
+      ctx.fillRect(bx + 11, by + 41, bw - 22, 3);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(bx + 11, by + 41, (bw - 22) * clamp(prog, 0, 1), 3);
     } else {
-      ctx.fillStyle = mag <= 3 ? '#ff9db4' : '#e8eefc';
-      ctx.font = 'bold 15px "Segoe UI", system-ui, sans-serif';
-      ctx.fillText('▮'.repeat(Math.max(0, mag)) + ' ' + mag + '/' + MAG_SIZE, W - 20, H - 20);
+      ctx.fillStyle = ammo[gun] <= Math.max(1, Math.ceil(w.mag * 0.2)) ? '#ff9db4' : '#e8eefc';
+      ctx.font = 'bold 17px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText(ammo[gun] + ' / ' + w.mag, bx + bw - 11, by + 21);
+      ctx.fillStyle = 'rgba(195,205,227,.55)';
+      ctx.font = '10px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText(w.damage.toFixed(2) + ' DMG · ' + Math.round(60 / w.fireCd) + ' RPM', bx + bw - 11, by + 36);
     }
   }
 
@@ -1147,12 +1394,20 @@
     } else if (k === 'r' || k === 'R') {
       if (e.repeat) return;
       start();
+    } else if (k === 'q' || k === 'Q') {
+      if (!e.repeat && state === 'running') cycleWeapon();
     } else if (k === '1') {
-      if (!e.repeat) buy('fire');
+      if (e.repeat) return;
+      if (state === 'running' && phase === 'breather') buy('fire');
+      else if (state === 'running') selectWeapon(0);
     } else if (k === '2') {
-      if (!e.repeat) buy('dmg');
+      if (e.repeat) return;
+      if (state === 'running' && phase === 'breather') buy('dmg');
+      else if (state === 'running') selectWeapon(1);
     } else if (k === '3') {
-      if (!e.repeat) buy('armor');
+      if (e.repeat) return;
+      if (state === 'running' && phase === 'breather') buy('armor');
+      else if (state === 'running') selectWeapon(2);
     }
   });
 
@@ -1177,6 +1432,7 @@
       function on() {
         if (state === 'ready' || state === 'over') { start(); return; }
         if (state === 'paused') { resume(); return; }
+        if (act === 'weapon') { cycleWeapon(); return; }
         if (act === 'fire') keys.fire = true;
         else if (act === 'jump') keys.jump = true;
         else if (act === 'left') keys.turnL = true;
@@ -1279,7 +1535,7 @@
   ensureLoop();
   GameShell.overlay.show({
     title: 'Wavebreak',
-    msg: 'Endless drones, one blaster. Survive the waves, bank credits from every kill and spend them on faster fire, more damage or heavier armor between rounds. Move with WASD, jump with Space and fire with F or a click. Aim up and down with the mouse, the arrow keys or the ▲▼ buttons — shots hit hardest up close and lose power at range. Click the view to lock the mouse. How deep can you go?',
+    msg: 'Endless drones, three guns. The Blaster is a 14-round all-rounder, the Rifle hits hard with 8 slow shots, and the SMG sprays 26 fast rounds. Switch with 1/2/3 during a wave or Q to cycle, and watch the right-hand gun rise and fall with your reticle. Survive the waves, bank credits from every kill and spend them on faster fire, more damage or heavier armor between rounds. Move with WASD, jump with Space and fire with F or a click. Aim up and down with the mouse, the arrow keys or the ▲▼ buttons — shots hit hardest up close and lose power at range. Click the view to lock the mouse. How deep can you go?',
     stats: [{ label: 'Best', value: best }],
     btn: '▶ Play',
     action: start
@@ -1287,6 +1543,7 @@
 
   /* Read-only snapshot hook for automated tests. */
   window.__wavebreak = function () {
+    var vm = viewmodelGeom();
     return {
       state: state, phase: phase,
       score: score, best: best,
@@ -1295,7 +1552,31 @@
       combo: combo, breatherT: breatherT,
       upgrades: { fire: upgrades.fire, dmg: upgrades.dmg, armor: upgrades.armor },
       costs: { fire: fireCost(), dmg: dmgCost(), armor: armorCost() },
-      ammo: mag, reloading: reloading,
+      weapon: gun,
+      weaponId: weapon().id,
+      weaponName: weapon().name,
+      magSize: weapon().mag,
+      ammo: ammo[gun],
+      reloading: isReloading(),
+      reloadLeft: reloadT[gun],
+      ammoAll: ammo.slice(),
+      reloadAll: reloadT.slice(),
+      weapons: WEAPONS.map(function (w, i) {
+        return {
+          id: w.id, name: w.name, slot: w.slot,
+          mag: w.mag, fireCd: w.fireCd, reloadTime: w.reloadTime,
+          damage: w.damage, recoil: w.recoil,
+          ammo: ammo[i], reloading: reloadT[i] > 0, reloadLeft: reloadT[i],
+          currentDmg: function () { return (w.damage + upgrades.dmg); }
+        };
+      }),
+      viewmodel: {
+        x: vm.x, y: vm.y,
+        muzzleX: vm.muzzleX, muzzleY: vm.muzzleY,
+        rightHalf: vm.x > W / 2,
+        gunY: gunY
+      },
+      jump: { z: player.z, vz: player.vz, onGround: player.onGround, vel: JUMP_VEL },
       aim: { y: aimY, min: H / 2 - AIM_MARGIN, max: H / 2 + AIM_MARGIN, margin: AIM_MARGIN },
       crosshair: { x: W / 2, y: aimY },
       lastHit: { dist: lastHit.dist, dmg: lastHit.dmg, mult: lastHit.mult },

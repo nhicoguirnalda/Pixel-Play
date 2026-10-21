@@ -123,6 +123,12 @@
     if (!ctx || !started) return;
     var th = THEMES[musicKind] || THEMES.arcade;
     var stepDur = 60 / th.bpm / 2;             /* eighth notes */
+    /* If the tab was throttled for a while, skip the missed bars instead
+       of scheduling hundreds of notes in one go. */
+    if (musicNext < ctx.currentTime - 0.5) {
+      musicNext = ctx.currentTime + 0.05;
+      musicStep += 4;
+    }
     while (musicNext < ctx.currentTime + 0.15) {
       var t = Math.max(musicNext, ctx.currentTime + 0.01);
       var s = musicStep % 32;
@@ -333,6 +339,8 @@
         classifyOverlay(opts);
       };
     }
+
+    syncButton();
   }
 
   /* ---------------- gestures, clicks, visibility ---------------- */

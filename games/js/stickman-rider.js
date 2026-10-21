@@ -1,9 +1,10 @@
 /* ============================================================
    Stickman Rider — original game for PixelPlay
    Side-view motorbike trials: seeded hilly terrain, ramps,
-   gaps, rocks and logs, springy suspension physics, air lean,
-   backflip bonuses, coins and a six-level championship.
-   Keyboard first, on-screen buttons for touch.
+   gaps, rocks, logs, swinging log pendulums, springy
+   suspension physics, air lean, backflip bonuses, coins and a
+   nine-level championship. Keyboard first, on-screen buttons
+   for touch.
    ============================================================ */
 
 (function () {
@@ -29,21 +30,30 @@
     };
   }
 
-  /* ---------------- level configs (hand-tuned) ---------------- */
+  /* ---------------- level configs (hand-tuned, easiest → hardest) ---------------- */
 
   var LEVELS = [
     { name: 'Sunny Slopes', seed: 13579, len: 2450, amp: 30, rough: 4.0,
-      gaps: [[1560, 104]], rocks: 4, logs: 6, coins: 6, time: 40 },
+      gaps: [[1560, 104]], rocks: 4, logs: 6, coins: 6, time: 40, swingers: 1 },
     { name: 'Rocky Ridge', seed: 24680, len: 2750, amp: 37, rough: 5.6,
-      gaps: [[1380, 110], [2160, 118]], rocks: 7, logs: 8, coins: 7, time: 40 },
+      gaps: [[1380, 108], [2160, 112]], rocks: 7, logs: 8, coins: 7, time: 40, swingers: 1 },
     { name: 'Timber Trail', seed: 31415, len: 3000, amp: 44, rough: 7.0,
-      gaps: [[1220, 96], [1750, 98], [2340, 100]], rocks: 9, logs: 13, coins: 8, time: 42 },
+      gaps: [[1220, 104], [1750, 108], [2340, 112]], rocks: 9, logs: 13, coins: 8, time: 42, swingers: 2 },
     { name: 'Craggy Pass', seed: 42424, len: 3250, amp: 51, rough: 8.6,
-      gaps: [[1080, 100], [1550, 102], [2070, 104], [2860, 104]], rocks: 12, logs: 10, coins: 9, time: 44 },
+      gaps: [[1080, 106], [1550, 108], [2070, 110], [2860, 112]], rocks: 12, logs: 10, coins: 9, time: 44, swingers: 2 },
     { name: 'Boulder Basin', seed: 55551, len: 3500, amp: 58, rough: 10.2,
-      gaps: [[990, 98], [1930, 100], [2450, 102], [3010, 102]], rocks: 16, logs: 12, coins: 10, time: 46 },
+      gaps: [[990, 108], [1930, 110], [2450, 112], [3010, 114]], rocks: 16, logs: 12, coins: 10, time: 46, swingers: 3 },
     { name: 'Devils Drop', seed: 66613, len: 3750, amp: 66, rough: 11.8,
-      gaps: [[940, 102], [1810, 104], [2700, 108], [3330, 106]], rocks: 19, logs: 15, coins: 12, time: 48 }
+      gaps: [[940, 110], [1810, 112], [2700, 114], [3330, 116]], rocks: 19, logs: 15, coins: 12, time: 48, swingers: 3 },
+    { name: 'Rattler Ridge', seed: 70707, len: 4000, amp: 74, rough: 13.4,
+      gaps: [[860, 112], [1560, 113], [2260, 115], [2960, 116], [3660, 117]],
+      rocks: 23, logs: 18, coins: 13, time: 50, swingers: 4 },
+    { name: 'Scorpion Steps', seed: 80808, len: 4300, amp: 82, rough: 15.2,
+      gaps: [[820, 116], [1500, 117], [2180, 118], [2860, 119], [3540, 120]],
+      rocks: 27, logs: 21, coins: 15, time: 52, swingers: 4 },
+    { name: 'Nightfall Gauntlet', seed: 90909, len: 4600, amp: 90, rough: 17.0,
+      gaps: [[800, 118], [1450, 119], [2100, 120], [2750, 121], [3400, 122], [4050, 122]],
+      rocks: 31, logs: 24, coins: 17, time: 54, swingers: 5 }
   ];
 
   /* ---------------- physics constants ---------------- */
@@ -70,6 +80,13 @@
   var RAMP_STEP = 3;        /* extra kicker height per level */
   var BOWL_BASE = 30;       /* landing bowl depth on level one */
   var BOWL_STEP = 3;        /* extra bowl depth per level */
+  var SWING_OMEGA = 1.9;    /* pendulum angular speed on level one, rad/s */
+  var SWING_STEP = 0.06;    /* +0.06 rad/s per level */
+  var SWING_ROPE = 118;     /* pendulum rope length, px */
+  var SWING_AMP = 0.95;     /* swing amplitude, radians */
+  var SWING_R = 13;         /* log bob radius */
+  var SWING_HIT = 9;        /* extra collision margin around the bob */
+  var SWING_PIVOT_H = 158;  /* pivot height above the trail */
 
   /* ---------------- state ---------------- */
 
@@ -84,6 +101,8 @@
   var hs = [];                    /* terrain height samples, step TS */
   var gaps = [];                  /* [startX, width] chasms */
   var rocks = [], logs = [], coins = [];
+  var swingers = [];
+  var swingClock = 0;
   var TS = 6;
 
   var bike = { x: 120, y: 400, vx: 0, vy: 0, ang: 0, av: 0, spin: 0 };
@@ -203,13 +222,14 @@
 
     /* rocks and logs as gentle bumps you can bounce over */
     rocks = []; logs = [];
-    function place(count, list, minH, maxH, halfW, gapClear) {
+    function place(count, list, minH, maxH, halfW, gapBefore, gapAfter) {
       var placed = 0, tries = 0;
       while (placed < count && tries++ < count * 30) {
         var px = 460 + rnd() * (cfg.len - 700);
         var ok = true, g;
         for (g = 0; g < gaps.length; g++) {
-          if (px > gaps[g][0] - gapClear && px < gaps[g][0] + gaps[g][1] + gapClear) { ok = false; break; }
+          if (px > gaps[g][0] - gapBefore &&
+              px < gaps[g][0] + gaps[g][1] + gapAfter) { ok = false; break; }
         }
         if (ok) {
           for (g = 0; g < list.length; g++) {
@@ -229,10 +249,10 @@
         placed++;
       }
     }
-    /* obstacles stay clear of the whole run-up+kicker zone (400px before
-       each chasm) so the approach to every gap is always smooth */
-    place(cfg.rocks, rocks, 9, 14, 16, 430);
-    place(cfg.logs, logs, 7, 10, 18, 430);
+    /* Obstacles stay off the kicker and its immediate run-up (250px before
+       each chasm) but may sit after the landing bowl. */
+    place(cfg.rocks, rocks, 9, 14, 16, 250, 100);
+    place(cfg.logs, logs, 7, 10, 18, 250, 100);
 
     /* slope limiter: no wall steeper than ~40 degrees, and cap per-sample steps too */
     for (var pass = 0; pass < 5; pass++) {
@@ -259,7 +279,6 @@
       }
       for (i = 0; i < n; i++) hs[i] = clamp(hs[i], 258, 524);
     }
-    for (i = 0; i < 380 / TS; i++) if (i < n) hs[i] = 460;
 
     /* coins float above the route, arcing over the jumps */
     coins = [];
@@ -267,6 +286,80 @@
       var cx = Math.round((500 + (cfg.len - 780) * (i + 0.5) / cfg.coins + (rnd() - 0.5) * 90) / TS) * TS;
       var gy = groundAt(cx);
       coins.push({ x: cx, y: (gy === null ? 400 : gy) - 64 - rnd() * 26, got: false });
+    }
+
+    /* swinging log pendulums: fixed frames that sweep the trail.
+       Prefer a flat stretch so the log sweeps at a readable height, but fall
+       back to the spread-out slot on rough courses. The pivot is anchored to
+       the highest ground nearby so the log never dips into a rider on a
+       downhill. */
+    function flatSpan(x, half, tol) {
+      var lo = 1e9, hi = -1e9;
+      for (var fx = x - half; fx <= x + half; fx += 10) {
+        var fy = groundAt(fx);
+        if (fy === null) return false;
+        if (fy < lo) lo = fy;
+        if (fy > hi) hi = fy;
+        if (Math.abs(groundSlope(fx)) > 0.42) return false;
+      }
+      return (hi - lo) <= tol;
+    }
+
+    function freeOfGaps(x) {
+      for (var zg = 0; zg < gaps.length; zg++) {
+        if (x > gaps[zg][0] - 150 && x < gaps[zg][0] + gaps[zg][1] + 150) return false;
+      }
+      return true;
+    }
+
+    swingers = [];
+    swingClock = 0;
+    var ns = cfg.swingers || 0;
+    for (i = 0; i < ns; i++) {
+      var base = 700 + (cfg.len - 1600) * (i + 0.5) / Math.max(1, ns);
+      var sx = -1;
+      for (var off = 0; off <= 300 && sx < 0; off += 24) {
+        var cand = off === 0 ? [base] : [base + off, base - off];
+        for (var ci = 0; ci < cand.length; ci++) {
+          var cx = Math.round(cand[ci] / TS) * TS;
+          if (cx < 520 || cx > cfg.len - 320) continue;
+          if (!freeOfGaps(cx) || !flatSpan(cx, 95, 34)) continue;
+          var tooClose = false;
+          for (var q = 0; q < swingers.length; q++) {
+            if (Math.abs(swingers[q].x - cx) < 260) { tooClose = true; break; }
+          }
+          if (tooClose) continue;
+          sx = cx;
+          break;
+        }
+      }
+      if (sx < 0) {
+        /* fallback: original spread-out slot, nudged clear of the chasms */
+        var fbase = Math.round(base / TS) * TS;
+        for (var guard = 0; guard < 40; guard++) {
+          var cx2 = fbase + guard * 60;
+          if (cx2 >= cfg.len - 320) break;
+          var clash = false;
+          for (var fq = 0; fq < swingers.length; fq++) {
+            if (Math.abs(swingers[fq].x - cx2) < 260) { clash = true; break; }
+          }
+          if (!clash && freeOfGaps(cx2) && groundAt(cx2) !== null) { sx = cx2; break; }
+        }
+      }
+      if (sx >= 0 && sx < cfg.len - 300 && freeOfGaps(sx) && groundAt(sx) !== null) {
+        var pivotBase = -1e9;
+        for (var pg = sx - 60; pg <= sx + 60; pg += 10) {
+          var pgy = groundAt(pg);
+          if (pgy !== null && pgy > pivotBase) pivotBase = pgy;
+        }
+        if (pivotBase < -1e8) pivotBase = groundAt(sx);
+        swingers.push({
+          x: sx,
+          phase: i * 2.1,
+          omega: SWING_OMEGA + levelIdx * SWING_STEP,
+          pivotBase: pivotBase
+        });
+      }
     }
   }
 
@@ -412,6 +505,7 @@
     flipTotal += n;
     var word = n === 1 ? 'FLIP!' : (n === 2 ? 'DOUBLE FLIP!' : (n === 3 ? 'TRIPLE FLIP!' : n + '× FLIP!'));
     pops.push({ x: bike.x, y: bike.y - 54, text: word + ' +' + bonus, life: 1.3, life0: 1.3, col: '#f5b12b' });
+    if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('point');
     hudDirty = true;
   }
 
@@ -429,6 +523,7 @@
     bike.ang = Math.atan(groundSlope(120));
     bike.av = 0; bike.spin = 0;
     grounded = false; airTime = 0; airRot = 0;
+    crashMsg = '';
     cam.x = 0;
     releaseKeys();
   }
@@ -444,6 +539,7 @@
     last = now();
     hudDirty = true; hudSec = -1;
     GameShell.overlay.hide();
+    if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('select');
     updateHud();
     ensureLoop();
   }
@@ -514,6 +610,7 @@
     crashY = bike.y + HEAD.y;
     shake = 10;
     releaseKeys();
+    if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('explode');
     stars = [];
     for (var i = 0; i < 7; i++) {
       stars.push({
@@ -537,12 +634,13 @@
       best = score;
       GameShell.best.set(BEST_KEY, best);
     }
+    if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('win');
     hudDirty = true;
     updateHud();
     var lastLevel = levelIdx >= LEVELS.length - 1;
     GameShell.overlay.show({
       title: lastLevel ? 'Trail complete!' : 'Level cleared!',
-      msg: (lastLevel ? 'You conquered all six trails of ' : 'You crossed ') + cfg.name +
+      msg: (lastLevel ? 'You conquered all ' + LEVELS.length + ' trails of ' : 'You crossed ') + cfg.name +
            ' with ' + Math.ceil(timeLeft) + ' seconds left. Clear bonus: +' + bonus + '.',
       stats: [
         { label: 'Score', value: score },
@@ -568,6 +666,39 @@
     );
   }
 
+  /* ---------------- swinging log pendulums ---------------- */
+
+  function swingBob(sw) {
+    var g = groundAt(sw.x);
+    if (g === null) g = 460;
+    var base = (sw.pivotBase != null) ? sw.pivotBase : g;
+    var a = SWING_AMP * Math.sin(sw.phase + swingClock * sw.omega);
+    return {
+      x: sw.x + Math.sin(a) * SWING_ROPE,
+      y: base - SWING_PIVOT_H + Math.cos(a) * SWING_ROPE,
+      a: a,
+      ground: g,
+      pivotY: base - SWING_PIVOT_H
+    };
+  }
+
+  function updateSwingers(dt) {
+    swingClock += dt;
+    for (var i = 0; i < swingers.length; i++) {
+      var sw = swingers[i];
+      if (Math.abs(sw.x - bike.x) > 260) continue;
+      var bob = swingBob(sw);
+      if (state !== 'running') return;
+      var dx = bob.x - bike.x;
+      var dy = bob.y - bike.y;
+      var rr = SWING_R + SWING_HIT;
+      if (dx * dx + dy * dy < rr * rr) {
+        crash('A swinging log knocked you off!');
+        return;
+      }
+    }
+  }
+
   /* ---------------- update ---------------- */
 
   function update(dt) {
@@ -588,6 +719,9 @@
         for (i = 0; i < steps && state === 'running'; i++) stepPhysics(h);
       }
 
+      /* swinging logs sweep the trail */
+      if (state === 'running') updateSwingers(dt);
+
       /* coins */
       if (state === 'running') {
         for (i = 0; i < coins.length; i++) {
@@ -598,6 +732,7 @@
             cn.got = true;
             score += 50;
             pops.push({ x: cn.x, y: cn.y, text: '+50', life: 0.9, life0: 0.9, col: '#2ee6a6' });
+            if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('coin');
             hudDirty = true;
           }
         }
@@ -809,6 +944,82 @@
     }
   }
 
+  function drawSwingers() {
+    for (var i = 0; i < swingers.length; i++) {
+      var sw = swingers[i];
+      var x = sw.x - cam.x;
+      if (x < -170 || x > W + 170) continue;
+
+      var bob = swingBob(sw);
+      var bx = bob.x - cam.x;
+      var g = bob.ground;
+      var pivotY = bob.pivotY;
+      var low = Math.abs(bob.a) < 0.6;
+      var gl = groundAt(sw.x - 66), gr = groundAt(sw.x + 66);
+      if (gl === null) gl = g;
+      if (gr === null) gr = g;
+
+      /* timber gallows: two posts and a crossbeam the rider passes under */
+      ctx.strokeStyle = '#3b2a1c';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(x - 66, gl + 4);
+      ctx.lineTo(x - 66, pivotY - 8);
+      ctx.moveTo(x + 66, gr + 4);
+      ctx.lineTo(x + 66, pivotY - 8);
+      ctx.moveTo(x - 72, pivotY - 8);
+      ctx.lineTo(x + 72, pivotY - 8);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(169,116,61,.5)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x - 60, gl - 12);
+      ctx.lineTo(x - 12, pivotY + 8);
+      ctx.moveTo(x + 60, gr - 12);
+      ctx.lineTo(x + 12, pivotY + 8);
+      ctx.stroke();
+
+      /* marked danger sweep on the ground */
+      ctx.strokeStyle = 'rgba(255,92,122,' + (low ? 0.6 : 0.22) + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(x, g + 2, 98, 9, 0, 0, TAU);
+      ctx.stroke();
+
+      /* rope and log bob */
+      ctx.strokeStyle = '#8b7355';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x, pivotY - 2);
+      ctx.lineTo(bx, bob.y);
+      ctx.stroke();
+
+      ctx.save();
+      ctx.translate(bx, bob.y);
+      ctx.rotate(bob.a * 0.42);
+      ctx.fillStyle = '#7a4d24';
+      ctx.strokeStyle = low ? '#ff5c7a' : '#a9743d';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 18, 10, 0, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(93,58,27,.9)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(-10, -5); ctx.lineTo(-6, 5);
+      ctx.moveTo(-1, -7); ctx.lineTo(3, 7);
+      ctx.moveTo(8, -5); ctx.lineTo(10, 4);
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.fillStyle = low ? 'rgba(255,92,122,.95)' : 'rgba(245,177,43,.85)';
+      ctx.font = '700 10px ' + FONT;
+      ctx.textAlign = 'center';
+      ctx.fillText('SWING', x, pivotY - 14);
+    }
+  }
+
   function drawRider(t) {
     /* stick figure in the bike frame; leans with the rider input */
     var lean = 0;
@@ -1013,6 +1224,7 @@
 
     drawTerrain();
     drawDecor();
+    drawSwingers();
     if (state !== 'ready') drawBike(t);
     drawCrashFx();
     drawPops();
@@ -1139,6 +1351,7 @@
             state: state,
             level: levelIdx + 1,
             levels: LEVELS.length,
+            levelName: cfg ? cfg.name : '',
             score: score,
             best: Math.max(best, score),
             timeLeft: Math.ceil(timeLeft),
@@ -1154,18 +1367,42 @@
             courseLen: cfg ? cfg.len : 0,
             progress: cfg ? clamp(bike.x / cfg.len, 0, 1) : 0,
             gaps: gaps.map(function (gp) { return [gp[0], gp[1]]; }),
+            obstacles: {
+              rocks: rocks.length,
+              logs: logs.length,
+              coins: coins.length,
+              swingers: swingers.length
+            },
+            swingers: swingers.map(function (sw) {
+              var sb = swingBob(sw);
+              return {
+                x: Math.round(sw.x),
+                bx: Math.round(sb.x),
+                by: Math.round(sb.y),
+                angle: Math.round(sb.a * 100) / 100,
+                omega: Math.round(sw.omega * 100) / 100,
+                low: Math.abs(sb.a) < 0.6
+              };
+            }),
             difficulty: cfg ? {
               amp: cfg.amp,
               rough: cfg.rough,
               gaps: gaps.length,
               maxGap: gaps.reduce(function (m, gp) { return Math.max(m, gp[1]); }, 0),
+              gapWidths: gaps.map(function (gp) { return gp[1]; }),
               rocks: cfg.rocks,
               logs: cfg.logs,
               timeLimit: cfg.time,
               rampHeight: RAMP_BASE + levelIdx * RAMP_STEP,
               bowlDepth: BOWL_BASE + levelIdx * BOWL_STEP,
               drive: DRIVE,
-              assist: ASSIST_F
+              assist: ASSIST_F,
+              swingers: cfg.swingers || 0,
+              swingSpeed: Math.round((SWING_OMEGA + levelIdx * SWING_STEP) * 100) / 100,
+              swingRope: SWING_ROPE,
+              swingAmplitude: SWING_AMP,
+              swingRadius: SWING_R,
+              swingPivotHeight: SWING_PIVOT_H
             } : null,
             slope: Math.round(groundSlope(bike.x) * 100) / 100,
             wheels: (function () {
@@ -1191,6 +1428,24 @@
             })(),
             crashMsg: crashMsg
           };
+        },
+        /* test helper: jump straight into any of the nine levels */
+        loadLevel: function (n) {
+          n = n | 0;
+          if (n < 0) n = 0;
+          if (n > LEVELS.length - 1) n = LEVELS.length - 1;
+          levelIdx = n;
+          buildLevel(n);
+          timeLeft = cfg.time;
+          pops = []; stars = []; shake = 0; crashT = 0;
+          resetBike();
+          state = 'running';
+          last = now();
+          hudDirty = true; hudSec = -1;
+          GameShell.overlay.hide();
+          updateHud();
+          ensureLoop();
+          return n + 1;
         }
       }),
       writable: false,
@@ -1206,8 +1461,8 @@
   ensureLoop();
   GameShell.overlay.show({
     title: 'Stickman Rider',
-    msg: 'Hold the throttle with ↑ or W, lean with ← and →, and carry the stickman rider over hills, logs and chasms to the finish gate. Land a full flip for bonus points — but keep his head off the ground.',
-    stats: [{ label: 'Best', value: best }],
+    msg: 'Hold the throttle with ↑ or W, lean with ← and →, and carry the stickman rider over hills, logs, chasms and swinging log pendulums to the finish gate. Land a full flip for bonus points — but keep his head off the ground.',
+    stats: [{ label: 'Best', value: best }, { label: 'Levels', value: LEVELS.length }],
     btn: '▶ Play',
     action: start
   });

@@ -112,7 +112,7 @@ var GAMES = [
     icon: '💫', c1: '#f472b6', c2: '#8b5cf6',
     plays: '920K', playsN: 920000, rating: 4.7, added: 14,
     controls: 'Arrows / WASD',
-    desc: 'Dodge swirling bullet patterns, auto-fire at three cycling bosses and grab power-ups between fights.',
+    desc: 'Dodge swirling patterns, auto-fire at tankier bosses that hit harder each cycle, and grab power-ups between fights.',
     url: 'games/bullet-ballet.html'
   },
   {
@@ -128,7 +128,7 @@ var GAMES = [
     icon: '🛡️', c1: '#22c55e', c2: '#6366f1',
     plays: '810K', playsN: 810000, rating: 4.5, added: 16,
     controls: 'Mouse / Touch',
-    desc: 'Aim your turret, hold the line and spend credits on upgrades before the robots overrun your base.',
+    desc: 'Aim your turret, hold the line against faster, tougher robots and spend credits on upgrades between waves.',
     url: 'games/turret-guard.html'
   },
   {
@@ -152,7 +152,7 @@ var GAMES = [
     icon: '🤖', c1: '#8b5cf6', c2: '#22d3ee',
     plays: '1.1M', playsN: 1100000, rating: 4.5, added: 21,
     controls: 'WASD + Mouse',
-    desc: 'Hold the arena against endless waves of attack drones — every cleared wave pays credits for faster guns and more armor.',
+    desc: 'Hold the arena against endless drone waves with a Blaster, Rifle or SMG - every cleared wave pays credits for upgrades and armor.',
     url: 'games/wavebreak.html'
   },
   {
@@ -168,7 +168,7 @@ var GAMES = [
     icon: '🪝', c1: '#f59e0b', c2: '#22d3ee',
     plays: '610K', playsN: 610000, rating: 4.7, added: 25,
     controls: 'Hold Space',
-    desc: 'Fire your hook at glowing anchors, swing like a pendulum and release at the perfect moment to clear the chasm.',
+    desc: 'Fire your hook across eighteen chasm stages, dodge pulse beams and energy orbs, and clear one stage to unlock the next.',
     url: 'games/hook-hero.html'
   },
   {
@@ -184,7 +184,7 @@ var GAMES = [
     icon: '🧗', c1: '#a855f7', c2: '#f59e0b',
     plays: '310K', playsN: 310000, rating: 4.6, added: 28,
     controls: 'Arrows / A D',
-    desc: 'Hammer two pickaxes into a neon cliff, swing around overhangs and climb as high as your nerves allow.',
+    desc: 'Hammer two pickaxes up an endless neon cliff with one life, dodging rockfalls, icicles and spiked ledges.',
     url: 'games/stickman-climb.html'
   },
   {
@@ -192,7 +192,7 @@ var GAMES = [
     icon: '🏍️', c1: '#38bdf8', c2: '#f43f5e',
     plays: '620K', playsN: 620000, rating: 4.7, added: 30,
     controls: 'Arrows / WASD',
-    desc: 'Race a trials bike over hilly trails, pull big flips for bonus points and reach the finish gate before time runs out.',
+    desc: 'Race nine tougher trials trails, time the swinging logs, pull big flips and reach the gate before the clock runs out.',
     url: 'games/stickman-rider.html'
   },
   {

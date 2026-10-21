@@ -22,14 +22,18 @@
   var PLAYER_R = 9;
   var PLAYER_SPEED = 268;       /* px per second */
   var MAX_HP = 100;
-  var HIT_DAMAGE = 10;
+  var BASE_HIT_DAMAGE = 14;
+  var HIT_DAMAGE_PER_CYCLE = 2;
   var INVULN_MS = 1000;         /* tighter than the old 1300ms window */
   var KNOCKBACK = 195;          /* px per second of push */
   var BASE_FIRE_MS = 170;       /* starting auto-fire interval */
   var SHOT_SPEED = 620;
-  var BASE_DMG = 7;
+  var BASE_DMG = 8;
   var SHOT_R = 5;
   var SHOT_SCORE = 10;
+  var BOSS_HP_PER_CYCLE = 0.45;
+  var BOSS_HP_PER_INDEX = 0.06;
+  var BOSS_SPEED_PER_CYCLE = 0.18;
 
   var MAX_BULLETS = 520;
   var MAX_SPARKS = 200;
@@ -43,19 +47,19 @@
     {
       name: 'Petal Weaver', shape: 'petals',
       col: '#f472b6', glow: '#8b5cf6', dark: '#6d28d9',
-      phaseHp: 300, phases: 4, r: 46,
+      phaseHp: 500, phases: 4, r: 46,
       seq: [0, 2, 1, 2], rageAlt: 4, bSpeed: 1.0, spinRate: 0.65
     },
     {
       name: 'Prism Warden', shape: 'diamond',
       col: '#38bdf8', glow: '#0ea5e9', dark: '#1d4ed8',
-      phaseHp: 340, phases: 4, r: 44,
+      phaseHp: 560, phases: 4, r: 44,
       seq: [3, 1, 2, 4], rageAlt: 0, bSpeed: 1.08, spinRate: 0.82
     },
     {
       name: 'Ember Crown', shape: 'crown',
       col: '#fbbf24', glow: '#f97316', dark: '#b45309',
-      phaseHp: 380, phases: 5, r: 50,
+      phaseHp: 640, phases: 5, r: 50,
       seq: [4, 2, 3, 1, 2], rageAlt: 3, bSpeed: 1.16, spinRate: 0.98
     }
   ];
@@ -93,13 +97,14 @@
 
   var keys = { up: false, down: false, left: false, right: false };
   var rafId = 0, lastT = 0;
+  var sfxShotMs = 0, sfxHitMs = 0;
 
   /* ---------------- upgrade pool ---------------- */
 
   var UPGRADES = [
     {
-      id: 'damage', name: 'Focused Beam', icon: '✦', desc: '+2 shot damage',
-      apply: function () { player.dmg += 2; }
+      id: 'damage', name: 'Focused Beam', icon: '✦', desc: '+3 shot damage',
+      apply: function () { player.dmg += 3; }
     },
     {
       id: 'rate', name: 'Quick Trigger', icon: '⚡', desc: '-14% fire interval',
@@ -114,8 +119,8 @@
       apply: function () { player.shield = Math.min(MAX_SHIELD, player.shield + 2); }
     },
     {
-      id: 'heal', name: 'Field Repair', icon: '✚', desc: '+45 HP',
-      apply: function () { player.hp = Math.min(MAX_HP, player.hp + 45); }
+      id: 'heal', name: 'Field Repair', icon: '✚', desc: '+50 HP',
+      apply: function () { player.hp = Math.min(MAX_HP, player.hp + 50); }
     }
   ];
 
@@ -124,6 +129,18 @@
   function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
   function rnd(a, b) { return a + Math.random() * (b - a); }
+
+  function sfx(name) {
+    if (window.PixelPlayAudio) window.PixelPlayAudio.sfx(name);
+  }
+
+  function hitDamage() {
+    return BASE_HIT_DAMAGE + cycle * HIT_DAMAGE_PER_CYCLE;
+  }
+
+  function bossHpScale(index) {
+    return (1 + cycle * BOSS_HP_PER_CYCLE) * (1 + index * BOSS_HP_PER_INDEX);
+  }
 
   function shownBest() { return Math.max(best, score); }
 
@@ -142,6 +159,7 @@
     if (state === 'paused') right = '⏸ Paused';
     else if (state === 'choosing') right = 'Choose an upgrade';
     else right = 'Boss ' + bossNumber + ' · ' + boss.def.name +
+      (cycle > 0 ? ' · Cycle ' + (cycle + 1) : '') +
       (player.slowMs > 0 ? ' · ◷ slow' : '') + (boss.rage ? ' · RAGE' : '');
 
     GameShell.hud(
@@ -149,7 +167,8 @@
         Score: score,
         Best: shownBest(),
         HP: Math.max(0, Math.round(player.hp)),
-        Shield: player.shield
+        Shield: player.shield,
+        Hit: '-' + hitDamage()
       },
       right
     );
@@ -185,6 +204,8 @@
     bossIndex = 0;
     cycle = 0;
     bossNumber = 1;
+    sfxShotMs = 0;
+    sfxHitMs = 0;
     bullets.length = 0;
     shots.length = 0;
     sparks.length = 0;
@@ -208,7 +229,7 @@
   function spawnBoss(idx) {
     var def = BOSSES[idx];
     boss.def = def;
-    var scale = 1 + cycle * 0.24;
+    var scale = bossHpScale(idx);
     boss.phaseHp = Math.round(def.phaseHp * scale);
     boss.hp = boss.phaseHp;
     boss.phase = 1;
@@ -246,7 +267,7 @@
   function emitPattern(p, rageMode) {
     var def = boss.def;
     var ph = boss.phase;
-    var spdMul = def.bSpeed * (1 + cycle * 0.14) * (rageMode ? 1.12 : 1);
+    var spdMul = def.bSpeed * (1 + cycle * BOSS_SPEED_PER_CYCLE) * (rageMode ? 1.12 : 1);
     var col = rageMode ? '#fb7185' : def.col;
     var n, i, cd, base, off, sp, arms;
 
@@ -327,14 +348,17 @@
       player.inv = Math.round(INVULN_MS * 0.7);
       spark(player.x, player.y, '#38bdf8', 16);
       floater(player.x, player.y - 20, 'SHIELD', '#7dd3fc');
+      sfx('select');
       updateHud();
       return;
     }
-    player.hp -= HIT_DAMAGE;
+    var dmg = hitDamage();
+    player.hp -= dmg;
     player.inv = INVULN_MS;
     shake = 12;
     spark(player.x, player.y, '#f472b6', 14);
-    floater(player.x, player.y - 20, '-' + HIT_DAMAGE, '#fca5a5');
+    floater(player.x, player.y - 20, '-' + dmg, '#fca5a5');
+    sfx('thud');
     updateHud();
     if (player.hp <= 0) {
       player.hp = 0;
@@ -346,6 +370,10 @@
     if (state !== 'running') return;
     boss.hp -= amount;
     boss.hurt = 90;
+    if (sfxHitMs <= 0) {
+      sfx('hit');
+      sfxHitMs = 110;
+    }
     if (boss.hp > 0) {
       /* rage: below 30% of the phase, patterns mix and shots speed up */
       if (!boss.rage && boss.hp <= boss.phaseHp * 0.3) {
@@ -370,6 +398,7 @@
       say('Phase ' + boss.phase, boss.def.name + ' · ' + boss.phase + ' of ' + boss.def.phases);
       patStep = 0;
       setPattern(boss.def.seq[0]);
+      sfx('powerup');
       updateHud();
     } else {
       boss.hp = 0;
@@ -394,8 +423,8 @@
 
   function collectPickup(p) {
     if (p.type === 'heal') {
-      player.hp = Math.min(MAX_HP, player.hp + 28);
-      floater(p.x, p.y, '+28 HP', '#6ee7b7');
+      player.hp = Math.min(MAX_HP, player.hp + 35);
+      floater(p.x, p.y, '+35 HP', '#6ee7b7');
     } else if (p.type === 'shield') {
       player.shield = Math.min(MAX_SHIELD, player.shield + 1);
       floater(p.x, p.y, '+1 SHIELD', '#7dd3fc');
@@ -416,6 +445,7 @@
     }
     score += 40;
     spark(p.x, p.y, '#fde68a', 12);
+    sfx('coin');
     updateHud();
   }
 
@@ -444,6 +474,7 @@
     state = 'choosing';
     dropPickup();
     say('BOSS DOWN', 'Choose an upgrade — 1 / 2 / 3 or click', 2000);
+    sfx('explode');
     updateHud();
   }
 
@@ -466,6 +497,7 @@
       say(chosen.name + ' installed', 'Next: ' + BOSSES[bossIndex].name, 2200);
     }
 
+    sfx('powerup');
     spawnBoss(bossIndex);
     state = 'running';
     lastT = 0;
@@ -521,6 +553,7 @@
   function gameOver(won) {
     if (state === 'over') return;
     state = 'over';
+    sfx('lose');
 
     if (won) {
       var bonus = 2000 + Math.round(player.hp) * 5;
@@ -566,6 +599,10 @@
         r: SHOT_R
       });
     }
+    if (sfxShotMs <= 0) {
+      sfx('shoot');
+      sfxShotMs = 120;
+    }
   }
 
   function update(dt) {
@@ -574,6 +611,8 @@
     if (shake > 0) shake = Math.max(0, shake - dt * 0.05);
     if (boss.hurt > 0) boss.hurt -= dt;
     if (bannerMs > 0) bannerMs -= dt;
+    if (sfxShotMs > 0) sfxShotMs -= dt;
+    if (sfxHitMs > 0) sfxHitMs -= dt;
     if (player.slowMs > 0) player.slowMs = Math.max(0, player.slowMs - dt);
     boss.spin += s * (boss.def.spinRate + boss.phase * 0.16);
 
@@ -634,7 +673,8 @@
         var use = pattern;
         /* rage mixes a second pattern into the beat */
         if (boss.rage && emitCount % 3 === 2) use = boss.def.rageAlt;
-        emitT = emitPattern(use, boss.rage) * (boss.rage ? 0.72 : 1);
+        var tempo = Math.max(0.82, 1 - cycle * 0.045);
+        emitT = emitPattern(use, boss.rage) * (boss.rage ? 0.72 : 1) * tempo;
         emitCount++;
       }
     }
@@ -1286,12 +1326,16 @@
         slowMs: Math.round(player.slowMs),
         boss: bossNumber,
         bossName: boss.def.name,
+        bossIndex: bossIndex,
         phase: boss.phase,
         phases: boss.def.phases,
         rage: boss.rage,
         bossHp: boss.hp,
         phaseHp: boss.phaseHp,
+        bossMaxHp: boss.phaseHp,
+        hitDamage: hitDamage(),
         cycle: cycle,
+        cycleHpScale: bossHpScale(bossIndex),
         bullets: bullets.length,
         shots: shots.length,
         pickups: pickups.length,
@@ -1301,6 +1345,23 @@
     },
     wave: function () { return bossNumber; },
     bossHp: function () { return boss.hp; },
+    balance: function () {
+      return {
+        baseHitDamage: BASE_HIT_DAMAGE,
+        hitDamagePerCycle: HIT_DAMAGE_PER_CYCLE,
+        hitDamage: hitDamage(),
+        bossHpPerCycle: BOSS_HP_PER_CYCLE,
+        bossHpPerIndex: BOSS_HP_PER_INDEX,
+        bossSpeedPerCycle: BOSS_SPEED_PER_CYCLE,
+        cycleHpScale: bossHpScale(bossIndex),
+        bossMaxHp: boss.phaseHp,
+        baseDamage: BASE_DMG,
+        damagePerUpgrade: 3,
+        baseFireMs: BASE_FIRE_MS,
+        phaseHp: [BOSSES[0].phaseHp, BOSSES[1].phaseHp, BOSSES[2].phaseHp],
+        phases: [BOSSES[0].phases, BOSSES[1].phases, BOSSES[2].phases]
+      };
+    },
     powerups: function () {
       var out = [], i;
       for (i = 0; i < pickups.length; i++) {

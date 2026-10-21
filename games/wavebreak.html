@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Wavebreak — Play Free Online | PixelPlay</title>
-  <meta name="description" content="Play Wavebreak free online at PixelPlay. Survive endless first-person waves of attack drones and spend earned credits on faster guns and heavier armor.">
+  <meta name="description" content="Play Wavebreak free online at PixelPlay. Survive endless first-person drone waves with a right-side viewmodel and three guns — Blaster, Rifle and SMG — then spend credits on upgrades.">
   <meta name="theme-color" content="#070b14">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🤖%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="../css/style.css">
@@ -21,6 +21,7 @@
 
     .touch-controls .tbtn-fire { min-width: 108px; }
     .touch-controls .tbtn-step { min-width: 74px; }
+    .touch-controls .tbtn-weapon { min-width: 104px; }
   </style>
 </head>
 <body data-root="../" data-nav="home" data-page="game" data-game="wavebreak">
@@ -61,7 +62,8 @@
         <div class="touch-controls">
           <button class="tbtn tbtn-step" type="button" data-act="left" aria-label="Turn the view left">◀</button>
           <button class="tbtn tbtn-step" type="button" data-act="aimUp" aria-label="Aim up">▲</button>
-          <button class="tbtn tbtn-fire" type="button" data-act="fire" aria-label="Fire the blaster">🔥 Fire</button>
+          <button class="tbtn tbtn-fire" type="button" data-act="fire" aria-label="Fire the active gun">🔥 Fire</button>
+          <button class="tbtn tbtn-weapon" type="button" data-act="weapon" aria-label="Cycle weapon">🔫 Weapon</button>
           <button class="tbtn" type="button" data-act="jump" aria-label="Jump">⤒ Jump</button>
           <button class="tbtn tbtn-step" type="button" data-act="aimDown" aria-label="Aim down">▼</button>
           <button class="tbtn tbtn-step" type="button" data-act="right" aria-label="Turn the view right">▶</button>
@@ -69,45 +71,48 @@
 
         <section class="game-desc">
           <h2>How to Play Wavebreak</h2>
-          <p>Wavebreak drops you into a neon arena with a blaster, a health bar and endless
-             waves of attack drones. Every wave adds more drones, and they come faster and
-             tougher. <b>WASD</b> moves you around the crates, the mouse or <kbd>←</kbd> <kbd>→</kbd>
-             turns the view, <kbd>↑</kbd> <kbd>↓</kbd> raises and lowers the reticle, and
-             <kbd>F</kbd> or a click fires. Tap <kbd>Space</kbd> to jump over incoming shots.
-             Clear a wave, catch your breath, then do it again.</p>
-          <p>Every kill pays <b>credits</b>, and credits are the whole metagame. Between waves
-             a three-second breather opens the upgrade menu: <kbd>1</kbd> for a faster fire rate,
-             <kbd>2</kbd> for more damage, or <kbd>3</kbd> for armor that raises maximum HP and
-             repairs you. Upgrades stack, but prices climb, so choose between speed, power and
-             survival. Kills also build a <b>combo multiplier</b> — chain them quickly and your
-             score explodes. The run ends at zero HP, and your best score is saved.</p>
-          <p><b>Distance changes everything.</b> Drones hover at different heights, so the
-             reticle must sit on the drone itself. Shots hit hardest up close: point-blank
-             damage is triple a long-range shot, so close the gap and check the range
-             readout beneath the crosshair.</p>
+          <p>Wavebreak drops you into a neon arena with a right-hand viewmodel, a health bar
+             and endless drone waves. The gun tracks your reticle, rising when you aim up and
+             dropping when you aim down. <b>WASD</b> moves, the mouse or
+             <kbd>←</kbd> <kbd>→</kbd> turns, <kbd>↑</kbd> <kbd>↓</kbd> aims, <kbd>F</kbd>
+             or a click fires, and <kbd>Space</kbd> jumps. Clear a wave, catch your breath,
+             then do it again.</p>
+          <p><b>Three guns, three rhythms.</b> The <b>Blaster</b> holds 14 rounds with a
+             0.16-second cycle and one-second reload. The <b>Rifle</b> hits for 2.6 base
+             damage but holds only 8 rounds, cycling in 0.44 seconds and reloading in 1.55.
+             The <b>SMG</b> sprays 26 rounds every 0.085 seconds, trading punch for speed.
+             Each gun keeps its own ammo and reload timer, so switching never refills. A
+             wave-clear tops up all three magazines. Press <kbd>1</kbd> <kbd>2</kbd>
+             <kbd>3</kbd> during a wave, <kbd>Q</kbd> to cycle, or tap the on-screen
+             <b>Weapon</b> button; an on-canvas panel shows the active gun and ammo.</p>
+          <p>Every kill pays <b>credits</b> for the between-wave upgrade menu: <kbd>1</kbd>
+             for faster fire, <kbd>2</kbd> for +1 damage, <kbd>3</kbd> for armor and repairs.
+             During the breather those keys buy upgrades instead of switching guns. Upgrades
+             stack. Kills also build a <b>combo multiplier</b> — chain them quickly and your
+             score explodes. The run ends at zero HP; your best score is saved.</p>
+          <p>Drones hover at different heights, so the reticle must sit on the drone itself.
+             Point-blank shots deal about 1.65× damage, long shots 0.5×, so close the gap and
+             watch the range readout.</p>
           <h3>Controls</h3>
           <ul>
-            <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move and strafe; <kbd>←</kbd> <kbd>→</kbd> to turn</li>
-            <li>Click the view to lock the mouse, then move it to look and aim up/down — <kbd>Esc</kbd> releases it</li>
-            <li><kbd>↑</kbd> <kbd>↓</kbd> or the ▲ ▼ buttons to aim without the mouse</li>
-            <li><kbd>Space</kbd> to jump clear of drone fire</li>
-            <li><kbd>F</kbd> or left click to fire; the blaster reloads itself</li>
-            <li><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> to buy upgrades during the breather (or click them)</li>
+            <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move and strafe; <kbd>←</kbd> <kbd>→</kbd> turn; <kbd>↑</kbd> <kbd>↓</kbd> aim</li>
+            <li>Click to lock the mouse; move to look and aim; <kbd>Esc</kbd> releases</li>
+            <li><kbd>Space</kbd> jumps; <kbd>F</kbd> or left click fires; empty guns reload themselves</li>
+            <li><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> switch guns during a wave; <kbd>Q</kbd> or the Weapon button cycles</li>
+            <li><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> buy upgrades during the breather</li>
             <li><kbd>Enter</kbd>, <kbd>P</kbd> or <kbd>Esc</kbd> pauses; <kbd>R</kbd> restarts</li>
           </ul>
-          <h3>Tips for lasting longer</h3>
+          <h3>Tips</h3>
           <ul>
-            <li>Keep crates between you and the swarm — drones line up down a lane.</li>
+            <li>Keep crates between you and the swarm.</li>
             <li>Never stand still; circling the arena centre keeps the orbs missing.</li>
-            <li>Get close before firing: point-blank shots deal about 1.6× damage, long shots 0.5×.</li>
-            <li>Two early damage upgrades beat one level of everything — fewer shots means fewer hits.</li>
-            <li>The minimap shows your view cone and every drone; watch it for flanks.</li>
+            <li>Rifle for heavies, SMG for runners, Blaster at mid-range.</li>
+            <li>Two early damage upgrades beat one level of everything.</li>
           </ul>
           <h3>Scoring</h3>
           <ul>
-            <li>Each drone pays base credits plus a wave bonus; the combo multiplier boosts score, not credits.</li>
+            <li>Each drone pays credits plus a wave bonus; combo boosts score, not credits.</li>
             <li>Combo rises with quick kills and resets after a couple of seconds without one.</li>
-            <li>Your best score is saved automatically in this browser.</li>
           </ul>
         </section>
 

@@ -2,9 +2,9 @@
    Hook Hero — original game for PixelPlay
    Canvas grapple-swing platformer: hold to hook the glowing
    anchor rings, swing like a pendulum and release over the
-   bottomless neon chasm. Twelve hand-built stages, real pendulum
-   physics, spark sentries and crosswinds, keyboard first with
-   pointer + touch support.
+   bottomless neon chasm. Eighteen hand-built stages, real pendulum
+   physics, spark sentries, blink-beam gates, sweeping energy orbs
+   and crosswinds, keyboard first with pointer + touch support.
    ============================================================ */
 
 (function () {
@@ -85,7 +85,7 @@
       start: { x: 110, y: 310 },
       anchors: [[330, 300], [720, 140], [1150, 330], [1580, 150], [2010, 330], [2440, 170]],
       coins: [[520, 360], [930, 330], [1360, 360], [1790, 330], [2220, 360]],
-      gate: 2680, par: 32,
+      gate: 2680, par: 36,
       wind: 36, reach: 0.95, gravity: 1.03,
       hazards: [{ x: 960, y: 360, range: 75, speed: 0.65, phase: 1.1, r: 16 },
                 { x: 1820, y: 400, range: 85, speed: 0.7, phase: 0.4, r: 16 }]
@@ -167,6 +167,101 @@
                 { x: 2060, y: 375, range: 115, speed: 1.1, phase: 1.7, r: 19 },
                 { x: 2700, y: 345, range: 115, speed: 1.15, phase: 0.6, r: 19 },
                 { x: 3000, y: 395, range: 120, speed: 1.2, phase: 2.2, r: 19 }]
+    },
+    {
+      name: 'Pulse Corridor',
+      start: { x: 110, y: 290 },
+      anchors: [[330, 290], [640, 150], [950, 290], [1260, 150], [1570, 290], [1880, 150], [2190, 290], [2500, 150], [2810, 290], [3120, 150], [3430, 290]],
+      coins: [[485, 470], [795, 465], [1105, 455], [1415, 455], [1725, 465], [2035, 470], [2345, 475], [2655, 475], [2965, 465], [3275, 460]],
+      gate: 3640, par: 54,
+      wind: 86, reach: 0.866, gravity: 1.11,
+      hazards: [{ type: 'beam', x: 1160, top: 360, bottom: 560, period: 3.2, on: 0.8, warn: 0.6, phase: 0.15, r: 9 },
+                { type: 'beam', x: 2380, top: 360, bottom: 560, period: 3.2, on: 0.8, warn: 0.6, phase: 0.62, r: 9 },
+                { type: 'orb', x: 795, y: 430, range: 70, speed: 0.7, phase: 0.3, r: 18 },
+                { type: 'orb', x: 2035, y: 430, range: 70, speed: 0.7, phase: 1.4, r: 18 },
+                { x: 1415, y: 380, range: 80, speed: 0.7, phase: 0.6, r: 17 },
+                { x: 2965, y: 380, range: 80, speed: 0.75, phase: 1.2, r: 17 }]
+    },
+    {
+      name: 'Orbital Weave',
+      start: { x: 110, y: 300 },
+      anchors: [[330, 280], [650, 140], [970, 280], [1290, 150], [1610, 280], [1930, 140], [2250, 280], [2570, 150], [2890, 280], [3210, 140], [3530, 280]],
+      coins: [[490, 485], [810, 495], [1130, 505], [1450, 510], [1770, 515], [2090, 520], [2410, 520], [2730, 520], [3050, 520], [3370, 520]],
+      gate: 3740, par: 56,
+      wind: 88, reach: 0.862, gravity: 1.12,
+      hazards: [{ type: 'beam', x: 1810, top: 370, bottom: 560, period: 3.1, on: 0.85, warn: 0.55, phase: 0.35, r: 9 },
+                { type: 'beam', x: 3090, top: 370, bottom: 560, period: 3.1, on: 0.85, warn: 0.55, phase: 0.85, r: 9 },
+                { type: 'orb', x: 810, y: 440, range: 75, speed: 0.8, phase: 0.2, r: 18 },
+                { type: 'orb', x: 1450, y: 440, range: 80, speed: 0.85, phase: 1.1, r: 18 },
+                { type: 'orb', x: 2090, y: 440, range: 80, speed: 0.9, phase: 1.9, r: 18 },
+                { x: 1130, y: 375, range: 85, speed: 0.8, phase: 0.5, r: 17 },
+                { x: 2730, y: 375, range: 90, speed: 0.85, phase: 1.3, r: 17 }]
+    },
+    {
+      name: 'Twin Gates',
+      start: { x: 110, y: 280 },
+      anchors: [[330, 280], [650, 150], [970, 280], [1290, 150], [1610, 280], [1930, 150], [2250, 280], [2570, 150], [2890, 280], [3210, 150], [3530, 280], [3850, 150]],
+      coins: [[490, 480], [810, 490], [1130, 500], [1450, 510], [1770, 515], [2090, 520], [2410, 520], [2730, 525], [3050, 530], [3370, 535], [3690, 535]],
+      gate: 4070, par: 58,
+      wind: 90, reach: 0.858, gravity: 1.13,
+      hazards: [{ type: 'beam', x: 840, top: 370, bottom: 570, period: 3.0, on: 0.9, warn: 0.55, phase: 0.1, r: 9 },
+                { type: 'beam', x: 1480, top: 370, bottom: 570, period: 3.0, on: 0.9, warn: 0.55, phase: 0.8, r: 9 },
+                { type: 'beam', x: 2120, top: 360, bottom: 570, period: 2.9, on: 0.9, warn: 0.55, phase: 0.4, r: 9 },
+                { type: 'beam', x: 2760, top: 360, bottom: 570, period: 2.9, on: 0.9, warn: 0.55, phase: 1.3, r: 9 },
+                { type: 'orb', x: 1800, y: 450, range: 80, speed: 0.9, phase: 0.6, r: 18 },
+                { type: 'orb', x: 3080, y: 450, range: 80, speed: 0.95, phase: 1.6, r: 18 },
+                { x: 2440, y: 370, range: 95, speed: 0.9, phase: 1.0, r: 18 }]
+    },
+    {
+      name: 'Shatter Lattice',
+      start: { x: 110, y: 290 },
+      anchors: [[330, 290], [630, 150], [930, 290], [1230, 150], [1530, 290], [1830, 150], [2130, 290], [2430, 150], [2730, 290], [3030, 150], [3330, 290], [3630, 150], [3930, 290]],
+      coins: [[480, 465], [780, 450], [1080, 420], [1380, 410], [1680, 400], [1980, 410], [2280, 435], [2580, 440], [2880, 445], [3180, 440], [3480, 430], [3780, 425]],
+      gate: 4150, par: 60,
+      wind: 92, reach: 0.854, gravity: 1.14,
+      hazards: [{ type: 'beam', x: 1130, top: 340, bottom: 570, period: 3.0, on: 0.9, warn: 0.6, phase: 0.2, r: 9 },
+                { type: 'beam', x: 1790, top: 340, bottom: 570, period: 2.9, on: 0.9, warn: 0.6, phase: 0.7, r: 9 },
+                { type: 'beam', x: 2450, top: 340, bottom: 570, period: 2.9, on: 0.95, warn: 0.55, phase: 1.2, r: 9 },
+                { type: 'beam', x: 3110, top: 330, bottom: 570, period: 2.8, on: 0.95, warn: 0.55, phase: 0.5, r: 9 },
+                { type: 'orb', x: 1410, y: 460, range: 85, speed: 1.0, phase: 0.3, r: 18 },
+                { type: 'orb', x: 2700, y: 460, range: 85, speed: 1.05, phase: 1.4, r: 18 },
+                { x: 1980, y: 370, range: 100, speed: 0.95, phase: 0.8, r: 18 },
+                { x: 3690, y: 370, range: 100, speed: 1.0, phase: 1.7, r: 18 }]
+    },
+    {
+      name: "Needle's Edge",
+      start: { x: 110, y: 280 },
+      anchors: [[330, 280], [620, 140], [910, 280], [1200, 140], [1490, 280], [1780, 140], [2070, 280], [2360, 140], [2650, 280], [2940, 140], [3230, 280], [3520, 140], [3810, 280], [4100, 140]],
+      coins: [[475, 465], [765, 455], [1055, 440], [1345, 440], [1635, 450], [1925, 455], [2215, 460], [2505, 460], [2795, 450], [3085, 445], [3375, 430], [3665, 420], [3955, 415]],
+      gate: 4320, par: 62,
+      wind: 94, reach: 0.850, gravity: 1.15,
+      hazards: [{ type: 'beam', x: 1110, top: 330, bottom: 580, period: 2.8, on: 0.95, warn: 0.55, phase: 0.15, r: 9 },
+                { type: 'beam', x: 1750, top: 330, bottom: 580, period: 2.8, on: 0.95, warn: 0.55, phase: 0.75, r: 9 },
+                { type: 'beam', x: 2390, top: 320, bottom: 580, period: 2.7, on: 1.0, warn: 0.55, phase: 0.0, r: 9 },
+                { type: 'beam', x: 3030, top: 320, bottom: 580, period: 2.7, on: 1.0, warn: 0.55, phase: 0.55, r: 9 },
+                { type: 'orb', x: 1400, y: 465, range: 85, speed: 1.05, phase: 0.3, r: 18 },
+                { type: 'orb', x: 2680, y: 465, range: 90, speed: 1.1, phase: 1.5, r: 18 },
+                { type: 'orb', x: 3900, y: 465, range: 90, speed: 1.0, phase: 0.9, r: 18 },
+                { x: 2040, y: 360, range: 105, speed: 1.0, phase: 0.7, r: 18 },
+                { x: 3340, y: 360, range: 110, speed: 1.05, phase: 1.8, r: 18 }]
+    },
+    {
+      name: 'Grand Finale',
+      start: { x: 110, y: 290 },
+      anchors: [[330, 290], [610, 140], [890, 290], [1170, 140], [1450, 290], [1730, 140], [2010, 290], [2290, 140], [2570, 290], [2850, 140], [3130, 290], [3410, 140], [3690, 290], [3970, 140], [4250, 290]],
+      coins: [[470, 480], [750, 470], [1030, 460], [1310, 455], [1590, 450], [1870, 445], [2150, 435], [2430, 430], [2710, 420], [2990, 415], [3270, 420], [3550, 425], [3830, 435], [4110, 440]],
+      gate: 4470, par: 65,
+      wind: 96, reach: 0.846, gravity: 1.16,
+      hazards: [{ type: 'beam', x: 1080, top: 320, bottom: 580, period: 2.7, on: 1.0, warn: 0.55, phase: 0.1, r: 9 },
+                { type: 'beam', x: 1720, top: 310, bottom: 580, period: 2.6, on: 1.0, warn: 0.55, phase: 0.7, r: 9 },
+                { type: 'beam', x: 2360, top: 310, bottom: 580, period: 2.6, on: 1.0, warn: 0.55, phase: 1.3, r: 9 },
+                { type: 'beam', x: 3000, top: 300, bottom: 580, period: 2.5, on: 1.05, warn: 0.5, phase: 0.4, r: 9 },
+                { type: 'beam', x: 3640, top: 300, bottom: 580, period: 2.5, on: 1.05, warn: 0.5, phase: 1.0, r: 9 },
+                { type: 'orb', x: 1360, y: 470, range: 90, speed: 1.1, phase: 0.2, r: 18 },
+                { type: 'orb', x: 2640, y: 470, range: 95, speed: 1.15, phase: 1.4, r: 18 },
+                { type: 'orb', x: 3920, y: 470, range: 95, speed: 1.1, phase: 0.8, r: 18 },
+                { x: 2000, y: 360, range: 110, speed: 1.1, phase: 0.6, r: 18 },
+                { x: 3280, y: 360, range: 115, speed: 1.15, phase: 1.7, r: 18 }]
     }
   ];
 
@@ -185,8 +280,9 @@
   var camX = 0, camY = 0;
   var hudKey = '';
   var rafId = 0, last = 0;
-  var flash = 0;              /* red pulse after a spark-gate hit */
+  var flash = 0;              /* red pulse after a hazard hit      */
   var windNow = 0;            /* current lateral gust, px/s²       */
+  var lastRespawn = null;     /* diagnostic for the test snapshot  */
   var unlocked = loadUnlocked();
 
   /* ---------------- unlock progress ---------------- */
@@ -211,6 +307,10 @@
     return (typeof performance !== 'undefined' ? performance.now() : Date.now());
   }
 
+  function sfx(name) {
+    if (window.PixelPlayAudio) window.PixelPlayAudio.sfx(name);
+  }
+
   function levelWidth() { return level.gate + 170; }
 
   /* ---------------- HUD / stages / states ---------------- */
@@ -225,6 +325,8 @@
     if (Math.abs(windNow) >= 5) {
       windTxt = ' · gust ' + (windNow > 0 ? '→ ' : '← ') + Math.round(Math.abs(windNow));
     }
+    var hint = 'Hold Space = hook · release = fly';
+    if (level && level.hazards.length) hint += ' · dodge sparks, beams & orbs';
     GameShell.hud(
       {
         Score: score,
@@ -232,8 +334,7 @@
         Level: (levelIdx + 1) + '/' + LEVELS.length,
         Coins: coins
       },
-      state === 'paused' ? '⏸ Paused'
-        : 'Hold Space = hook · release = fly' + windTxt
+      state === 'paused' ? '⏸ Paused' : hint + windTxt
     );
   }
 
@@ -292,6 +393,7 @@
     score = 0; coins = 0;
     coinTaken = [];
     attempts = 0;
+    lastRespawn = null;
     loadLevel(typeof which === 'number' ? which : 0);
     state = 'countdown';
     ct = 0.9;
@@ -310,7 +412,7 @@
   function pause() {
     if (state !== 'running' && state !== 'countdown') return;
     state = 'paused';
-    releaseHook();
+    releaseHook(true);
     GameShell.overlay.show({
       title: 'Paused',
       msg: 'The chasm will still be there. Resume when you are ready.',
@@ -337,10 +439,11 @@
   function win() {
     state = 'over';
     persistBest();
+    sfx('win');
     updateHud(true);
     GameShell.overlay.show({
       title: 'Chasm conquered!',
-      msg: 'All twelve stages cleared — a true hero of the hook. Your best score is saved in this browser.',
+      msg: 'All eighteen stages cleared — a true hero of the hook. Your best score is saved in this browser.',
       stats: [
         { label: 'Score', value: score },
         { label: 'Best', value: best },
@@ -356,6 +459,7 @@
     var timeBonus = Math.max(0, Math.round((level.par - levelTime) * 12));
     lastBonus = 250 + timeBonus;
     score += lastBonus;
+    sfx('point');
     if (levelIdx + 1 < LEVELS.length && levelIdx + 1 > unlocked) {
       unlocked = levelIdx + 1;
       saveUnlocked();
@@ -368,19 +472,23 @@
     clearT = 1.25;
   }
 
-  function respawn() {
+  function respawn(cause) {
     attempts++;
     persistBest();
+    if (cause === 'hazard') sfx('hit');
+    else sfx('lose');             /* chasm fall = the run-ending cue */
     loadLevel(levelIdx);          /* coins already taken stay taken */
     state = 'countdown';
     ct = 0.7;
   }
 
-  function releaseHook() {
+  function releaseHook(quiet) {
+    var hadRope = attached;
     hookHeld = false;
     attached = false;
     anchor = null;
     ropeLen = 0;
+    if (hadRope && !quiet && state === 'running') sfx('jump');
   }
 
   /* ---------------- hook / rope ---------------- */
@@ -420,6 +528,7 @@
       attached = true;
       anchor = { x: pick[0], y: pick[1] };
       ropeLen = clamp(pickD, 50, reach);
+      sfx('shoot');
       return true;
     }
     return false;
@@ -441,10 +550,72 @@
     }
   }
 
-  /* ---------------- spark sentries / wind ---------------- */
+  /* ---------------- hazards ----------------
+     Three readable families share the same collision contract:
+       sentry — sweeps horizontally along a dotted lane;
+       beam   — a fixed-x laser gate that charges, fires, then cools;
+       orb    — sweeps vertically along a dotted lane.
+     Every hazard telegraphs before it can hurt you.               */
 
   function hazardX(h) {
     return h.x + Math.sin(levelTime * h.speed + (h.phase || 0)) * h.range;
+  }
+
+  function beamState(h) {
+    var period = h.period || 3;
+    var onFor = h.on || 0.9;
+    var warnFor = h.warn || 0.55;
+    var t = (levelTime + (h.phase || 0) * period) % period;
+    if (t < onFor) return { active: true, warn: false, left: onFor - t };
+    if (t > period - warnFor) return { active: false, warn: true, left: period - t };
+    return { active: false, warn: false, left: period - t };
+  }
+
+  function orbY(h) {
+    return h.y + Math.sin(levelTime * (h.speed || 0.8) + (h.phase || 0)) * h.range;
+  }
+
+  function hazardXAt(h) {
+    if (h.type === 'orb') return h.x;
+    if (h.type === 'beam') return h.x;
+    return hazardX(h);
+  }
+
+  function hazardYAt(h) {
+    if (h.type === 'orb') return orbY(h);
+    if (h.type === 'beam') return (h.top + h.bottom) / 2;
+    return h.y;
+  }
+
+  function hazardPos(h) {
+    var p = { x: hazardXAt(h), y: hazardYAt(h), r: h.r, type: h.type || 'sentry' };
+    if (h.type === 'beam') {
+      var st = beamState(h);
+      p.active = st.active;
+      p.warning = st.warn;
+      p.top = h.top;
+      p.bottom = h.bottom;
+    } else if (h.type === 'orb') {
+      p.top = h.y - h.range;
+      p.bottom = h.y + h.range;
+    } else {
+      p.left = h.x - h.range;
+      p.right = h.x + h.range;
+    }
+    return p;
+  }
+
+  function hazardHits(h) {
+    var px = player.x, py = player.y;
+    if (h.type === 'beam') {
+      if (!beamState(h).active) return false;
+      return Math.abs(px - h.x) < (h.r || 9) + 8 &&
+             py > h.top - 10 && py < h.bottom + 10;
+    }
+    var hx = hazardXAt(h), hy = hazardYAt(h);
+    var dx = hx - px, dy = hy - py;
+    var hr = h.r + 12;
+    return dx * dx + dy * dy < hr * hr;
   }
 
   /* ---------------- update ---------------- */
@@ -490,13 +661,17 @@
       if (trail.length > 70) trail.shift();
     }
 
-    /* spark sentries: touch one and the run restarts at this stage */
+    /* hazard contact: the attempt ends and this stage restarts */
     for (var g = 0; g < level.hazards.length; g++) {
-      var hz = level.hazards[g];
-      var hdx = hazardX(hz) - player.x, hdy = hz.y - player.y;
-      var hr = hz.r + 12;
-      if (hdx * hdx + hdy * hdy < hr * hr) {
-        respawn();
+      if (hazardHits(level.hazards[g])) {
+        var hh = level.hazards[g];
+        lastRespawn = {
+          cause: 'hazard', type: hh.type || 'sentry',
+          x: Math.round(player.x), y: Math.round(player.y),
+          hazardX: Math.round(hazardXAt(hh)), hazardY: Math.round(hazardYAt(hh)),
+          time: Math.round(levelTime * 100) / 100
+        };
+        respawn('hazard');
         flash = 0.8;
         return;
       }
@@ -511,12 +686,17 @@
         taken[i] = true;
         coins++;
         score += 25;
+        sfx('coin');
         updateHud(true);
       }
     }
 
     /* fell into the chasm */
-    if (player.y > FALL_Y) { respawn(); return; }
+    if (player.y > FALL_Y) {
+      lastRespawn = { cause: 'fall', x: Math.round(player.x), y: Math.round(player.y), time: Math.round(levelTime * 100) / 100 };
+      respawn('fall');
+      return;
+    }
 
     /* reached the finish gate */
     if (player.x > level.gate) { clearLevel(); return; }
@@ -733,6 +913,110 @@
     ctx.restore();
   }
 
+  function drawBeam(h, t) {
+    var st = beamState(h);
+    var x = h.x, top = h.top, bot = h.bottom;
+    ctx.save();
+
+    /* idle rail + emitter pads keep the gate readable while it cools */
+    ctx.strokeStyle = 'rgba(255,92,122,.16)';
+    ctx.lineWidth = 1;
+    if (ctx.setLineDash) ctx.setLineDash([3, 8]);
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, bot);
+    ctx.stroke();
+    if (ctx.setLineDash) ctx.setLineDash([]);
+
+    ctx.shadowColor = '#ff5c7a';
+    ctx.shadowBlur = st.active ? 22 : 10;
+    ctx.fillStyle = st.active ? '#ffd9e1' : '#ff5c7a';
+    ctx.fillRect(x - 10, top - 6, 20, 7);
+    ctx.fillRect(x - 10, bot - 1, 20, 7);
+    ctx.shadowBlur = 0;
+
+    if (st.warn) {
+      /* charge telegraph: a thin, fast pulse climbing the rail */
+      var charge = 0.35 + 0.5 * Math.abs(Math.sin(t / 38));
+      ctx.strokeStyle = 'rgba(255,190,110,' + charge.toFixed(3) + ')';
+      ctx.lineWidth = 2;
+      if (ctx.setLineDash) ctx.setLineDash([8, 7]);
+      ctx.beginPath();
+      ctx.moveTo(x, top);
+      ctx.lineTo(x, bot);
+      ctx.stroke();
+      if (ctx.setLineDash) ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,220,160,' + (0.5 + charge * 0.4).toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(x, top + 8, 3.5, 0, TAU);
+      ctx.arc(x, bot - 8, 3.5, 0, TAU);
+      ctx.fill();
+    }
+
+    if (st.active) {
+      ctx.shadowColor = '#ff5c7a';
+      ctx.shadowBlur = 26;
+      ctx.strokeStyle = 'rgba(255,92,122,.55)';
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      ctx.moveTo(x, top);
+      ctx.lineTo(x, bot);
+      ctx.stroke();
+      ctx.shadowBlur = 12;
+      ctx.strokeStyle = '#fff0f5';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(x, top);
+      ctx.lineTo(x, bot);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawOrb(h, t) {
+    var oy = orbY(h);
+    var pulse = 0.5 + 0.5 * Math.sin(t / 170 + h.phase);
+    ctx.save();
+
+    /* dotted vertical patrol line makes the sweep legible */
+    ctx.strokeStyle = 'rgba(255,179,71,.16)';
+    ctx.lineWidth = 1;
+    if (ctx.setLineDash) ctx.setLineDash([4, 8]);
+    ctx.beginPath();
+    ctx.moveTo(h.x, h.y - h.range);
+    ctx.lineTo(h.x, h.y + h.range);
+    ctx.stroke();
+    if (ctx.setLineDash) ctx.setLineDash([]);
+
+    ctx.shadowColor = '#ffb347';
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = 'rgba(255,179,71,.28)';
+    ctx.beginPath();
+    ctx.arc(h.x, oy, h.r + 5 + pulse * 3, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = '#ffb347';
+    ctx.beginPath();
+    ctx.arc(h.x, oy, h.r, 0, TAU);
+    ctx.fill();
+
+    /* two counter-rotating energy arcs */
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = 'rgba(255,244,225,.95)';
+    ctx.lineWidth = 2;
+    var a1 = t / 210 + h.phase;
+    ctx.beginPath();
+    ctx.arc(h.x, oy, h.r + 7, a1, a1 + 1.5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(h.x, oy, h.r + 7, a1 + Math.PI, a1 + Math.PI + 1.5);
+    ctx.stroke();
+    ctx.fillStyle = '#fff8e8';
+    ctx.beginPath();
+    ctx.arc(h.x, oy, 4, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+
   var windMotes = [];
   (function () {
     for (var i = 0; i < 30; i++) {
@@ -835,9 +1119,12 @@
     /* finish gate */
     drawGate(level.gate, t);
 
-    /* spark sentries: they sweep across the flight line */
+    /* hazards: sentries sweep, beams pulse, orbs climb and dive */
     for (i = 0; i < level.hazards.length; i++) {
-      drawSentry(level.hazards[i], t);
+      var hz = level.hazards[i];
+      if (hz.type === 'beam') drawBeam(hz, t);
+      else if (hz.type === 'orb') drawOrb(hz, t);
+      else drawSentry(hz, t);
     }
 
     /* anchors */
@@ -959,8 +1246,8 @@
     if (!hookHeld) pressHook();
   });
 
-  window.addEventListener('pointerup', releaseHook);
-  window.addEventListener('pointercancel', releaseHook);
+  window.addEventListener('pointerup', function () { releaseHook(); });
+  window.addEventListener('pointercancel', function () { releaseHook(); });
 
   /* on-screen touch button */
   var padBtns = document.querySelectorAll('[data-act]');
@@ -970,13 +1257,13 @@
         ev.preventDefault();
         pressHook();
       });
-      btn.addEventListener('pointerup', releaseHook);
-      btn.addEventListener('pointerleave', releaseHook);
-      btn.addEventListener('pointercancel', releaseHook);
+      btn.addEventListener('pointerup', function () { releaseHook(); });
+      btn.addEventListener('pointerleave', function () { releaseHook(); });
+      btn.addEventListener('pointercancel', function () { releaseHook(); });
     })(padBtns[b]);
   }
 
-  window.addEventListener('blur', releaseHook);
+  window.addEventListener('blur', function () { releaseHook(true); });
 
   document.addEventListener('visibilitychange', function () {
     if (document.hidden && (state === 'running' || state === 'countdown')) pause();
@@ -990,10 +1277,26 @@
         snapshot: function () {
           var hzs = level ? level.hazards : [];
           var nextA = nextAnchorAhead();
-          var maxSpeed = 0, maxR = 0;
+          var maxSpeed = 0, maxR = 0, sentries = 0, beams = 0, orbs = 0;
+          var activeHazards = 0, maxBeamRate = 0, minBeamPeriod = 0;
           for (var gi = 0; gi < hzs.length; gi++) {
-            if (hzs[gi].speed > maxSpeed) maxSpeed = hzs[gi].speed;
-            if (hzs[gi].r > maxR) maxR = hzs[gi].r;
+            var gh = hzs[gi];
+            if (gh.type === 'beam') {
+              beams++;
+              activeHazards += beamState(gh).active ? 1 : 0;
+              var rate = 1 / (gh.period || 3);
+              if (rate > maxBeamRate) maxBeamRate = rate;
+              if (!minBeamPeriod || (gh.period || 3) < minBeamPeriod) minBeamPeriod = gh.period || 3;
+            } else if (gh.type === 'orb') {
+              orbs++;
+              activeHazards++;
+              if (gh.speed > maxSpeed) maxSpeed = gh.speed;
+            } else {
+              sentries++;
+              activeHazards++;
+              if (gh.speed > maxSpeed) maxSpeed = gh.speed;
+            }
+            if (gh.r > maxR) maxR = gh.r;
           }
           return {
             state: state,
@@ -1015,8 +1318,15 @@
             ropeLen: ropeLen,
             hookHeld: hookHeld,
             attempts: attempts,
+            lastRespawn: lastRespawn,
             levelTime: levelTime,
             gateX: level ? level.gate : 0,
+            anchorPositions: level ? level.anchors.map(function (a) {
+              return { x: a[0], y: a[1] };
+            }) : [],
+            coinPositions: level ? level.coins.map(function (c, ci) {
+              return { x: c[0], y: c[1], taken: !!(coinTaken[levelIdx] && coinTaken[levelIdx][ci]) };
+            }) : [],
             nextAnchorX: nextA ? nextA[0] : null,
             nextAnchorY: nextA ? nextA[1] : null,
             nextAnchorDist: nextA
@@ -1024,7 +1334,14 @@
                                      Math.pow(nextA[1] - player.y, 2)))
               : null,
             hazardPositions: hzs.map(function (h) {
-              return { x: Math.round(hazardX(h) * 10) / 10, y: h.y, r: h.r };
+              var p = hazardPos(h);
+              p.x = Math.round(p.x * 10) / 10;
+              p.y = Math.round(p.y * 10) / 10;
+              if (p.top !== undefined) p.top = Math.round(p.top * 10) / 10;
+              if (p.bottom !== undefined) p.bottom = Math.round(p.bottom * 10) / 10;
+              if (p.left !== undefined) p.left = Math.round(p.left * 10) / 10;
+              if (p.right !== undefined) p.right = Math.round(p.right * 10) / 10;
+              return p;
             }),
             difficulty: {
               hookReach: Math.round(MAX_REACH * (level ? (level.reach || 1) : 1)),
@@ -1033,8 +1350,14 @@
               wind: level ? (level.wind || 0) : 0,
               windNow: Math.round(windNow * 10) / 10,
               hazards: hzs.length,
+              sentries: sentries,
+              beams: beams,
+              orbs: orbs,
+              activeHazards: activeHazards,
               maxHazardSpeed: maxSpeed,
               maxHazardRadius: maxR,
+              maxBeamRate: Math.round(maxBeamRate * 1000) / 1000,
+              minBeamPeriod: minBeamPeriod,
               par: level ? level.par : 0
             }
           };
@@ -1054,7 +1377,7 @@
   ensureLoop();
   GameShell.overlay.show({
     title: 'Hook Hero',
-    msg: 'Hold Space to fire your hook at the glowing rings, swing like a pendulum, then release to fly. Twelve stages of crosswinds and sweeping spark sentries await — clear one to unlock the next.',
+    msg: 'Hold Space to fire your hook at the glowing rings, swing like a pendulum, then release to fly. Eighteen stages of crosswinds, sweeping spark sentries, blinking pulse beams and climbing energy orbs await — clear one to unlock the next.',
     stats: [{ label: 'Best', value: best }, { label: 'Stages', value: LEVELS.length }],
     btn: '▶ Play',
     action: start

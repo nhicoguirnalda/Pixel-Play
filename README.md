@@ -29,6 +29,8 @@ js/layout.js               Shared header + footer (injected into every page)
 js/main.js                 Homepage: filtering, sorting, search, recently played
 js/game-page.js            Shared game shell: HUD, overlay, best scores,
                            related games, popular sidebar, category sidebar
+js/audio.js                Shared Web Audio engine: original chiptune music,
+                           synthesized sound effects, HUD mute button, M key
 js/ads.js                  ⭐ The advertising layer — put your ad IDs here
 js/games (pages)           games/*.html + games/js/*.js = the games themselves
 
@@ -71,6 +73,11 @@ ads.txt                    Ad-network verification file (replace the line!)
 
 Every game is an original work written for this site — there is no copied or
 scraped content, which is exactly what ad networks want to see.
+
+Every game page also loads `js/audio.js`, which synthesises original chiptune
+music and sound effects with the Web Audio API. There are no audio files and no
+network requests. Music starts after the first click or key press; the HUD sound
+button (or the `M` key) mutes everything and remembers the choice.
 
 ---
 

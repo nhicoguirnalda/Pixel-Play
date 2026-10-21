@@ -16,6 +16,16 @@
   var W = 720, H = 420;
   var BEST_KEY = 'turret-guard';
   var BASE_MAX = 20;
+  var TURRET_BASE_DMG = 0.75;
+  var TURRET_DMG_PER_UPGRADE = 0.75;
+  var REPAIR_AMOUNT = 8;
+  var BOSS_EVERY = 5;
+  var BOSS_TIER_HP = 1.7;
+  var BOSS_WAVE_HP = 0.055;
+  var BOSS_TIER_SPEED = 0.10;
+  var BOSS_WAVE_SPEED = 0.045;
+  var BOSS_TIER_DMG = 0.20;
+  var BOSS_WAVE_DMG = 0.02;
 
   var state = 'ready';                 /* ready | running | paused | over */
   var best = GameShell.best.get(BEST_KEY, 0);
@@ -61,10 +71,10 @@
   /* ---------------- robot types ---------------- */
 
   var TYPES = {
-    scout:   { hp: 2,  speed: 60, r: 11, dmg: 1,  score: 10,  credits: 2,  body: '#22c55e', dark: '#0f7a3a' },
-    crawler: { hp: 3,  speed: 96, r: 9,  dmg: 1,  score: 15,  credits: 3,  body: '#38bdf8', dark: '#0369a1' },
-    tank:    { hp: 8,  speed: 34, r: 15, dmg: 3,  score: 30,  credits: 5,  body: '#6366f1', dark: '#312e81' },
-    boss:    { hp: 70, speed: 24, r: 27, dmg: 10, score: 300, credits: 32, body: '#fb923c', dark: '#7c2d12' }
+    scout:   { hp: 3,  speed: 84,  r: 11, dmg: 1,  score: 10,  credits: 3,  body: '#22c55e', dark: '#0f7a3a' },
+    crawler: { hp: 5,  speed: 128, r: 9,  dmg: 1,  score: 15,  credits: 4,  body: '#38bdf8', dark: '#0369a1' },
+    tank:    { hp: 13, speed: 46,  r: 15, dmg: 3,  score: 30,  credits: 6,  body: '#6366f1', dark: '#312e81' },
+    boss:    { hp: 190, speed: 40, r: 27, dmg: 12, score: 300, credits: 36, body: '#fb923c', dark: '#7c2d12' }
   };
 
   /* ---------------- mutable game state ---------------- */
@@ -72,7 +82,7 @@
   var units, bullets, bits, texts, rings, spawnQueue;
   var wave, waveState, gapMs, spawnMs, spawnEvery;
   var score, credits, baseHp, kills, nextId;
-  var upg, weapon = { rate: 0.26, dmg: 1, splashR: 0, splashFrac: 0, pierce: 0, slowR: 0, slowFactor: 1 };
+  var upg, weapon = { rate: 0.26, dmg: TURRET_BASE_DMG, splashR: 0, splashFrac: 0, pierce: 0, slowR: 0, slowFactor: 1 };
   var aim = { x: 240, y: 130 };
   var firing = false, cooldown = 0;
   var shake = 0, hurtFlash = 0, muzzle = 0, clock = 0;
@@ -105,6 +115,10 @@
   }
 
   function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+  function sfx(name) {
+    if (window.PixelPlayAudio) window.PixelPlayAudio.sfx(name);
+  }
 
   function angleLerp(a, b, t) {
     var d = ((b - a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
@@ -163,7 +177,7 @@
 
   function refreshWeapon() {
     weapon.rate = Math.max(0.085, 0.26 - upg.rate * 0.035);   /* seconds between shots */
-    weapon.dmg = 1 + upg.dmg;
+    weapon.dmg = TURRET_BASE_DMG + upg.dmg * TURRET_DMG_PER_UPGRADE;
     weapon.splashR = upg.splash ? 34 + upg.splash * 10 : 0;
     weapon.splashFrac = upg.splash ? 0.4 + upg.splash * 0.12 : 0;
     weapon.pierce = upg.pierce;
@@ -188,7 +202,7 @@
     }
     credits -= cost;
     if (kind === 'repair') {
-      baseHp = Math.min(BASE_MAX, baseHp + 6);
+      baseHp = Math.min(BASE_MAX, baseHp + REPAIR_AMOUNT);
       upg.repair++;
     } else {
       upg[kind]++;
@@ -200,9 +214,10 @@
     else if (kind === 'splash') msg = '✷ Splash up';
     else if (kind === 'pierce') msg = '➤ Piercing rounds';
     else if (kind === 'slow') msg = '◷ Slow field up';
-    else msg = '🔧 Base repaired +6';
+    else msg = '🔧 Base repaired +' + REPAIR_AMOUNT;
     toast(BASE.x, BASE.y - 40, msg, '#a7f3d0');
     burst(BASE.x, BASE.y, 10, '#a7f3d0', 90);
+    sfx('powerup');
     updateHud();
     return true;
   }
@@ -217,7 +232,7 @@
     if (kind === 'splash') return '✷ Splash Lv' + (upg.splash + 1);
     if (kind === 'pierce') return '➤ Pierce Lv' + (upg.pierce + 1);
     if (kind === 'slow') return '◷ Slow field Lv' + (upg.slow + 1);
-    return '🔧 Repair +6 HP';
+    return '🔧 Repair +' + REPAIR_AMOUNT + ' HP';
   }
 
   function plainLabel(kind) {
@@ -226,7 +241,7 @@
     if (kind === 'splash') return '✷ Splash';
     if (kind === 'pierce') return '➤ Pierce';
     if (kind === 'slow') return '◷ Slow field';
-    return '🔧 Repair +6 HP';
+    return '🔧 Repair +' + REPAIR_AMOUNT + ' HP';
   }
 
   function refreshBuy() {
@@ -267,7 +282,7 @@
 
   function buildQueue(n) {
     var q = [], i;
-    if (n % 5 === 0) {
+    if (n % BOSS_EVERY === 0) {
       /* boss wave: fewer escorts so the walker can be the focus */
       q.push('boss');
       for (i = 0; i < 3 + Math.floor(n / 2); i++) q.push('scout');
@@ -306,18 +321,38 @@
     if (bossFirst) {
       toast(W / 2, 86, '⚠ WAVE ' + n + ' — ARMOURED WALKER', '#fdba74');
       shake = Math.max(shake, 6);
+      sfx('explode');
     } else {
       toast(W / 2, 92, 'Wave ' + n, '#a5b4fc');
     }
     updateHud();
   }
 
+  function bossTier() {
+    return Math.max(1, Math.floor(wave / BOSS_EVERY));
+  }
+
   function scaledHp(type, def) {
     if (type === 'boss') {
-      var tier = Math.max(1, Math.floor(wave / 5));
-      return Math.round(def.hp * Math.pow(1.55, tier - 1) * (1 + (wave - 1) * 0.035));
+      return Math.round(def.hp * Math.pow(BOSS_TIER_HP, bossTier() - 1) * (1 + (wave - 1) * BOSS_WAVE_HP));
     }
     return Math.round(def.hp * Math.pow(1.13, wave - 1));
+  }
+
+  function scaledSpeed(type, def) {
+    if (type === 'boss') {
+      var tier = bossTier();
+      return def.speed * (1 + (wave - 1) * BOSS_WAVE_SPEED) * (1 + (tier - 1) * BOSS_TIER_SPEED);
+    }
+    return def.speed + Math.min(36, (wave - 1) * 2.2);
+  }
+
+  function scaledDamage(type, def) {
+    if (type === 'boss') {
+      var tier = bossTier();
+      return Math.round(def.dmg * (1 + (wave - BOSS_EVERY) * BOSS_WAVE_DMG) * (1 + (tier - 1) * BOSS_TIER_DMG));
+    }
+    return def.dmg;
   }
 
   function spawnUnit(type, startD) {
@@ -329,7 +364,8 @@
       id: nextId++,
       type: type, def: def, d: d0, x: PATH[0].x, y: PATH[0].y,
       hp: hp, maxHp: hp, r: def.r,
-      speed: def.speed + (type === 'boss' ? Math.min(10, (wave - 1) * 0.4) : Math.min(36, (wave - 1) * 2.2)),
+      speed: scaledSpeed(type, def),
+      dmg: scaledDamage(type, def),
       step: Math.random() * 6, hurt: 0,
       boss: type === 'boss', phase: 1, summonT: -1, phaseFlash: 0
     };
@@ -345,11 +381,12 @@
 
   function leak(u) {
     if (state !== 'running') return;
-    baseHp -= u.def.dmg;
+    baseHp -= u.dmg;
     shake = Math.max(shake, u.boss ? 16 : 9);
     hurtFlash = u.boss ? 420 : 260;
     burst(640, u.y, u.boss ? 26 : 14, '#f87171', 130);
-    toast(BASE.x - 20, BASE.y - 90, '-' + u.def.dmg + ' base', '#fca5a5');
+    toast(BASE.x - 20, BASE.y - 90, '-' + u.dmg + ' base', '#fca5a5');
+    sfx('thud');
     if (baseHp <= 0) { baseHp = 0; gameOver(); }
     else updateHud();
   }
@@ -364,12 +401,15 @@
     burst(u.x, u.y, u.boss ? 34 : 16, u.def.body, u.boss ? 210 : 150);
     toast(u.x, u.y - 16, '+' + u.def.score, '#dcfce7');
     if (u.boss) {
-      var bonus = 10 + Math.floor(wave / 5) * 3;
+      var bonus = 12 + Math.floor(wave / BOSS_EVERY) * 4;
       credits += bonus;
-      baseHp = Math.min(BASE_MAX, baseHp + 2);
+      baseHp = Math.min(BASE_MAX, baseHp + 3);
       shake = Math.max(shake, 15);
       toast(u.x, u.y - 38, 'WALKER DOWN +' + bonus + 'cr', '#fdba74');
       burst(u.x, u.y, 26, '#fdba74', 180);
+      sfx('explode');
+    } else {
+      sfx('thud');
     }
     markHud();
   }
@@ -417,6 +457,7 @@
     if (bullets.length > 240) bullets.shift();
     muzzle = 70;
     shake = Math.max(shake, 2);
+    sfx('shoot');
   }
 
   function summonMinions(u) {
@@ -440,6 +481,7 @@
       toast(u.x, u.y - 52, '⚠ WALKER PHASE 2', '#fca5a5');
       burst(u.x, u.y, 26, '#f97316', 190);
       shake = Math.max(shake, 12);
+      sfx('laser');
     }
     if (u.phase === 2) {
       if (u.summonT < 0) u.summonT = 1600;
@@ -513,6 +555,7 @@
 
   function gameOver() {
     state = 'over';
+    sfx('lose');
     if (score > best) {
       best = score;
       newBest = true;
@@ -562,8 +605,9 @@
       } else if (!units.length) {
         waveState = 'gap';
         gapMs = 1800;
-        credits += 4 + wave;
-        toast(BASE.x, BASE.y - 70, 'Wave ' + wave + ' cleared +' + (4 + wave) + 'cr', '#22c55e');
+        credits += 6 + wave;
+        toast(BASE.x, BASE.y - 70, 'Wave ' + wave + ' cleared +' + (6 + wave) + 'cr', '#22c55e');
+        sfx('coin');
         updateHud();
       }
     } else {
@@ -631,9 +675,10 @@
         if (dx * dx + dy * dy <= reach * reach) {
           b.hit[u.id] = 1;
           burst(b.x, b.y, 4, '#ecfdf5', 70);
+          sfx('hit');
           damageUnit(u, b.dmg);
           if (weapon.splashR > 0) {
-            splashDamage(b.x, b.y, Math.max(1, Math.round(b.dmg * weapon.splashFrac)), u.id);
+            splashDamage(b.x, b.y, Math.max(0.5, b.dmg * weapon.splashFrac), u.id);
             addRing(b.x, b.y, weapon.splashR, '#fde68a');
           }
           if (b.pierceLeft > 0) {
@@ -1015,7 +1060,7 @@
     ctx.font = '600 12px "Segoe UI", system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.fillStyle = canRepair ? '#dcfce7' : 'rgba(232,238,252,.5)';
-    ctx.fillText('🔧 Repair +6', b.x + 10, b.y + b.h / 2 + 1);
+    ctx.fillText('🔧 Repair +' + REPAIR_AMOUNT, b.x + 10, b.y + b.h / 2 + 1);
     ctx.textAlign = 'right';
     ctx.fillStyle = canRepair ? '#86efac' : 'rgba(232,238,252,.4)';
     ctx.fillText(baseHp >= BASE_MAX ? 'FULL' : repairCost() + 'cr', b.x + b.w - 10, b.y + b.h / 2 + 1);
@@ -1128,7 +1173,7 @@
       ctx.font = '700 18px "Segoe UI", system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(((wave + 1) % 5 === 0 ? 'Boss wave incoming…' : 'Wave ' + (wave + 1) + ' incoming…'), W / 2, 208);
+      ctx.fillText(((wave + 1) % BOSS_EVERY === 0 ? 'Boss wave incoming…' : 'Wave ' + (wave + 1) + ' incoming…'), W / 2, 208);
       ctx.restore();
     }
 
@@ -1270,7 +1315,7 @@
 
   window.__turretGuard = {
     state: function () {
-      var boss = findBoss();
+      var bossUnit = findBoss();
       return {
         state: state,
         wave: wave,
@@ -1280,13 +1325,39 @@
         baseHp: baseHp,
         kills: kills,
         units: units.length,
-        boss: boss ? { hp: boss.hp, maxHp: boss.maxHp, phase: boss.phase, progress: boss.d } : null
+        turretDamage: weapon.dmg,
+        boss: bossUnit ? {
+          hp: bossUnit.hp, maxHp: bossUnit.maxHp, phase: bossUnit.phase,
+          progress: bossUnit.d, speed: bossUnit.speed, damage: bossUnit.dmg
+        } : null
       };
     },
     wave: function () { return wave; },
     bossHp: function () {
-      var boss = findBoss();
-      return boss ? { hp: boss.hp, maxHp: boss.maxHp, phase: boss.phase } : null;
+      var bossUnit = findBoss();
+      return bossUnit ? {
+        hp: bossUnit.hp, maxHp: bossUnit.maxHp, phase: bossUnit.phase,
+        speed: bossUnit.speed, damage: bossUnit.dmg, progress: bossUnit.d
+      } : null;
+    },
+    balance: function () {
+      return {
+        baseTurretDamage: TURRET_BASE_DMG,
+        damagePerUpgrade: TURRET_DMG_PER_UPGRADE,
+        turretDamage: weapon.dmg,
+        minionHpPerWave: 1.13,
+        bossEvery: BOSS_EVERY,
+        bossBaseHp: TYPES.boss.hp,
+        bossBaseSpeed: TYPES.boss.speed,
+        bossBaseDamage: TYPES.boss.dmg,
+        bossTierHpScale: BOSS_TIER_HP,
+        bossWaveHpScale: BOSS_WAVE_HP,
+        bossTierSpeedScale: BOSS_TIER_SPEED,
+        bossWaveSpeedScale: BOSS_WAVE_SPEED,
+        bossTierDamageScale: BOSS_TIER_DMG,
+        bossWaveDamageScale: BOSS_WAVE_DMG,
+        repairAmount: REPAIR_AMOUNT
+      };
     },
     powerups: function () {
       return {
@@ -1311,7 +1382,8 @@
           id: units[i].id, type: units[i].type, boss: units[i].boss,
           x: Math.round(units[i].x), y: Math.round(units[i].y),
           hp: units[i].hp, maxHp: units[i].maxHp,
-          d: Math.round(units[i].d), phase: units[i].phase
+          d: Math.round(units[i].d), phase: units[i].phase,
+          speed: units[i].speed, damage: units[i].dmg
         });
       }
       return out;

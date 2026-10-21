@@ -1,8 +1,9 @@
 /* ============================================================
    Stickman Climb — original game for PixelPlay
-   Canvas physics climber: two pickaxes, real momentum, a tall
-   neon cliff with overhangs, loose rocks, sliding ledges and
-   gusts. Keyboard first, on-screen buttons for touch.
+   Canvas physics climber: two pickaxes, real momentum, one life
+   and an endless neon cliff with overhangs, loose rocks, sliding
+   ledges, gusts, falling debris and spiked ledges.
+   Keyboard first, on-screen buttons for touch.
    ============================================================ */
 
 (function () {
@@ -37,23 +38,31 @@
   var SWING_T = 0.2;            /* swing duration, seconds */
   var CRUMBLE_WARN = 0.6;       /* loose-rock warning before it breaks */
   var CRUMBLE_HOLD = 1.15;      /* time from grip to crumbling away */
-  var FALL_DROP = 300;          /* fall below the checkpoint to lose a life */
+  var FALL_DROP = 260;          /* fall this far below your best height = run over */
   var WALK_SPEED = 0;           /* body is moved by impulses only */
-  var TARGET_M = 80;            /* summit height, metres */
-  var TARGET_Y = TARGET_M * PPM;
   var GUST_BASE = 170;          /* weakest gust acceleration, px/s^2 */
   var GUST_STEP = 20;           /* extra strength per gust zone */
   var ROCK_BASE = 160;          /* first loose rock height */
   var ROCK_STEP = 200;          /* one loose rock every N pixels */
   var LEDGE_STEP = 330;         /* ledge spacing */
 
+  /* falling debris (rocks and icicle volleys) */
+  var DEBRIS_BASE = 6.4;        /* seconds between drops at ground level */
+  var DEBRIS_MIN = 2.8;         /* fastest cadence, high up */
+  var DEBRIS_WARN = 0.9;        /* telegraph time, seconds */
+  var DEBRIS_SPEED = 300;       /* base fall speed, px/s */
+  var DEBRIS_CEIL = 24000;      /* procedural world wraps beyond any real run */
+
   var state = 'ready';          /* ready | running | paused | over */
-  var lives = 3, score = 0;
+  var lives = 1, score = 0;
   var best = GameShell.best.get(BEST_KEY, 0);
   var bestM = best;             /* best height in metres (int) */
 
   var body, hands, ledges, clouds, particles, overhangs, rocks, gusts;
-  var checkpoint;               /* { x, y } hip position of the resting ledge */
+  var debris, debrisTimer;
+  var deathCause = 'fall';
+  var spikeHits = 0;            /* jagged ledges that threw the climber off */
+  var checkpoint;               /* { x, y } hip position of the last safe ledge */
   var camY = 0, heightMax = 0, heightInt = -1;
   var time = 0, shake = 0, hudT = 0;
   var rafId = 0, last = 0;
@@ -78,15 +87,19 @@
     overhangs = [];
     for (var i = 0; ; i++) {
       var a = 300 + i * 420;
-      if (a > 20000) break;
+      if (a > DEBRIS_CEIL) break;
       overhangs.push({ a: a, b: a + 88 + (i % 2) * 30, amp: 58 + (i % 3) * 10 });
     }
   }
 
   function overhangBump(y) {
     var bump = 0;
-    for (var i = 0; i < overhangs.length; i++) {
+    /* bands are evenly spaced, so only inspect the nearby ones */
+    var start = Math.floor((y - 300) / 420) - 1;
+    if (start < 0) start = 0;
+    for (var i = start; i < overhangs.length; i++) {
       var o = overhangs[i];
+      if (o.a > y) break;
       if (y > o.a && y < o.b) {
         bump += o.amp * Math.sin(Math.PI * (y - o.a) / (o.b - o.a));
       }
@@ -141,15 +154,18 @@
     ledges = [];
     for (var k = 0; ; k++) {
       var y = 40 + k * LEDGE_STEP;
-      if (y > 20000) break;
+      if (y > DEBRIS_CEIL) break;
       if (k === 0) {
-        ledges.push({ y: 40, w: 96, off: 0, moving: false, phase: 0, range: 0, speed: 0 });
+        ledges.push({ y: 40, w: 96, off: 0, moving: false, phase: 0, range: 0, speed: 0, spiked: false });
         continue;
       }
       var moving = (k % 2 === 1);
+      /* Jagged ledges become a little more common the higher you climb.
+         The hash is deterministic so a level always looks the same. */
+      var spiked = k >= 5 && ((k * 7919) % 100) < (14 + Math.min(16, k * 0.09));
       ledges.push({
         y: y, w: moving ? 56 : 74 + (k % 2) * 12,
-        off: 0, moving: moving,
+        off: 0, moving: moving, spiked: spiked,
         phase: k * 1.9, range: 70 + (k % 3) * 26, speed: 1.05 + (k % 4) * 0.2
       });
     }
@@ -180,17 +196,20 @@
   }
 
   function reset() {
-    lives = 3; score = 0; heightMax = 0; heightInt = -1;
+    lives = 1; score = 0; heightMax = 0; heightInt = -1;
     particles = [];
+    debris = []; debrisTimer = DEBRIS_BASE;
+    deathCause = 'fall';
+    spikeHits = 0;
     time = 0; shake = 0; hudT = 0;
     buildOverhangs();
     buildLedges();
     buildClouds();
     gusts = [];
-    for (var i = 0; i < 10; i++) {
+    for (var i = 0; i < 140; i++) {
       gusts.push({ k: i, a: 500 + i * 760, b: 500 + i * 760 + 300 });
     }
-    body = { x: faceX(40) + 52, y: 66, vx: 0, vy: 0, grounded: true, ledge: ledges[0] };
+    body = { x: faceX(40) + 52, y: 66, vx: 0, vy: 0, grounded: true, ledge: ledges[0], dropping: false };
     hands = {
       left: { state: 'grip', x: 0, y: 0, t: 0, fromX: 0, fromY: 0, toX: 0, toY: 0, loose: null, crumble: 0, trail: [] },
       right: { state: 'grip', x: 0, y: 0, t: 0, fromX: 0, fromY: 0, toX: 0, toY: 0, loose: null, crumble: 0, trail: [] }
@@ -208,6 +227,7 @@
     state = 'running';
     last = now();
     GameShell.overlay.hide();
+    if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('select');
     updateHud();
     ensureLoop();
   }
@@ -247,73 +267,38 @@
       best = h;
       GameShell.best.set(BEST_KEY, best);
     }
+    var why;
+    if (deathCause === 'debris') {
+      why = 'A falling rock clipped you at ' + h + ' metre' + (h === 1 ? '' : 's') + '.';
+    } else if (deathCause === 'icicle') {
+      why = 'An icicle volley caught you at ' + h + ' metre' + (h === 1 ? '' : 's') + '.';
+    } else {
+      why = 'You slipped and fell from ' + h + ' metre' + (h === 1 ? '' : 's') + '.';
+    }
+    if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('lose');
     updateHud();
     GameShell.overlay.show({
       title: isBest ? 'New best climb!' : 'Game over',
-      msg: isBest
-        ? 'A new record — ' + h + ' metres of neon rock. Can you top it?'
-        : 'You reached ' + h + ' metre' + (h === 1 ? '' : 's') + ' before the cliff won.',
+      msg: why + (isBest ? ' That is a new record — the top is wherever you stop.' : ' One life, no second chances. Try again?'),
       stats: [
         { label: 'Height', value: h + ' m' },
         { label: 'Best', value: bestM + ' m' },
-        { label: 'Lives', value: lives }
+        { label: 'Lives', value: 0 }
       ],
       btn: '▶ Play again',
       action: start
     });
   }
 
-  function summit() {
+  /* End the run instantly: one life, no respawn. */
+  function die(cause) {
     if (state !== 'running') return;
-    state = 'over';
-    var h = Math.round(heightMax);
-    if (h > bestM) {
-      bestM = h;
-      best = h;
-      GameShell.best.set(BEST_KEY, best);
-    }
-    updateHud();
-    GameShell.overlay.show({
-      title: 'Summit reached!',
-      msg: 'You conquered the ' + TARGET_M + ' metre cliff with ' + lives +
-           ' live' + (lives === 1 ? '' : 's') + ' to spare. The gusts can rest now.',
-      stats: [
-        { label: 'Height', value: h + ' m' },
-        { label: 'Best', value: bestM + ' m' },
-        { label: 'Lives', value: lives }
-      ],
-      btn: '▶ Climb again',
-      action: start
-    });
-  }
-
-  function loseLife() {
-    if (state !== 'running') return;
-    lives--;
-    shake = 14;
-    if (lives <= 0) {
-      lives = 0;
-      updateHud();
-      gameOver();
-      return;
-    }
-    /* respawn on the last checkpoint ledge */
-    body.x = checkpoint.x;
-    body.y = checkpoint.y;
-    body.vx = 0; body.vy = 0;
-    body.grounded = true; body.ledge = null;
-    body.dropping = false;
-    for (var i = 0; i < ledges.length; i++) {
-      var l = ledges[i];
-      var lx = ledgeX(l);
-      if (body.x >= lx - 8 && body.x <= lx + l.w + 8 &&
-          Math.abs((l.y + 26) - body.y) < 60) { body.ledge = l; break; }
-    }
-    gripHand(hands.left, faceX(body.y + 30) + 1, body.y + 30);
-    gripHand(hands.right, faceX(body.y + 60) + 1, body.y + 60);
-    if (body.ledge) { body.grounded = true; body.y = body.ledge.y + 26; }
-    camY = Math.max(0, body.y - 200);
-    updateHud();
+    deathCause = cause || 'fall';
+    lives = 0;
+    shake = 20;
+    if (body) burst(body.x, body.y, '#ff5c7a', 24, 70);
+    if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('hit');
+    gameOver();
   }
 
   function updateHud() {
@@ -325,8 +310,7 @@
         Score: Math.max(0, Math.floor(heightMax)),
         Best: Math.max(bestM, Math.floor(heightMax)),
         Height: hTxt,
-        Lives: lives,
-        Summit: TARGET_M + ' m'
+        Lives: lives
       },
       state === 'paused' ? '⏸ Paused' : '← → alternate to climb' + windTxt
     );
@@ -354,6 +338,102 @@
     body.grounded = false;
     body.ledge = null;
     burst(body.x, body.y - 6, '#2ee6a6', 4, 40);
+    if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('hit');
+  }
+
+  /* ---------------- hazards ---------------- */
+
+  /* A rock (or a three-shard icicle volley) is aimed at marked heights on
+     the wall just above the climber. The shadow rings are the telegraph;
+     climb past them or hang below before the shard slams home. */
+  function makeShard(ty, kind, idx) {
+    var tx = faceX(ty);
+    return {
+      kind: kind,
+      tx: tx,
+      ty: ty,
+      x: tx + (kind === 'icicle' ? 10 : 14),
+      y: Math.max(camY + H - 8, ty + 46),
+      vy: -(kind === 'icicle' ? DEBRIS_SPEED + 90 : DEBRIS_SPEED),
+      warn: DEBRIS_WARN + idx * 0.08,
+      warned: false,
+      size: kind === 'icicle' ? 7 : 9
+    };
+  }
+
+  function spawnDebris() {
+    var h = heightMax;
+    /* keep the aimed band on screen, 120-190 px above the climber */
+    var baseY = body.y + 120 + Math.random() * 70;
+    var icicle = h > 90 && Math.random() < 0.42;
+    var i;
+    if (icicle) {
+      for (i = 0; i < 3; i++) {
+        debris.push(makeShard(baseY + i * 58, 'icicle', i));
+      }
+    } else {
+      debris.push(makeShard(baseY, 'rock', 0));
+    }
+    debrisTimer = Math.max(DEBRIS_MIN, DEBRIS_BASE - h * 0.0085) *
+                  (0.78 + Math.random() * 0.44);
+  }
+
+  function hitWall(d) {
+    var i;
+    burst(d.tx, d.ty, d.kind === 'icicle' ? '#bde8ff' : '#94a3b8', 18, 40);
+    shake = Math.max(shake, 9);
+    if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('thud');
+    if (state !== 'running' || !body) return;
+
+    var dx = body.x - d.tx, dy = body.y - d.ty;
+    if (dx * dx + dy * dy < 34 * 34) {
+      die(d.kind === 'icicle' ? 'icicle' : 'debris');
+      return;
+    }
+    /* a shard that lands on a gripping hand tears that pickaxe loose */
+    for (i = 0; i < 2; i++) {
+      var hnd = hands[i === 0 ? 'left' : 'right'];
+      var hx = hnd.x - d.tx, hy = hnd.y - d.ty;
+      if (hnd.state === 'grip' && hx * hx + hy * hy < 25 * 25) {
+        burst(hnd.x, hnd.y, '#94a3b8', 12, 40);
+        hnd.state = 'free';
+        hnd.loose = null;
+        hnd.crumble = 0;
+        shake = Math.max(shake, 7);
+      }
+    }
+  }
+
+  function updateDebris(dt) {
+    var i;
+    debrisTimer -= dt;
+    if (debrisTimer <= 0) {
+      if (heightMax > 28 && body) spawnDebris();
+      else debrisTimer = DEBRIS_BASE;
+    }
+
+    for (i = debris.length - 1; i >= 0; i--) {
+      var d = debris[i];
+
+      /* telegraph phase: pulsing impact shadow on the wall */
+      if (d.warn > 0) {
+        d.warn -= dt;
+        if (!d.warned && d.warn <= 0.45) {
+          d.warned = true;
+          if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('wrong');
+        }
+        continue;
+      }
+
+      d.vy -= 700 * dt;
+      d.y += d.vy * dt;
+
+      if (d.y <= d.ty) {
+        debris.splice(i, 1);
+        hitWall(d);
+        if (state !== 'running') return;
+      }
+    }
   }
 
   /* ---------------- update ---------------- */
@@ -390,6 +470,7 @@
           h.state = 'free';
           h.loose = null;
           shake = Math.max(shake, 5);
+          if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('thud');
         }
       }
     }
@@ -448,6 +529,20 @@
         var lx2 = ledgeX(L);
         if (body.x >= lx2 - 2 && body.x <= lx2 + L.w + 2 &&
             body.y <= L.y + 30 && body.y >= L.y + 6) {
+          if (L.spiked) {
+            /* jagged ledge: it throws you back off instead of letting you rest */
+            var sx = clamp(body.x, lx2 + 8, lx2 + L.w - 8);
+            burst(sx, L.y + 10, '#ff5c7a', 22, 80);
+            shake = 16;
+            spikeHits++;
+            body.grounded = false;
+            body.ledge = null;
+            body.y = L.y + 44;
+            body.vy = 260;
+            body.vx = 160;
+            if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('hit');
+            break;
+          }
           body.grounded = true;
           body.ledge = L;
           body.y = L.y + 26;
@@ -456,6 +551,7 @@
           if (L.y + 26 > checkpoint.y + 30) {
             checkpoint = { x: clamp(body.x, lx2 + 10, lx2 + L.w - 10), y: L.y + 26 };
             burst(body.x, body.y - 24, '#22d3ee', 10, 50);
+            if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('point');
             updateHud();
           }
           break;
@@ -471,14 +567,15 @@
       if (hi !== heightInt) { heightInt = hi; updateHud(); }
     }
 
-    /* --- summit flag --- */
-    if (body.y >= TARGET_Y) { summit(); return; }
-
-    /* --- falling too far costs a life --- */
-    if (body.y < checkpoint.y - FALL_DROP || body.y < -70) {
-      loseLife();
-      if (state !== 'running') return;
+    /* --- one life: slip too far below your best and the run ends --- */
+    if (body.y < heightMax * PPM - FALL_DROP || body.y < -70) {
+      die('fall');
+      return;
     }
+
+    /* --- falling debris and icicles --- */
+    updateDebris(dt);
+    if (state !== 'running') return;
 
     /* --- camera follows upward --- */
     var target = Math.max(0, body.y - 210);
@@ -575,50 +672,75 @@
     }
   }
 
-  function drawSummit() {
-    var y = sy(TARGET_Y);
-    if (y < -80 || y > H + 80) return;
-    var fx = faceX(TARGET_Y);
-    var pulse = 0.55 + 0.45 * Math.sin(time / 260);
+  function drawDebris() {
+    for (var i = 0; i < debris.length; i++) {
+      var d = debris[i];
+      var mx = d.tx;
+      var my = sy(d.ty);
+      if (my > -40 && my < H + 40) {
+        /* impact shadow on the wall — visible for the whole telegraph */
+        var pulse = 0.35 + 0.45 * Math.abs(Math.sin(time * 8 + i));
+        var icy = d.kind === 'icicle';
+        ctx.save();
+        ctx.globalAlpha = d.warn > 0 ? pulse : 0.7;
+        ctx.strokeStyle = icy ? '#8fe8ff' : '#ff5c7a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(mx, my, icy ? 14 : 18, 0, TAU);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(mx - 5, my);
+        ctx.lineTo(mx + 5, my);
+        ctx.moveTo(mx, my - 5);
+        ctx.lineTo(mx, my + 5);
+        ctx.stroke();
+        /* dashed drop line so the danger column is unambiguous */
+        if (d.warn > 0) {
+          ctx.globalAlpha = 0.3;
+          if (ctx.setLineDash) ctx.setLineDash([5, 7]);
+          ctx.beginPath();
+          ctx.moveTo(mx, my);
+          ctx.lineTo(mx, 0);
+          ctx.stroke();
+          if (ctx.setLineDash) ctx.setLineDash([]);
+        }
+        ctx.restore();
+      }
 
-    /* dashed summit line across the face */
-    ctx.save();
-    ctx.strokeStyle = 'rgba(46,230,166,.5)';
-    ctx.lineWidth = 2;
-    if (ctx.setLineDash) ctx.setLineDash([9, 8]);
-    ctx.beginPath();
-    ctx.moveTo(fx, y);
-    ctx.lineTo(W, y);
-    ctx.stroke();
-    if (ctx.setLineDash) ctx.setLineDash([]);
-
-    /* two poles + pennant */
-    ctx.strokeStyle = '#e8eefc';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(fx + 16, y);
-    ctx.lineTo(fx + 16, y - 54);
-    ctx.moveTo(fx + 74, y);
-    ctx.lineTo(fx + 74, y - 54);
-    ctx.stroke();
-
-    ctx.fillStyle = 'rgba(46,230,166,' + (0.55 + 0.25 * pulse) + ')';
-    ctx.shadowColor = '#2ee6a6';
-    ctx.shadowBlur = 12;
-    ctx.fillRect(fx + 16, y - 54, 58, 14);
-    ctx.beginPath();
-    ctx.moveTo(fx + 74, y - 54);
-    ctx.lineTo(fx + 92, y - 47);
-    ctx.lineTo(fx + 74, y - 40);
-    ctx.closePath();
-    ctx.fill();
-    ctx.shadowBlur = 0;
-
-    ctx.fillStyle = 'rgba(216,255,240,.95)';
-    ctx.font = '700 12px ' + FONT;
-    ctx.textAlign = 'center';
-    ctx.fillText('SUMMIT ' + TARGET_M + ' m', fx + 46, y - 62);
-    ctx.restore();
+      if (d.warn > 0) continue;
+      var dx = d.x, dy = sy(d.y);
+      if (dy < -40 || dy > H + 40) continue;
+      if (d.kind === 'icicle') {
+        ctx.fillStyle = '#cdefff';
+        ctx.shadowColor = '#22d3ee';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(dx, dy + 12);
+        ctx.lineTo(dx - 5, dy - 6);
+        ctx.lineTo(dx, dy - 16);
+        ctx.lineTo(dx + 5, dy - 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(34,211,238,.85)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = '#94a3b8';
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(dx, dy, 9, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(71,85,105,.9)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(dx - 4, dy - 4); ctx.lineTo(dx + 1, dy);
+        ctx.moveTo(dx + 4, dy - 5); ctx.lineTo(dx + 1, dy);
+        ctx.stroke();
+      }
+    }
   }
 
   function drawWindGauge() {
@@ -657,8 +779,36 @@
     for (var i = 0; i < ledges.length; i++) {
       var l = ledges[i];
       var y = sy(l.y);
-      if (y < -30 || y > H + 30) continue;
+      if (y < -40 || y > H + 40) continue;
       var x = ledgeX(l);
+
+      if (l.spiked) {
+        /* jagged ledge: dark base, red-hot spikes, clear at a glance */
+        var glow = 0.55 + 0.35 * Math.sin(time * 5 + i);
+        ctx.fillStyle = '#2a1220';
+        ctx.strokeStyle = 'rgba(255,92,122,' + glow + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(x, y - 8, l.w, 12, 4)
+                      : ctx.rect(x, y - 8, l.w, 12);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255,92,122,' + (0.6 + 0.35 * glow) + ')';
+        ctx.beginPath();
+        for (var s = 0; s < l.w - 4; s += 11) {
+          ctx.moveTo(x + s, y - 7);
+          ctx.lineTo(x + s + 5.5, y - 21);
+          ctx.lineTo(x + s + 11, y - 7);
+          ctx.closePath();
+        }
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,210,62,.55)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        continue;
+      }
+
       ctx.fillStyle = '#1d2a47';
       ctx.strokeStyle = l.moving ? '#22d3ee' : '#2ee6a6';
       ctx.lineWidth = 2;
@@ -667,7 +817,7 @@
                     : ctx.rect(x, y - 8, l.w, 12);
       ctx.fill();
       ctx.stroke();
-      /* checkpoint marker */
+      /* safe-rest marker */
       if (checkpoint && Math.abs(l.y + 26 - checkpoint.y) < 4 &&
           Math.abs(x + l.w / 2 - checkpoint.x) < l.w) {
         ctx.fillStyle = 'rgba(34,211,238,.9)';
@@ -840,7 +990,7 @@
     drawCliff();
     drawGusts();
     drawLedges();
-    drawSummit();
+    drawDebris();
     drawRocks();
     drawParticles();
     if (body) drawStickman(t);
@@ -936,9 +1086,28 @@
     getLives: function () { return lives; },
     getHeight: function () { return heightMax; },
     getBody: function () { return { x: body.x, y: body.y }; },
-    getTargetHeight: function () { return TARGET_M; },
+    getTargetHeight: function () { return 0; },   /* endless — no finish line */
+    isEndless: function () { return true; },
     getCheckpoint: function () { return { x: checkpoint.x, y: checkpoint.y }; },
     getWind: function () { return gustForce(body.y); },
+    getDeathCause: function () { return deathCause; },
+    getSpikeHits: function () { return spikeHits; },
+    getHazards: function () {
+      var spiked = 0;
+      for (var i = 0; i < ledges.length; i++) if (ledges[i].spiked) spiked++;
+      return {
+        debris: debris.length,
+        fallingDebris: debris.filter(function (d) { return d.kind === 'rock'; }).length,
+        icicles: debris.filter(function (d) { return d.kind === 'icicle'; }).length,
+        spikedLedges: spiked,
+        looseRocks: Math.floor(DEBRIS_CEIL / ROCK_STEP),
+        gusts: gusts.length,
+        overhangs: overhangs.length,
+        movingLedges: Math.floor(ledges.length / 2),
+        types: ['loose rocks', 'overhangs', 'moving ledges', 'gusts',
+                'falling debris', 'icicle volleys', 'spiked ledges']
+      };
+    },
     getDifficulty: function () {
       return {
         gravity: GRAV,
@@ -958,8 +1127,19 @@
         ledgeSpacing: LEDGE_STEP,
         movingLedgesEvery: 2,
         fallDrop: FALL_DROP,
-        targetHeight: TARGET_M,
-        lives: 3
+        targetHeight: 0,
+        endless: true,
+        lives: 1,
+        debrisWarn: DEBRIS_WARN,
+        debrisBaseInterval: DEBRIS_BASE,
+        debrisMinInterval: DEBRIS_MIN,
+        debrisSpeed: DEBRIS_SPEED,
+        debrisMaxSpeed: DEBRIS_SPEED + 240,
+        debrisScalesWithHeight: 0.0085,
+        debrisFromHeight: 28,
+        icicleFromHeight: 90,
+        spikedLedgeChanceLow: 0.14,
+        spikedLedgeChanceHigh: 0.30
       };
     },
     press: function (side) { pressHand(side); },
@@ -976,8 +1156,8 @@
 
   GameShell.overlay.show({
     title: 'Stickman Climb',
-    msg: 'Alternate ← and → to hammer the pickaxes up the neon cliff. New gusts hit harder, loose rocks and sliding ledges are everywhere — reach the 80 m summit with a life to spare.',
-    stats: [{ label: 'Best', value: bestM + ' m' }, { label: 'Summit', value: TARGET_M + ' m' }],
+    msg: 'Alternate ← and → to hammer the pickaxes up an endless neon cliff. One life only — falling rocks, icicle volleys, jagged ledges, gusts and crumbling holds all want you back at the bottom.',
+    stats: [{ label: 'Best', value: bestM + ' m' }, { label: 'Lives', value: 1 }],
     btn: '▶ Play',
     action: start
   });
