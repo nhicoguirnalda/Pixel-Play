@@ -32,18 +32,18 @@
   /* ---------------- level configs (hand-tuned) ---------------- */
 
   var LEVELS = [
-    { name: 'Sunny Slopes', seed: 13579, len: 2300, amp: 24, rough: 3.0,
-      gaps: [[1560, 92]], rocks: 3, logs: 5, coins: 6, time: 60 },
-    { name: 'Rocky Ridge', seed: 24680, len: 2600, amp: 30, rough: 4.4,
-      gaps: [[1380, 100], [2160, 108]], rocks: 6, logs: 6, coins: 7, time: 60 },
-    { name: 'Timber Trail', seed: 31415, len: 2850, amp: 36, rough: 5.6,
-      gaps: [[1220, 86], [2340, 90]], rocks: 7, logs: 11, coins: 8, time: 60 },
-    { name: 'Craggy Pass', seed: 42424, len: 3100, amp: 42, rough: 6.8,
-      gaps: [[1080, 92], [2070, 96], [2860, 96]], rocks: 10, logs: 8, coins: 9, time: 60 },
-    { name: 'Boulder Basin', seed: 55551, len: 3350, amp: 48, rough: 8.0,
-      gaps: [[990, 90], [1930, 90], [3010, 92]], rocks: 13, logs: 10, coins: 10, time: 60 },
-    { name: 'Devils Drop', seed: 66613, len: 3600, amp: 54, rough: 9.2,
-      gaps: [[940, 92], [1810, 92], [2700, 96], [3330, 96]], rocks: 15, logs: 12, coins: 12, time: 60 }
+    { name: 'Sunny Slopes', seed: 13579, len: 2450, amp: 30, rough: 4.0,
+      gaps: [[1560, 104]], rocks: 4, logs: 6, coins: 6, time: 40 },
+    { name: 'Rocky Ridge', seed: 24680, len: 2750, amp: 37, rough: 5.6,
+      gaps: [[1380, 110], [2160, 118]], rocks: 7, logs: 8, coins: 7, time: 40 },
+    { name: 'Timber Trail', seed: 31415, len: 3000, amp: 44, rough: 7.0,
+      gaps: [[1220, 96], [1750, 98], [2340, 100]], rocks: 9, logs: 13, coins: 8, time: 42 },
+    { name: 'Craggy Pass', seed: 42424, len: 3250, amp: 51, rough: 8.6,
+      gaps: [[1080, 100], [1550, 102], [2070, 104], [2860, 104]], rocks: 12, logs: 10, coins: 9, time: 44 },
+    { name: 'Boulder Basin', seed: 55551, len: 3500, amp: 58, rough: 10.2,
+      gaps: [[990, 98], [1930, 100], [2450, 102], [3010, 102]], rocks: 16, logs: 12, coins: 10, time: 46 },
+    { name: 'Devils Drop', seed: 66613, len: 3750, amp: 66, rough: 11.8,
+      gaps: [[940, 102], [1810, 104], [2700, 108], [3330, 106]], rocks: 19, logs: 15, coins: 12, time: 48 }
   ];
 
   /* ---------------- physics constants ---------------- */
@@ -65,6 +65,11 @@
   var DRAG = 0.004;         /* quadratic air drag */
   var HEAD = { x: 6, y: -30 }, HEAD_R = 5.5;
   var RIDE_H = 21;          /* body centre height above ground when level */
+  var RAMP_W = 170;         /* kicker width */
+  var RAMP_BASE = 26;       /* first-level kicker height */
+  var RAMP_STEP = 3;        /* extra kicker height per level */
+  var BOWL_BASE = 30;       /* landing bowl depth on level one */
+  var BOWL_STEP = 3;        /* extra bowl depth per level */
 
   /* ---------------- state ---------------- */
 
@@ -152,7 +157,7 @@
     gaps = cfg.gaps.slice();
     for (i = 0; i < gaps.length; i++) {
       var g0 = gaps[i][0], gw = gaps[i][1];
-      var rampW = 170, rampH = 22 + levelIdx * 2;
+      var rampW = RAMP_W, rampH = RAMP_BASE + levelIdx * RAMP_STEP;
       var runUp = 260;
       /* Tilt the whole approach (run-up + kicker zone) into one straight line
          from entry height to the pre-ramp height at g0, feathering both ends
@@ -187,7 +192,7 @@
       var jA = Math.ceil(z0 / TS), jB2 = Math.floor(z3 / TS);
       if (jA >= 0 && jB2 < n && jB2 > jA) {
         var lipH = hs[Math.min(i1, n - 1)];
-        var bowl = 26 + levelIdx * 2;
+        var bowl = BOWL_BASE + levelIdx * BOWL_STEP;
         for (var jd = jA; jd <= jB2; jd++) {
           var s = (jd * TS - z0) / (z3 - z0);
           hs[jd] += bowl * Math.sin(Math.PI * s);
@@ -1147,7 +1152,21 @@
             coins: coins.filter(function (c) { return c.got; }).length,
             coinsTotal: coins.length,
             courseLen: cfg ? cfg.len : 0,
+            progress: cfg ? clamp(bike.x / cfg.len, 0, 1) : 0,
             gaps: gaps.map(function (gp) { return [gp[0], gp[1]]; }),
+            difficulty: cfg ? {
+              amp: cfg.amp,
+              rough: cfg.rough,
+              gaps: gaps.length,
+              maxGap: gaps.reduce(function (m, gp) { return Math.max(m, gp[1]); }, 0),
+              rocks: cfg.rocks,
+              logs: cfg.logs,
+              timeLimit: cfg.time,
+              rampHeight: RAMP_BASE + levelIdx * RAMP_STEP,
+              bowlDepth: BOWL_BASE + levelIdx * BOWL_STEP,
+              drive: DRIVE,
+              assist: ASSIST_F
+            } : null,
             slope: Math.round(groundSlope(bike.x) * 100) / 100,
             wheels: (function () {
               var c2 = Math.cos(bike.ang), s2 = Math.sin(bike.ang);

@@ -2,8 +2,9 @@
    Hook Hero — original game for PixelPlay
    Canvas grapple-swing platformer: hold to hook the glowing
    anchor rings, swing like a pendulum and release over the
-   bottomless neon chasm. Six hand-built stages, real pendulum
-   physics, keyboard first with pointer + touch support.
+   bottomless neon chasm. Twelve hand-built stages, real pendulum
+   physics, spark sentries and crosswinds, keyboard first with
+   pointer + touch support.
    ============================================================ */
 
 (function () {
@@ -31,15 +32,18 @@
 
   /* ---------------- physics constants ---------------- */
 
-  var GRAV = 1150;        /* px/s²                                  */
-  var MAX_REACH = 540;    /* hook range                             */
+  var GRAV = 1150;        /* px/s² (scaled per stage)               */
+  var MAX_REACH = 540;    /* base hook range                        */
   var PULL = 118;         /* gentle forward pull while swinging     */
   var FALL_Y = 900;       /* below this is the chasm                */
   var VX_MAX = 720, VY_MAX = 950;
+  var UNLOCK_KEY = 'pixelplay.hookhero.unlocked';
 
   /* ---------------- hand-designed levels ----------------
      anchors + coins in world coords (y grows downwards);
-     each stage ends at a glowing finish gate.               */
+     each stage ends at a glowing finish gate. Later stages add
+     crosswinds, shorter hook reach, stronger gravity and spark
+     sentries that sweep across the flight line.              */
 
   var LEVELS = [
     {
@@ -47,42 +51,122 @@
       start: { x: 110, y: 300 },
       anchors: [[340, 200], [760, 250], [1180, 180], [1600, 240], [2020, 190]],
       coins: [[550, 330], [960, 310], [1390, 290], [1810, 320], [2230, 280]],
-      gate: 2280, par: 26
+      gate: 2280, par: 26,
+      wind: 0, reach: 1, gravity: 1, hazards: []
     },
     {
       name: 'Wide Awake',
       start: { x: 110, y: 270 },
       anchors: [[330, 160], [740, 300], [1160, 180], [1560, 320], [1980, 200], [2380, 300]],
       coins: [[540, 330], [950, 360], [1360, 330], [1770, 360], [2180, 320]],
-      gate: 2620, par: 30
+      gate: 2620, par: 30,
+      wind: 0, reach: 1, gravity: 1, hazards: []
     },
     {
       name: 'High and Low',
       start: { x: 110, y: 300 },
       anchors: [[340, 260], [790, 150], [1220, 330], [1650, 160], [2080, 330], [2500, 190]],
       coins: [[560, 340], [1000, 320], [1430, 350], [1860, 320], [2290, 350]],
-      gate: 2740, par: 32
+      gate: 2740, par: 32,
+      wind: 14, reach: 1, gravity: 1,
+      hazards: [{ x: 1880, y: 370, range: 70, speed: 0.55, phase: 0.7, r: 16 }]
     },
     {
       name: 'The Long Reach',
       start: { x: 110, y: 280 },
       anchors: [[350, 190], [820, 250], [1330, 170], [1830, 260], [2340, 180], [2790, 270]],
       coins: [[580, 320], [1070, 330], [1580, 320], [2080, 330], [2560, 330]],
-      gate: 3060, par: 34
+      gate: 3060, par: 34,
+      wind: 24, reach: 0.97, gravity: 1.02,
+      hazards: [{ x: 1580, y: 380, range: 80, speed: 0.6, phase: 0.2, r: 16 }]
     },
     {
       name: 'Zig-zag Zephyr',
       start: { x: 110, y: 310 },
       anchors: [[330, 300], [720, 140], [1150, 330], [1580, 150], [2010, 330], [2440, 170]],
       coins: [[520, 360], [930, 330], [1360, 360], [1790, 330], [2220, 360]],
-      gate: 2680, par: 32
+      gate: 2680, par: 32,
+      wind: 36, reach: 0.95, gravity: 1.03,
+      hazards: [{ x: 960, y: 360, range: 75, speed: 0.65, phase: 1.1, r: 16 },
+                { x: 1820, y: 400, range: 85, speed: 0.7, phase: 0.4, r: 16 }]
     },
     {
       name: 'Final Flight',
       start: { x: 110, y: 290 },
       anchors: [[340, 200], [780, 320], [1240, 150], [1700, 320], [2160, 160], [2620, 320], [3080, 190]],
       coins: [[560, 340], [1010, 330], [1470, 330], [1930, 330], [2390, 330], [2850, 330]],
-      gate: 3340, par: 38
+      gate: 3340, par: 38,
+      wind: 48, reach: 0.94, gravity: 1.04,
+      hazards: [{ x: 1000, y: 375, range: 85, speed: 0.7, phase: 0.9, r: 17 },
+                { x: 1940, y: 350, range: 90, speed: 0.75, phase: 0.3, r: 17 }]
+    },
+    {
+      name: 'Crosswind Alley',
+      start: { x: 110, y: 300 },
+      anchors: [[340, 230], [720, 150], [1100, 290], [1480, 170], [1860, 300], [2240, 180], [2580, 290]],
+      coins: [[530, 330], [900, 320], [1290, 340], [1670, 320], [2050, 340], [2420, 320]],
+      gate: 2800, par: 40,
+      wind: 58, reach: 0.92, gravity: 1.05,
+      hazards: [{ x: 1150, y: 380, range: 90, speed: 0.75, phase: 0.6, r: 17 },
+                { x: 2380, y: 350, range: 90, speed: 0.8, phase: 1.5, r: 17 }]
+    },
+    {
+      name: 'Gate Runner',
+      start: { x: 110, y: 280 },
+      anchors: [[330, 200], [690, 310], [1050, 160], [1410, 320], [1770, 170], [2130, 300], [2490, 160], [2850, 300]],
+      coins: [[510, 330], [870, 340], [1230, 330], [1590, 340], [1950, 330], [2310, 340], [2670, 330]],
+      gate: 3060, par: 42,
+      wind: 64, reach: 0.91, gravity: 1.06,
+      hazards: [{ x: 870, y: 365, range: 90, speed: 0.8, phase: 1.4, r: 17 },
+                { x: 1950, y: 390, range: 95, speed: 0.85, phase: 0.5, r: 17 },
+                { x: 2800, y: 350, range: 95, speed: 0.9, phase: 2.1, r: 17 }]
+    },
+    {
+      name: 'Thin Air',
+      start: { x: 110, y: 300 },
+      anchors: [[340, 170], [700, 300], [1060, 140], [1420, 300], [1780, 150], [2140, 310], [2500, 160], [2860, 300]],
+      coins: [[520, 330], [880, 340], [1240, 320], [1600, 340], [1960, 320], [2320, 340], [2680, 320]],
+      gate: 3080, par: 44,
+      wind: 70, reach: 0.90, gravity: 1.07,
+      hazards: [{ x: 810, y: 355, range: 95, speed: 0.85, phase: 0.2, r: 18 },
+                { x: 1600, y: 385, range: 100, speed: 0.9, phase: 1.0, r: 18 },
+                { x: 2320, y: 345, range: 100, speed: 0.95, phase: 1.8, r: 18 }]
+    },
+    {
+      name: 'Slipstream',
+      start: { x: 110, y: 290 },
+      anchors: [[330, 280], [650, 150], [980, 300], [1310, 150], [1640, 300], [1970, 150], [2300, 300], [2630, 150], [2960, 300]],
+      coins: [[490, 340], [815, 330], [1145, 340], [1475, 330], [1805, 340], [2135, 330], [2465, 340], [2795, 330]],
+      gate: 3180, par: 46,
+      wind: 76, reach: 0.89, gravity: 1.08,
+      hazards: [{ x: 800, y: 380, range: 100, speed: 0.9, phase: 0.9, r: 18 },
+                { x: 1460, y: 350, range: 105, speed: 0.95, phase: 1.7, r: 18 },
+                { x: 2450, y: 390, range: 105, speed: 1.0, phase: 0.3, r: 18 }]
+    },
+    {
+      name: 'Storm Ladder',
+      start: { x: 110, y: 280 },
+      anchors: [[340, 160], [660, 300], [990, 150], [1320, 300], [1650, 140], [1980, 300], [2310, 150], [2640, 300], [2970, 160]],
+      coins: [[500, 330], [825, 340], [1155, 320], [1485, 340], [1815, 320], [2145, 340], [2475, 320], [2805, 340]],
+      gate: 3190, par: 48,
+      wind: 80, reach: 0.88, gravity: 1.09,
+      hazards: [{ x: 820, y: 350, range: 105, speed: 0.95, phase: 0.4, r: 18 },
+                { x: 1490, y: 385, range: 105, speed: 1.0, phase: 1.3, r: 18 },
+                { x: 2160, y: 340, range: 110, speed: 1.05, phase: 2.1, r: 19 },
+                { x: 2800, y: 395, range: 110, speed: 1.1, phase: 0.8, r: 19 }]
+    },
+    {
+      name: 'Last Light',
+      start: { x: 110, y: 300 },
+      anchors: [[330, 290], [640, 140], [950, 290], [1260, 140], [1570, 290], [1880, 140], [2190, 290], [2500, 140], [2810, 290], [3120, 150]],
+      coins: [[485, 340], [795, 330], [1105, 340], [1415, 330], [1725, 340], [2035, 330], [2345, 340], [2655, 330], [2965, 340]],
+      gate: 3340, par: 52,
+      wind: 85, reach: 0.87, gravity: 1.10,
+      hazards: [{ x: 780, y: 355, range: 110, speed: 1.0, phase: 1.1, r: 19 },
+                { x: 1420, y: 330, range: 110, speed: 1.05, phase: 0.2, r: 19 },
+                { x: 2060, y: 375, range: 115, speed: 1.1, phase: 1.7, r: 19 },
+                { x: 2700, y: 345, range: 115, speed: 1.15, phase: 0.6, r: 19 },
+                { x: 3000, y: 395, range: 120, speed: 1.2, phase: 2.2, r: 19 }]
     }
   ];
 
@@ -101,6 +185,23 @@
   var camX = 0, camY = 0;
   var hudKey = '';
   var rafId = 0, last = 0;
+  var flash = 0;              /* red pulse after a spark-gate hit */
+  var windNow = 0;            /* current lateral gust, px/s²       */
+  var unlocked = loadUnlocked();
+
+  /* ---------------- unlock progress ---------------- */
+
+  function loadUnlocked() {
+    try {
+      var v = parseInt(localStorage.getItem(UNLOCK_KEY), 10);
+      if (!isFinite(v) || v < 0) v = 0;
+      return clamp(v, 0, LEVELS.length - 1);
+    } catch (e) { return 0; }
+  }
+
+  function saveUnlocked() {
+    try { localStorage.setItem(UNLOCK_KEY, String(unlocked)); } catch (e) {}
+  }
 
   /* ---------------- helpers ---------------- */
 
@@ -112,12 +213,18 @@
 
   function levelWidth() { return level.gate + 170; }
 
-  /* ---------------- HUD / states ---------------- */
+  /* ---------------- HUD / stages / states ---------------- */
 
   function updateHud(force) {
-    var key = state + '|' + score + '|' + coins + '|' + levelIdx + '|' + Math.max(best, score);
+    var windKey = Math.round(windNow / 10);
+    var key = state + '|' + score + '|' + coins + '|' + levelIdx + '|' +
+              Math.max(best, score) + '|' + unlocked + '|' + windKey;
     if (!force && key === hudKey) return;
     hudKey = key;
+    var windTxt = '';
+    if (Math.abs(windNow) >= 5) {
+      windTxt = ' · gust ' + (windNow > 0 ? '→ ' : '← ') + Math.round(Math.abs(windNow));
+    }
     GameShell.hud(
       {
         Score: score,
@@ -125,8 +232,32 @@
         Level: (levelIdx + 1) + '/' + LEVELS.length,
         Coins: coins
       },
-      state === 'paused' ? '⏸ Paused' : 'Hold Space = hook · release = fly'
+      state === 'paused' ? '⏸ Paused'
+        : 'Hold Space = hook · release = fly' + windTxt
     );
+  }
+
+  function refreshPicker() {
+    var box = document.getElementById('stagePicker');
+    if (!box) return;
+    var html = '<span class="stage-label">Stages</span>';
+    for (var i = 0; i < LEVELS.length; i++) {
+      var open = i <= unlocked;
+      html += '<button type="button" class="stage-btn' + (open ? '' : ' is-locked') +
+              '" data-stage="' + i + '"' + (open ? '' : ' disabled') +
+              ' title="' + (open ? LEVELS[i].name : 'Clear stage ' + i + ' to unlock') + '">' +
+              (i + 1) + '</button>';
+    }
+    box.innerHTML = html;
+    var btns = box.querySelectorAll ? box.querySelectorAll('[data-stage]') : [];
+    for (var b = 0; b < btns.length; b++) {
+      (function (btn) {
+        btn.addEventListener('click', function () {
+          var idx = parseInt(btn.getAttribute('data-stage'), 10);
+          if (isFinite(idx)) startStage(idx);
+        });
+      })(btns[b]);
+    }
   }
 
   function persistBest() {
@@ -148,6 +279,8 @@
     ropeLen = 0;
     levelTime = 0;
     trail = [];
+    flash = 0;
+    windNow = 0;
     if (!coinTaken[idx]) {
       coinTaken[idx] = [];
       for (var i = 0; i < level.coins.length; i++) coinTaken[idx].push(false);
@@ -155,11 +288,11 @@
     updateHud(true);
   }
 
-  function start() {
+  function start(which) {
     score = 0; coins = 0;
     coinTaken = [];
     attempts = 0;
-    loadLevel(0);
+    loadLevel(typeof which === 'number' ? which : 0);
     state = 'countdown';
     ct = 0.9;
     hookHeld = false;
@@ -167,6 +300,11 @@
     GameShell.overlay.hide();
     updateHud(true);
     ensureLoop();
+  }
+
+  function startStage(idx) {
+    if (idx < 0 || idx >= LEVELS.length || idx > unlocked) return;
+    start(idx);
   }
 
   function pause() {
@@ -202,7 +340,7 @@
     updateHud(true);
     GameShell.overlay.show({
       title: 'Chasm conquered!',
-      msg: 'All six stages cleared in one run — a true hero of the hook. Your best score is saved in this browser.',
+      msg: 'All twelve stages cleared — a true hero of the hook. Your best score is saved in this browser.',
       stats: [
         { label: 'Score', value: score },
         { label: 'Best', value: best },
@@ -218,6 +356,11 @@
     var timeBonus = Math.max(0, Math.round((level.par - levelTime) * 12));
     lastBonus = 250 + timeBonus;
     score += lastBonus;
+    if (levelIdx + 1 < LEVELS.length && levelIdx + 1 > unlocked) {
+      unlocked = levelIdx + 1;
+      saveUnlocked();
+      refreshPicker();
+    }
     persistBest();
     updateHud(true);
     if (levelIdx >= LEVELS.length - 1) { win(); return; }
@@ -242,14 +385,29 @@
 
   /* ---------------- hook / rope ---------------- */
 
+  function hookReach() {
+    return MAX_REACH * (level.reach || 1);
+  }
+
+  function nextAnchorAhead() {
+    if (!level) return null;
+    var best = null;
+    for (var i = 0; i < level.anchors.length; i++) {
+      var a = level.anchors[i];
+      if (a[0] > player.x + 20 && (!best || a[0] < best[0])) best = a;
+    }
+    return best;
+  }
+
   function tryAttach() {
     if (attached || !level) return false;
+    var reach = hookReach();
     var pick = null, pickScore = 1e9, pickD = 0;
     for (var i = 0; i < level.anchors.length; i++) {
       var ax = level.anchors[i][0], ay = level.anchors[i][1];
       var dx = ax - player.x, dy = ay - player.y;
       var d = Math.sqrt(dx * dx + dy * dy);
-      if (d > MAX_REACH || ay >= player.y + 60) continue;
+      if (d > reach || ay >= player.y + 60) continue;
       /* prefer anchors ahead — grabbing the ring you just passed wastes swing */
       var s = d + (ax < player.x - 20 ? 160 : 0);
       if (s < pickScore) {
@@ -261,7 +419,7 @@
     if (pick) {
       attached = true;
       anchor = { x: pick[0], y: pick[1] };
-      ropeLen = clamp(pickD, 50, MAX_REACH);
+      ropeLen = clamp(pickD, 50, reach);
       return true;
     }
     return false;
@@ -281,6 +439,12 @@
         player.vy -= vr * ny;
       }
     }
+  }
+
+  /* ---------------- spark sentries / wind ---------------- */
+
+  function hazardX(h) {
+    return h.x + Math.sin(levelTime * h.speed + (h.phase || 0)) * h.range;
   }
 
   /* ---------------- update ---------------- */
@@ -303,10 +467,13 @@
     if (state !== 'running') return;
 
     levelTime += dt;
+    if (flash > 0) flash = Math.max(0, flash - dt * 1.5);
+    windNow = (level.wind || 0) * Math.sin(levelTime * 1.15 + levelIdx * 1.7);
 
     if (hookHeld && !attached) tryAttach();
 
-    player.vy += GRAV * dt;
+    player.vy += GRAV * (level.gravity || 1) * dt;
+    player.vx += windNow * dt;                 /* crosswind pushes the swing */
     if (attached) player.vx += PULL * dt;      /* gentle forward pull */
     player.vx *= 0.9995;
     player.x += player.vx * dt;
@@ -321,6 +488,18 @@
       trailT = 0;
       trail.push({ x: player.x, y: player.y });
       if (trail.length > 70) trail.shift();
+    }
+
+    /* spark sentries: touch one and the run restarts at this stage */
+    for (var g = 0; g < level.hazards.length; g++) {
+      var hz = level.hazards[g];
+      var hdx = hazardX(hz) - player.x, hdy = hz.y - player.y;
+      var hr = hz.r + 12;
+      if (hdx * hdx + hdy * hdy < hr * hr) {
+        respawn();
+        flash = 0.8;
+        return;
+      }
     }
 
     /* coins */
@@ -508,6 +687,83 @@
     ctx.restore();
   }
 
+  function drawSentry(h, t) {
+    var hx = hazardX(h);
+    var pulse = 0.5 + 0.5 * Math.sin(t / 160 + h.phase);
+    var r = h.r;
+
+    ctx.save();
+    /* faint patrol line so the sweep is readable */
+    ctx.strokeStyle = 'rgba(255,92,122,.12)';
+    ctx.lineWidth = 1;
+    if (ctx.setLineDash) ctx.setLineDash([4, 8]);
+    ctx.beginPath();
+    ctx.moveTo(h.x - h.range, h.y);
+    ctx.lineTo(h.x + h.range, h.y);
+    ctx.stroke();
+    if (ctx.setLineDash) ctx.setLineDash([]);
+
+    /* glowing core */
+    ctx.shadowColor = '#ff5c7a';
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = 'rgba(255,92,122,.35)';
+    ctx.beginPath();
+    ctx.arc(hx, h.y, r + 4 + pulse * 3, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = '#ff5c7a';
+    ctx.beginPath();
+    ctx.arc(hx, h.y, r, 0, TAU);
+    ctx.fill();
+
+    /* spinning spark blades */
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = 'rgba(255,225,232,.95)';
+    ctx.lineWidth = 2;
+    for (var s = 0; s < 3; s++) {
+      var a = t / 180 + s * (TAU / 3) + h.phase;
+      ctx.beginPath();
+      ctx.moveTo(hx + Math.cos(a) * (r + 2), h.y + Math.sin(a) * (r + 2));
+      ctx.lineTo(hx + Math.cos(a) * (r + 12), h.y + Math.sin(a) * (r + 12));
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#fff2f5';
+    ctx.beginPath();
+    ctx.arc(hx, h.y, 3.5, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  var windMotes = [];
+  (function () {
+    for (var i = 0; i < 30; i++) {
+      windMotes.push({
+        x: Math.random() * W,
+        y: 30 + Math.random() * (H - 60),
+        len: 12 + Math.random() * 30,
+        sp: 30 + Math.random() * 60
+      });
+    }
+  })();
+
+  function drawWind(t) {
+    var str = Math.abs(windNow);
+    if (str < 4) return;
+    var dir = windNow > 0 ? 1 : -1;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(147,197,253,.9)';
+    ctx.lineWidth = 1.2;
+    for (var i = 0; i < windMotes.length; i++) {
+      var m = windMotes[i];
+      var x = ((m.x + dir * t * 0.001 * m.sp * (str / 40)) % W + W) % W;
+      ctx.globalAlpha = 0.06 + Math.min(0.22, str / 420);
+      ctx.beginPath();
+      ctx.moveTo(x, m.y);
+      ctx.lineTo(x + dir * (m.len + str * 0.25), m.y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   function draw(t) {
     /* camera */
     camX = clamp(player.x - 210, 0, Math.max(0, levelWidth() - W));
@@ -579,6 +835,11 @@
     /* finish gate */
     drawGate(level.gate, t);
 
+    /* spark sentries: they sweep across the flight line */
+    for (i = 0; i < level.hazards.length; i++) {
+      drawSentry(level.hazards[i], t);
+    }
+
     /* anchors */
     for (i = 0; i < level.anchors.length; i++) {
       var a = level.anchors[i];
@@ -607,6 +868,16 @@
     drawStick(player.x, player.y - 16, heroPose(t), '#22d3ee');
 
     ctx.restore();
+
+    /* crosswind streaks + spark-gate hit flash */
+    drawWind(t);
+    if (flash > 0) {
+      var fg = ctx.createRadialGradient(W / 2, H / 2, 80, W / 2, H / 2, H * 0.75);
+      fg.addColorStop(0, 'rgba(255,92,122,0)');
+      fg.addColorStop(1, 'rgba(255,92,122,' + (0.42 * flash) + ')');
+      ctx.fillStyle = fg;
+      ctx.fillRect(0, 0, W, H);
+    }
 
     /* on-canvas banners */
     ctx.textAlign = 'center';
@@ -717,9 +988,20 @@
     Object.defineProperty(window, '__hookHero', {
       value: Object.freeze({
         snapshot: function () {
+          var hzs = level ? level.hazards : [];
+          var nextA = nextAnchorAhead();
+          var maxSpeed = 0, maxR = 0;
+          for (var gi = 0; gi < hzs.length; gi++) {
+            if (hzs[gi].speed > maxSpeed) maxSpeed = hzs[gi].speed;
+            if (hzs[gi].r > maxR) maxR = hzs[gi].r;
+          }
           return {
             state: state,
             level: levelIdx,
+            levels: LEVELS.length,
+            levelName: level ? level.name : '',
+            progress: level ? clamp(player.x / level.gate, 0, 1) : 0,
+            unlocked: unlocked + 1,
             score: score,
             coins: coins,
             best: Math.max(best, score),
@@ -728,10 +1010,33 @@
             vx: player.vx,
             vy: player.vy,
             attached: attached,
+            anchorX: anchor ? anchor.x : null,
+            anchorY: anchor ? anchor.y : null,
             ropeLen: ropeLen,
             hookHeld: hookHeld,
             attempts: attempts,
-            levelTime: levelTime
+            levelTime: levelTime,
+            gateX: level ? level.gate : 0,
+            nextAnchorX: nextA ? nextA[0] : null,
+            nextAnchorY: nextA ? nextA[1] : null,
+            nextAnchorDist: nextA
+              ? Math.round(Math.sqrt(Math.pow(nextA[0] - player.x, 2) +
+                                     Math.pow(nextA[1] - player.y, 2)))
+              : null,
+            hazardPositions: hzs.map(function (h) {
+              return { x: Math.round(hazardX(h) * 10) / 10, y: h.y, r: h.r };
+            }),
+            difficulty: {
+              hookReach: Math.round(MAX_REACH * (level ? (level.reach || 1) : 1)),
+              reachFactor: level ? level.reach : 1,
+              gravity: GRAV * (level ? (level.gravity || 1) : 1),
+              wind: level ? (level.wind || 0) : 0,
+              windNow: Math.round(windNow * 10) / 10,
+              hazards: hzs.length,
+              maxHazardSpeed: maxSpeed,
+              maxHazardRadius: maxR,
+              par: level ? level.par : 0
+            }
           };
         }
       }),
@@ -744,12 +1049,13 @@
 
   loadLevel(0);
   state = 'ready';
+  refreshPicker();
   updateHud(true);
   ensureLoop();
   GameShell.overlay.show({
     title: 'Hook Hero',
-    msg: 'Hold Space to fire your hook at the glowing rings, swing like a pendulum, then release to fly. Cross all six stages of the neon chasm.',
-    stats: [{ label: 'Best', value: best }],
+    msg: 'Hold Space to fire your hook at the glowing rings, swing like a pendulum, then release to fly. Twelve stages of crosswinds and sweeping spark sentries await — clear one to unlock the next.',
+    stats: [{ label: 'Best', value: best }, { label: 'Stages', value: LEVELS.length }],
     btn: '▶ Play',
     action: start
   });

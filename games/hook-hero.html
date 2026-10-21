@@ -4,13 +4,27 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Hook Hero — Play Free Online | PixelPlay</title>
-  <meta name="description" content="Play Hook Hero free online at PixelPlay. Fire your hook at glowing anchors, swing like a pendulum and release over a bottomless neon chasm in six levels.">
+  <meta name="description" content="Play Hook Hero free online at PixelPlay. Fire your hook at glowing anchors, swing like a pendulum and release over a bottomless neon chasm in twelve levels with crosswinds and spark sentries.">
   <meta name="theme-color" content="#070b14">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🪝%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="../css/style.css">
   <style>
     /* Page-specific only — shared css/style.css is never edited. */
     .touch-controls .tbtn-hook { min-width: 200px; }
+    .stage-picker {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+      margin: 14px 0 2px;
+    }
+    .stage-picker .stage-label {
+      font-size: 13px; font-weight: 600; color: #93a3c2; margin-right: 4px;
+    }
+    .stage-picker .stage-btn {
+      min-width: 34px; padding: 6px 0; border-radius: 8px;
+      border: 1px solid #2a3a5c; background: #121b31; color: #e8eefc;
+      font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+    .stage-picker .stage-btn:hover:not(:disabled) { border-color: #22d3ee; color: #22d3ee; }
+    .stage-picker .stage-btn.is-locked { opacity: .35; cursor: default; }
   </style>
 </head>
 <body data-root="../" data-nav="home" data-page="game" data-game="hook-hero">
@@ -52,6 +66,8 @@
           <button class="tbtn tbtn-hook" type="button" data-act="hook" aria-label="Hold to fire the hook">🪝 Hold to hook</button>
         </div>
 
+        <div class="stage-picker" id="stagePicker" aria-label="Stage select"></div>
+
         <section class="game-desc">
           <h2>How to Play Hook Hero</h2>
           <p>Hook Hero is a pendulum-swinging adventure over a bottomless neon chasm.
@@ -59,36 +75,37 @@
              way across is the glowing anchor rings floating ahead. Hold your hook to
              shoot a rope to the nearest ring, swing like a pendulum gathering speed,
              then release at the perfect moment to fly through the air on pure
-             momentum. Land another hook on the next ring before you drop into the
-             dark.</p>
+             momentum.</p>
           <p>Real pendulum physics are at work the whole time: gravity pulls you down,
              the rope tugs you around its anchor, and the swing keeps a gentle
-             forward pull so good timing is always rewarded with progress. Six
+             forward pull so good timing is always rewarded with progress. Twelve
              hand-built stages stretch across the chasm, each ending at a shining
-             finish gate. Miss a hook and fall below the screen and you simply
-             restart that stage — you keep your score, and the coins you already
-             collected stay collected, so every attempt carries you a little
-             further.</p>
+             finish gate. Later stages add crosswinds that shove your swing sideways
+             and spark sentries that sweep across the flight line, and they shorten
+             your hook reach while strengthening gravity. Clear a stage to unlock the
+             next one, or jump straight to any stage you have already reached with the
+             numbered buttons under the canvas. Falling into the chasm simply restarts
+             that stage — the coins you already collected stay collected.</p>
           <h3>Controls</h3>
           <ul>
             <li>Hold <kbd>Space</kbd> (or hold the mouse button on the game, or the on-screen Hook button) to attach the rope</li>
             <li>Release <kbd>Space</kbd> to let go and fly forward on momentum</li>
+            <li>Pick any unlocked stage from the numbered buttons beneath the canvas</li>
             <li><kbd>Enter</kbd>, <kbd>P</kbd> or <kbd>Esc</kbd> to pause, <kbd>R</kbd> to restart the run, <kbd>Space</kbd> to start</li>
           </ul>
           <h3>Tips for crossing the chasm</h3>
           <ul>
             <li>Hook the ring ahead of you, not the one you are already passing — the swing throws you forward.</li>
             <li>Let the swing build. Two or three pumps on a ring carry far further than one desperate release.</li>
+            <li>Watch the wind streaks: a gust pushing right means you should release a little later than usual.</li>
+            <li>Spark sentries patrol a fixed lane. Pass above or below one, or wait on the rope until it swings clear.</li>
             <li>Snatch the floating coins along your flight line; they are worth 25 points each.</li>
-            <li>Finishing a stage quickly pays a speed bonus on top of the 250-point level bonus.</li>
-            <li>Your best score is saved automatically in this browser.</li>
           </ul>
           <h3>Scoring</h3>
           <p>Every stage you clear is worth 250 points, plus a speed bonus for beating
              the stage's par time. Coins add 25 points each the moment you touch
              them, and the HUD keeps Score, Best, Level and Coins live while you
-             swing. Clear all six stages in one run to win the game — and post the
-             biggest score your browser has ever seen for Hook Hero.</p>
+             swing. Clear all twelve stages in one run to win the game.</p>
         </section>
 
         <div class="ad-slot ad-leaderboard" data-ad="footer_banner"></div>

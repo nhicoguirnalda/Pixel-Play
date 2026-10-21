@@ -31,14 +31,21 @@
   /* ---------------- tuning ---------------- */
 
   var PPM = 50;                 /* pixels per metre */
-  var GRAV = 620;               /* gravity, px/s^2 (up is +y) */
-  var ARM = 46;                 /* arm / rope length */
-  var GRAB_REACH = 58;          /* how far above its hold a hand hammers */
+  var GRAV = 660;               /* gravity, px/s^2 (up is +y) */
+  var ARM = 44;                 /* arm / rope length */
+  var GRAB_REACH = 52;          /* how far above its hold a hand hammers */
   var SWING_T = 0.2;            /* swing duration, seconds */
-  var CRUMBLE_WARN = 0.85;      /* loose-rock warning before it breaks */
-  var CRUMBLE_HOLD = 1.5;       /* time from grip to crumbling away */
+  var CRUMBLE_WARN = 0.6;       /* loose-rock warning before it breaks */
+  var CRUMBLE_HOLD = 1.15;      /* time from grip to crumbling away */
   var FALL_DROP = 300;          /* fall below the checkpoint to lose a life */
   var WALK_SPEED = 0;           /* body is moved by impulses only */
+  var TARGET_M = 80;            /* summit height, metres */
+  var TARGET_Y = TARGET_M * PPM;
+  var GUST_BASE = 170;          /* weakest gust acceleration, px/s^2 */
+  var GUST_STEP = 20;           /* extra strength per gust zone */
+  var ROCK_BASE = 160;          /* first loose rock height */
+  var ROCK_STEP = 200;          /* one loose rock every N pixels */
+  var LEDGE_STEP = 330;         /* ledge spacing */
 
   var state = 'ready';          /* ready | running | paused | over */
   var lives = 3, score = 0;
@@ -70,9 +77,9 @@
   function buildOverhangs() {
     overhangs = [];
     for (var i = 0; ; i++) {
-      var a = 300 + i * 470;
+      var a = 300 + i * 420;
       if (a > 20000) break;
-      overhangs.push({ a: a, b: a + 80 + (i % 2) * 26, amp: 46 + (i % 3) * 8 });
+      overhangs.push({ a: a, b: a + 88 + (i % 2) * 30, amp: 58 + (i % 3) * 10 });
     }
   }
 
@@ -94,10 +101,10 @@
 
   /* Loose rocks sit at fixed heights; gripping one starts a crumble. */
   function looseRockNear(y) {
-    var k = Math.round((y - 200) / 240);
+    var k = Math.round((y - ROCK_BASE) / ROCK_STEP);
     if (k < 1) return null;
-    var ry = 200 + k * 240;
-    return Math.abs(ry - y) < 16 ? { k: k, y: ry } : null;
+    var ry = ROCK_BASE + k * ROCK_STEP;
+    return Math.abs(ry - y) < 14 ? { k: k, y: ry } : null;
   }
 
   /* Gust zones: bands of sideways wind. */
@@ -105,7 +112,8 @@
     for (var i = 0; i < gusts.length; i++) {
       var g = gusts[i];
       if (y > g.a && y < g.b) {
-        return 150 * Math.sin(time * 1.4 + g.k * 2.1);
+        var amp = GUST_BASE + (g.k % 4) * GUST_STEP;
+        return amp * Math.sin(time * 1.7 + g.k * 2.1);
       }
     }
     return 0;
@@ -132,17 +140,17 @@
   function buildLedges() {
     ledges = [];
     for (var k = 0; ; k++) {
-      var y = 40 + k * 330;
+      var y = 40 + k * LEDGE_STEP;
       if (y > 20000) break;
       if (k === 0) {
         ledges.push({ y: 40, w: 96, off: 0, moving: false, phase: 0, range: 0, speed: 0 });
         continue;
       }
-      var moving = (k % 3 === 2);
+      var moving = (k % 2 === 1);
       ledges.push({
-        y: y, w: moving ? 64 : 78 + (k % 2) * 14,
+        y: y, w: moving ? 56 : 74 + (k % 2) * 12,
         off: 0, moving: moving,
-        phase: k * 1.9, range: 60 + (k % 3) * 22, speed: 0.9 + (k % 4) * 0.18
+        phase: k * 1.9, range: 70 + (k % 3) * 26, speed: 1.05 + (k % 4) * 0.2
       });
     }
   }
@@ -179,8 +187,8 @@
     buildLedges();
     buildClouds();
     gusts = [];
-    for (var i = 0; i < 8; i++) {
-      gusts.push({ k: i, a: 560 + i * 900, b: 560 + i * 900 + 250 });
+    for (var i = 0; i < 10; i++) {
+      gusts.push({ k: i, a: 500 + i * 760, b: 500 + i * 760 + 300 });
     }
     body = { x: faceX(40) + 52, y: 66, vx: 0, vy: 0, grounded: true, ledge: ledges[0] };
     hands = {
@@ -255,6 +263,30 @@
     });
   }
 
+  function summit() {
+    if (state !== 'running') return;
+    state = 'over';
+    var h = Math.round(heightMax);
+    if (h > bestM) {
+      bestM = h;
+      best = h;
+      GameShell.best.set(BEST_KEY, best);
+    }
+    updateHud();
+    GameShell.overlay.show({
+      title: 'Summit reached!',
+      msg: 'You conquered the ' + TARGET_M + ' metre cliff with ' + lives +
+           ' live' + (lives === 1 ? '' : 's') + ' to spare. The gusts can rest now.',
+      stats: [
+        { label: 'Height', value: h + ' m' },
+        { label: 'Best', value: bestM + ' m' },
+        { label: 'Lives', value: lives }
+      ],
+      btn: '▶ Climb again',
+      action: start
+    });
+  }
+
   function loseLife() {
     if (state !== 'running') return;
     lives--;
@@ -286,14 +318,17 @@
 
   function updateHud() {
     var hTxt = (Math.round(heightMax * 10) / 10) + ' m';
+    var gf = gustForce(body ? body.y : 0);
+    var windTxt = Math.abs(gf) > 15 ? ' · gust ' + (gf > 0 ? '→' : '←') : '';
     GameShell.hud(
       {
         Score: Math.max(0, Math.floor(heightMax)),
         Best: Math.max(bestM, Math.floor(heightMax)),
         Height: hTxt,
-        Lives: lives
+        Lives: lives,
+        Summit: TARGET_M + ' m'
       },
-      state === 'paused' ? '⏸ Paused' : '← → alternate to climb'
+      state === 'paused' ? '⏸ Paused' : '← → alternate to climb' + windTxt
     );
   }
 
@@ -436,6 +471,9 @@
       if (hi !== heightInt) { heightInt = hi; updateHud(); }
     }
 
+    /* --- summit flag --- */
+    if (body.y >= TARGET_Y) { summit(); return; }
+
     /* --- falling too far costs a life --- */
     if (body.y < checkpoint.y - FALL_DROP || body.y < -70) {
       loseLife();
@@ -537,6 +575,84 @@
     }
   }
 
+  function drawSummit() {
+    var y = sy(TARGET_Y);
+    if (y < -80 || y > H + 80) return;
+    var fx = faceX(TARGET_Y);
+    var pulse = 0.55 + 0.45 * Math.sin(time / 260);
+
+    /* dashed summit line across the face */
+    ctx.save();
+    ctx.strokeStyle = 'rgba(46,230,166,.5)';
+    ctx.lineWidth = 2;
+    if (ctx.setLineDash) ctx.setLineDash([9, 8]);
+    ctx.beginPath();
+    ctx.moveTo(fx, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+    if (ctx.setLineDash) ctx.setLineDash([]);
+
+    /* two poles + pennant */
+    ctx.strokeStyle = '#e8eefc';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(fx + 16, y);
+    ctx.lineTo(fx + 16, y - 54);
+    ctx.moveTo(fx + 74, y);
+    ctx.lineTo(fx + 74, y - 54);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(46,230,166,' + (0.55 + 0.25 * pulse) + ')';
+    ctx.shadowColor = '#2ee6a6';
+    ctx.shadowBlur = 12;
+    ctx.fillRect(fx + 16, y - 54, 58, 14);
+    ctx.beginPath();
+    ctx.moveTo(fx + 74, y - 54);
+    ctx.lineTo(fx + 92, y - 47);
+    ctx.lineTo(fx + 74, y - 40);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = 'rgba(216,255,240,.95)';
+    ctx.font = '700 12px ' + FONT;
+    ctx.textAlign = 'center';
+    ctx.fillText('SUMMIT ' + TARGET_M + ' m', fx + 46, y - 62);
+    ctx.restore();
+  }
+
+  function drawWindGauge() {
+    var gf = gustForce(body ? body.y : 0);
+    var strength = Math.abs(gf);
+    if (strength < 10) return;
+    var dir = gf > 0 ? 1 : -1;
+    var x = W - 34, y = 86;
+    var len = 16 + Math.min(28, strength * 0.14);
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(34,211,238,.85)';
+    ctx.font = '700 10px ' + FONT;
+    ctx.textAlign = 'center';
+    ctx.fillText('WIND', x, y - 12);
+
+    ctx.strokeStyle = 'rgba(34,211,238,' + (0.5 + Math.min(0.45, strength / 420)) + ')';
+    ctx.lineWidth = 2.6;
+    ctx.lineCap = 'round';
+    for (var i = 0; i < 3; i++) {
+      var ox = x - dir * i * 7;
+      ctx.beginPath();
+      ctx.moveTo(ox - dir * 5, y - 4);
+      ctx.lineTo(ox + dir * 5, y);
+      ctx.lineTo(ox - dir * 5, y + 4);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(x - dir * 10, y);
+    ctx.lineTo(x - dir * (10 + len), y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   function drawLedges() {
     for (var i = 0; i < ledges.length; i++) {
       var l = ledges[i];
@@ -564,9 +680,9 @@
 
   function drawRocks() {
     /* loose rocks embedded in the face near the camera */
-    var k0 = Math.floor((camY - 200) / 240) - 1;
-    for (var k = Math.max(1, k0); k < k0 + 6; k++) {
-      var ry = 200 + k * 240;
+    var k0 = Math.floor((camY - ROCK_BASE) / ROCK_STEP) - 1;
+    for (var k = Math.max(1, k0); k < k0 + 7; k++) {
+      var ry = ROCK_BASE + k * ROCK_STEP;
       var y = sy(ry);
       if (y < -30 || y > H + 30) continue;
       var x = faceX(ry) - 8;
@@ -724,11 +840,14 @@
     drawCliff();
     drawGusts();
     drawLedges();
+    drawSummit();
     drawRocks();
     drawParticles();
     if (body) drawStickman(t);
 
     ctx.restore();
+
+    drawWindGauge();
 
     if (state === 'paused') {
       ctx.fillStyle = 'rgba(232,238,252,.75)';
@@ -817,6 +936,32 @@
     getLives: function () { return lives; },
     getHeight: function () { return heightMax; },
     getBody: function () { return { x: body.x, y: body.y }; },
+    getTargetHeight: function () { return TARGET_M; },
+    getCheckpoint: function () { return { x: checkpoint.x, y: checkpoint.y }; },
+    getWind: function () { return gustForce(body.y); },
+    getDifficulty: function () {
+      return {
+        gravity: GRAV,
+        arm: ARM,
+        grabReach: GRAB_REACH,
+        crumbleHold: CRUMBLE_HOLD,
+        crumbleWarn: CRUMBLE_WARN,
+        rocksEvery: ROCK_STEP,
+        rockBase: ROCK_BASE,
+        gusts: gusts.length,
+        gustStrength: GUST_BASE,
+        gustMax: GUST_BASE + 3 * GUST_STEP,
+        gustFrequency: 1.7,
+        gustZoneHeight: 300,
+        overhangAmp: 58,
+        overhangSpacing: 420,
+        ledgeSpacing: LEDGE_STEP,
+        movingLedgesEvery: 2,
+        fallDrop: FALL_DROP,
+        targetHeight: TARGET_M,
+        lives: 3
+      };
+    },
     press: function (side) { pressHand(side); },
     dropAll: function () {
       if (state !== 'running') return;
@@ -831,8 +976,8 @@
 
   GameShell.overlay.show({
     title: 'Stickman Climb',
-    msg: 'Alternate ← and → to hammer the pickaxes up the neon cliff. Watch for loose rocks and do not let go with both hands.',
-    stats: [{ label: 'Best', value: bestM + ' m' }],
+    msg: 'Alternate ← and → to hammer the pickaxes up the neon cliff. New gusts hit harder, loose rocks and sliding ledges are everywhere — reach the 80 m summit with a life to spare.',
+    stats: [{ label: 'Best', value: bestM + ' m' }, { label: 'Summit', value: TARGET_M + ' m' }],
     btn: '▶ Play',
     action: start
   });
