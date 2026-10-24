@@ -47,11 +47,27 @@
   var LEDGE_STEP = 330;         /* ledge spacing */
 
   /* falling debris (rocks and icicle volleys) */
-  var DEBRIS_BASE = 6.4;        /* seconds between drops at ground level */
-  var DEBRIS_MIN = 2.8;         /* fastest cadence, high up */
-  var DEBRIS_WARN = 0.9;        /* telegraph time, seconds */
+  var DEBRIS_BASE = 6.4;        /* seconds between drops at tier 0 */
+  var DEBRIS_MIN = 1.55;        /* fastest cadence, top tier */
+  var DEBRIS_WARN = 0.9;        /* telegraph time at tier 0, seconds */
+  var DEBRIS_WARN_MIN = 0.5;    /* shortest telegraph, top tier */
   var DEBRIS_SPEED = 300;       /* base fall speed, px/s */
+  var DEBRIS_SPEED_MAX = 620;   /* capped fall speed, top tier */
   var DEBRIS_CEIL = 24000;      /* procedural world wraps beyond any real run */
+
+  /* difficulty tiers: one new tier every 100 m, scaling caps at 1200 m */
+  var TIER_HEIGHT = 100;        /* metres per tier */
+  var TIER_MAX = 12;            /* last scaling tier (1200 m) */
+  var TIER_COUNT = TIER_MAX + 1;
+  var GUST_FRONT_MIN = 4.5;     /* fastest strong-gust cadence, seconds */
+  var GUST_FRONT_FIRST = 14;    /* first strong gust front, seconds */
+
+  /* Height thresholds shown in the HUD and exposed through the debug hook. */
+  var TIER_THRESHOLDS = (function () {
+    var list = [];
+    for (var i = 0; i < TIER_COUNT; i++) list.push(i * TIER_HEIGHT);
+    return list;
+  })();
 
   var state = 'ready';          /* ready | running | paused | over */
   var lives = 1, score = 0;
@@ -60,6 +76,8 @@
 
   var body, hands, ledges, clouds, particles, overhangs, rocks, gusts;
   var debris, debrisTimer;
+  var gustFrontT = 0, gustFrontDur = 0, gustFrontDir = 1;
+  var gustFrontAmp = 0, gustFrontTimer = GUST_FRONT_FIRST, gustFrontsFired = 0;
   var deathCause = 'fall';
   var spikeHits = 0;            /* jagged ledges that threw the climber off */
   var checkpoint;               /* { x, y } hip position of the last safe ledge */
@@ -82,13 +100,55 @@
             5 * Math.sin(y * 0.077 + 0.6);
   }
 
+  /* deterministic 0..1 hash used for ledge/rock layouts */
+  function hash01(n) {
+    var x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+    return x - Math.floor(x);
+  }
+
+  function tierAtHeight(hM) {
+    return clamp(Math.floor(hM / TIER_HEIGHT), 0, TIER_MAX);
+  }
+
+  function tierAtY(y) {
+    return tierAtHeight(y / PPM);
+  }
+
+  /* One table drives every height-based ramp. Tier 0 is deliberately gentle;
+     each tier adds a small, readable amount until the caps at tier 12. */
+  function tierFactors(t) {
+    t = clamp(t | 0, 0, TIER_MAX);
+    return {
+      tier: t,
+      debrisInterval: Math.max(DEBRIS_MIN, DEBRIS_BASE - t * 0.44),
+      debrisSpeed: Math.min(DEBRIS_SPEED_MAX, DEBRIS_SPEED + t * 24),
+      debrisWarn: Math.max(DEBRIS_WARN_MIN, DEBRIS_WARN - t * 0.032),
+      icicleChance: Math.min(0.78, 0.34 + t * 0.04),
+      shardCount: t >= 8 ? 5 : (t >= 4 ? 4 : 3),
+      shardGap: Math.max(34, 58 - t * 2.2),
+      gustScale: 1 + t * 0.045,
+      gustFreq: 1.7 + t * 0.05,
+      gustFrontInterval: Math.max(GUST_FRONT_MIN, 13 - t * 0.6),
+      gustFrontAmp: 150 + t * 26,
+      spikedChance: Math.min(0.34, 0.10 + t * 0.021),
+      movingChance: Math.min(0.62, 0.34 + t * 0.026),
+      overhangScale: Math.min(1.5, 1 + t * 0.04),
+      rockChance: Math.min(0.96, 0.55 + t * 0.035)
+    };
+  }
+
   /* Overhangs: bands where the wall juts out toward the climber. */
   function buildOverhangs() {
     overhangs = [];
     for (var i = 0; ; i++) {
       var a = 300 + i * 420;
       if (a > DEBRIS_CEIL) break;
-      overhangs.push({ a: a, b: a + 88 + (i % 2) * 30, amp: 58 + (i % 3) * 10 });
+      var f = tierFactors(tierAtY(a));
+      overhangs.push({
+        a: a,
+        b: a + 88 + (i % 2) * 30,
+        amp: (58 + (i % 3) * 10) * f.overhangScale
+      });
     }
   }
 
@@ -112,24 +172,37 @@
     return 230 + noise1(y) + overhangBump(y);
   }
 
-  /* Loose rocks sit at fixed heights; gripping one starts a crumble. */
+  /* Loose rocks sit at fixed heights; gripping one starts a crumble.
+     How many of the slots actually crumble rises with the local tier. */
+  function rockIsLoose(k) {
+    var f = tierFactors(tierAtY(ROCK_BASE + k * ROCK_STEP));
+    return hash01(k * 3.1 + 1.7) < f.rockChance;
+  }
+
   function looseRockNear(y) {
     var k = Math.round((y - ROCK_BASE) / ROCK_STEP);
     if (k < 1) return null;
     var ry = ROCK_BASE + k * ROCK_STEP;
-    return Math.abs(ry - y) < 14 ? { k: k, y: ry } : null;
+    return (Math.abs(ry - y) < 14 && rockIsLoose(k)) ? { k: k, y: ry } : null;
   }
 
-  /* Gust zones: bands of sideways wind. */
+  /* Gust zones: bands of sideways wind, plus timed strong gust fronts. */
   function gustForce(y) {
+    var f = tierFactors(tierAtHeight(heightMax));
+    var force = 0;
     for (var i = 0; i < gusts.length; i++) {
       var g = gusts[i];
       if (y > g.a && y < g.b) {
-        var amp = GUST_BASE + (g.k % 4) * GUST_STEP;
-        return amp * Math.sin(time * 1.7 + g.k * 2.1);
+        var amp = (GUST_BASE + (g.k % 4) * GUST_STEP) * f.gustScale;
+        force += amp * Math.sin(time * f.gustFreq + g.k * 2.1);
+        break;
       }
     }
-    return 0;
+    if (gustFrontT > 0 && gustFrontDur > 0) {
+      var envelope = 0.45 + 0.55 * Math.sin(Math.PI * (1 - gustFrontT / gustFrontDur));
+      force += gustFrontDir * gustFrontAmp * envelope;
+    }
+    return force;
   }
 
   function burst(x, y, col, n, up) {
@@ -159,10 +232,11 @@
         ledges.push({ y: 40, w: 96, off: 0, moving: false, phase: 0, range: 0, speed: 0, spiked: false });
         continue;
       }
-      var moving = (k % 2 === 1);
-      /* Jagged ledges become a little more common the higher you climb.
-         The hash is deterministic so a level always looks the same. */
-      var spiked = k >= 5 && ((k * 7919) % 100) < (14 + Math.min(16, k * 0.09));
+      var f = tierFactors(tierAtY(y));
+      /* Moving ledges become more common with height; spiked ledges stay
+         static so their red silhouette always reads clearly. */
+      var moving = k >= 2 && hash01(k * 1.7 + 4.2) < f.movingChance;
+      var spiked = !moving && k >= 4 && hash01(k * 7.13 + 9.7) < f.spikedChance;
       ledges.push({
         y: y, w: moving ? 56 : 74 + (k % 2) * 12,
         off: 0, moving: moving, spiked: spiked,
@@ -199,6 +273,8 @@
     lives = 1; score = 0; heightMax = 0; heightInt = -1;
     particles = [];
     debris = []; debrisTimer = DEBRIS_BASE;
+    gustFrontT = 0; gustFrontDur = 0; gustFrontDir = 1;
+    gustFrontAmp = 0; gustFrontTimer = GUST_FRONT_FIRST; gustFrontsFired = 0;
     deathCause = 'fall';
     spikeHits = 0;
     time = 0; shake = 0; hudT = 0;
@@ -241,6 +317,7 @@
       msg: 'Resting on the rope. Take your time.',
       stats: [
         { label: 'Height', value: Math.round(heightMax) + ' m' },
+        { label: 'Tier', value: (tierAtHeight(heightMax) + 1) + '/' + TIER_COUNT },
         { label: 'Lives', value: lives }
       ],
       btn: '▶ Resume',
@@ -261,6 +338,7 @@
     if (state === 'over') return;
     state = 'over';
     var h = Math.round(heightMax);
+    var tier = tierAtHeight(heightMax);
     var isBest = h > bestM;
     if (isBest) {
       bestM = h;
@@ -283,6 +361,7 @@
       stats: [
         { label: 'Height', value: h + ' m' },
         { label: 'Best', value: bestM + ' m' },
+        { label: 'Tier', value: (tier + 1) + '/' + TIER_COUNT },
         { label: 'Lives', value: 0 }
       ],
       btn: '▶ Play again',
@@ -303,6 +382,7 @@
 
   function updateHud() {
     var hTxt = (Math.round(heightMax * 10) / 10) + ' m';
+    var tier = tierAtHeight(heightMax);
     var gf = gustForce(body ? body.y : 0);
     var windTxt = Math.abs(gf) > 15 ? ' · gust ' + (gf > 0 ? '→' : '←') : '';
     GameShell.hud(
@@ -310,6 +390,7 @@
         Score: Math.max(0, Math.floor(heightMax)),
         Best: Math.max(bestM, Math.floor(heightMax)),
         Height: hTxt,
+        Tier: (tier + 1) + '/' + TIER_COUNT,
         Lives: lives
       },
       state === 'paused' ? '⏸ Paused' : '← → alternate to climb' + windTxt
@@ -346,7 +427,7 @@
   /* A rock (or a three-shard icicle volley) is aimed at marked heights on
      the wall just above the climber. The shadow rings are the telegraph;
      climb past them or hang below before the shard slams home. */
-  function makeShard(ty, kind, idx) {
+  function makeShard(ty, kind, idx, warnBase, speed) {
     var tx = faceX(ty);
     return {
       kind: kind,
@@ -354,28 +435,28 @@
       ty: ty,
       x: tx + (kind === 'icicle' ? 10 : 14),
       y: Math.max(camY + H - 8, ty + 46),
-      vy: -(kind === 'icicle' ? DEBRIS_SPEED + 90 : DEBRIS_SPEED),
-      warn: DEBRIS_WARN + idx * 0.08,
+      vy: -(kind === 'icicle' ? speed + 90 : speed),
+      warn: Math.max(DEBRIS_WARN_MIN, warnBase) + idx * 0.06,
       warned: false,
       size: kind === 'icicle' ? 7 : 9
     };
   }
 
   function spawnDebris() {
-    var h = heightMax;
+    var f = tierFactors(tierAtHeight(heightMax));
     /* keep the aimed band on screen, 120-190 px above the climber */
     var baseY = body.y + 120 + Math.random() * 70;
-    var icicle = h > 90 && Math.random() < 0.42;
+    var icicle = heightMax > 90 && Math.random() < f.icicleChance;
     var i;
     if (icicle) {
-      for (i = 0; i < 3; i++) {
-        debris.push(makeShard(baseY + i * 58, 'icicle', i));
+      for (i = 0; i < f.shardCount; i++) {
+        debris.push(makeShard(baseY + i * f.shardGap, 'icicle', i,
+                              f.debrisWarn, f.debrisSpeed));
       }
     } else {
-      debris.push(makeShard(baseY, 'rock', 0));
+      debris.push(makeShard(baseY, 'rock', 0, f.debrisWarn, f.debrisSpeed));
     }
-    debrisTimer = Math.max(DEBRIS_MIN, DEBRIS_BASE - h * 0.0085) *
-                  (0.78 + Math.random() * 0.44);
+    debrisTimer = f.debrisInterval * (0.78 + Math.random() * 0.44);
   }
 
   function hitWall(d) {
@@ -438,11 +519,35 @@
 
   /* ---------------- update ---------------- */
 
+  function startGustFront(t) {
+    var f = tierFactors(t);
+    gustFrontDur = 1.0 + Math.random() * 0.5;
+    gustFrontT = gustFrontDur;
+    gustFrontDir = Math.random() < 0.7 ? 1 : -1;
+    gustFrontAmp = f.gustFrontAmp + Math.random() * 90;
+    gustFrontsFired++;
+    gustFrontTimer = f.gustFrontInterval * (0.75 + Math.random() * 0.5);
+    if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('dash');
+  }
+
   function update(dt) {
     var i;
     time += dt;
     if (shake > 0) shake = Math.max(0, shake - dt * 40);
     if (hudT > 0) hudT -= dt; else { hudT = 0.25; updateHud(); }
+
+    /* --- strong gust fronts: get more frequent and stronger with tier --- */
+    if (state === 'running') {
+      if (gustFrontT > 0) gustFrontT -= dt;
+      if (heightMax > 25) {
+        gustFrontTimer -= dt;
+        if (gustFrontTimer <= 0 && gustFrontT <= 0) {
+          startGustFront(tierAtHeight(heightMax));
+        }
+      } else {
+        gustFrontTimer = GUST_FRONT_FIRST;
+      }
+    }
 
     /* --- hands: swings and crumbles --- */
     var handIds = ['left', 'right'];
@@ -746,18 +851,21 @@
   function drawWindGauge() {
     var gf = gustForce(body ? body.y : 0);
     var strength = Math.abs(gf);
-    if (strength < 10) return;
+    if (strength < 10 && gustFrontT <= 0) return;
     var dir = gf > 0 ? 1 : -1;
     var x = W - 34, y = 86;
     var len = 16 + Math.min(28, strength * 0.14);
+    var front = gustFrontT > 0;
 
     ctx.save();
-    ctx.fillStyle = 'rgba(34,211,238,.85)';
+    ctx.fillStyle = front ? 'rgba(255,210,62,.95)' : 'rgba(34,211,238,.85)';
     ctx.font = '700 10px ' + FONT;
     ctx.textAlign = 'center';
-    ctx.fillText('WIND', x, y - 12);
+    ctx.fillText(front ? 'GUST!' : 'WIND', x, y - 12);
 
-    ctx.strokeStyle = 'rgba(34,211,238,' + (0.5 + Math.min(0.45, strength / 420)) + ')';
+    ctx.strokeStyle = front
+      ? 'rgba(255,210,62,' + (0.6 + Math.min(0.35, strength / 700)) + ')'
+      : 'rgba(34,211,238,' + (0.5 + Math.min(0.45, strength / 420)) + ')';
     ctx.lineWidth = 2.6;
     ctx.lineCap = 'round';
     for (var i = 0; i < 3; i++) {
@@ -835,6 +943,7 @@
       var ry = ROCK_BASE + k * ROCK_STEP;
       var y = sy(ry);
       if (y < -30 || y > H + 30) continue;
+      if (!rockIsLoose(k)) continue;
       var x = faceX(ry) - 8;
       var warn = 0;
       var handIds = ['left', 'right'];
@@ -1092,24 +1201,103 @@
     getWind: function () { return gustForce(body.y); },
     getDeathCause: function () { return deathCause; },
     getSpikeHits: function () { return spikeHits; },
+    getTier: function () { return tierAtHeight(heightMax); },
+    getThreat: function () { return Math.round(tierAtHeight(heightMax) / TIER_MAX * 100); },
+    getTierThresholds: function () { return TIER_THRESHOLDS.slice(); },
+    getGustFront: function () {
+      return {
+        active: gustFrontT > 0,
+        remaining: Math.max(0, Math.round(gustFrontT * 100) / 100),
+        direction: gustFrontDir,
+        strength: Math.round(gustFrontAmp),
+        fired: gustFrontsFired,
+        nextIn: Math.max(0, Math.round(gustFrontTimer * 100) / 100)
+      };
+    },
+    getHands: function () {
+      return {
+        left: { state: hands.left.state, x: hands.left.x, y: hands.left.y, loose: !!hands.left.loose, crumble: hands.left.crumble },
+        right: { state: hands.right.state, x: hands.right.x, y: hands.right.y, loose: !!hands.right.loose, crumble: hands.right.crumble }
+      };
+    },
+    getDebrisInfo: function () {
+      return debris.map(function (d) {
+        return {
+          kind: d.kind, tx: d.tx, ty: d.ty,
+          warn: Math.max(0, Math.round(d.warn * 1000) / 1000),
+          dangerous: d.warn <= 0
+        };
+      });
+    },
+    getLedges: function () {
+      var near = [];
+      for (var i = 0; i < ledges.length; i++) {
+        var l = ledges[i];
+        if (Math.abs(l.y - body.y) > 300) continue;
+        near.push({ y: l.y, x: ledgeX(l), w: l.w, moving: l.moving, spiked: l.spiked });
+      }
+      return near;
+    },
     getHazards: function () {
-      var spiked = 0;
-      for (var i = 0; i < ledges.length; i++) if (ledges[i].spiked) spiked++;
+      var spiked = 0, moving = 0, loose = 0, k;
+      for (var i = 0; i < ledges.length; i++) {
+        if (ledges[i].spiked) spiked++;
+        else if (ledges[i].moving) moving++;
+      }
+      for (k = 1; k * ROCK_STEP + ROCK_BASE <= DEBRIS_CEIL; k++) {
+        if (rockIsLoose(k)) loose++;
+      }
       return {
         debris: debris.length,
         fallingDebris: debris.filter(function (d) { return d.kind === 'rock'; }).length,
         icicles: debris.filter(function (d) { return d.kind === 'icicle'; }).length,
         spikedLedges: spiked,
-        looseRocks: Math.floor(DEBRIS_CEIL / ROCK_STEP),
+        looseRocks: loose,
         gusts: gusts.length,
+        gustFronts: gustFrontsFired,
         overhangs: overhangs.length,
-        movingLedges: Math.floor(ledges.length / 2),
+        movingLedges: moving,
+        tier: tierAtHeight(heightMax),
         types: ['loose rocks', 'overhangs', 'moving ledges', 'gusts',
-                'falling debris', 'icicle volleys', 'spiked ledges']
+                'falling debris', 'icicle volleys', 'spiked ledges', 'gust fronts']
       };
     },
     getDifficulty: function () {
+      var t = tierAtHeight(heightMax);
+      var cur = tierFactors(t);
+      var table = [];
+      for (var i = 0; i < TIER_COUNT; i++) {
+        var tf = tierFactors(i);
+        table.push({
+          tier: i,
+          fromHeight: i * TIER_HEIGHT,
+          toHeight: (i + 1) * TIER_HEIGHT,
+          debrisInterval: Math.round(tf.debrisInterval * 100) / 100,
+          debrisSpeed: tf.debrisSpeed,
+          debrisWarn: Math.round(tf.debrisWarn * 1000) / 1000,
+          icicleChance: Math.round(tf.icicleChance * 100) / 100,
+          shards: tf.shardCount,
+          shardGap: Math.round(tf.shardGap),
+          gustScale: Math.round(tf.gustScale * 100) / 100,
+          gustFrontInterval: Math.round(tf.gustFrontInterval * 10) / 10,
+          gustFrontAmp: tf.gustFrontAmp,
+          spikedChance: Math.round(tf.spikedChance * 100) / 100,
+          movingChance: Math.round(tf.movingChance * 100) / 100,
+          overhangScale: Math.round(tf.overhangScale * 100) / 100,
+          rockChance: Math.round(tf.rockChance * 100) / 100
+        });
+      }
       return {
+        difficultyTier: t,
+        tier: t,
+        tierIndex: t + 1,
+        tierCount: TIER_COUNT,
+        tierHeight: TIER_HEIGHT,
+        maxTier: TIER_MAX,
+        tierThresholds: TIER_THRESHOLDS.slice(),
+        threat: Math.round(t / TIER_MAX * 100),
+        currentTier: cur,
+        tierTable: table,
         gravity: GRAV,
         arm: ARM,
         grabReach: GRAB_REACH,
@@ -1117,29 +1305,40 @@
         crumbleWarn: CRUMBLE_WARN,
         rocksEvery: ROCK_STEP,
         rockBase: ROCK_BASE,
+        rockChance: Math.round(cur.rockChance * 100) / 100,
         gusts: gusts.length,
         gustStrength: GUST_BASE,
-        gustMax: GUST_BASE + 3 * GUST_STEP,
-        gustFrequency: 1.7,
+        gustMax: Math.round((GUST_BASE + 3 * GUST_STEP) * cur.gustScale),
+        gustFrequency: Math.round(cur.gustFreq * 100) / 100,
         gustZoneHeight: 300,
+        gustFrontEvery: Math.round(cur.gustFrontInterval * 10) / 10,
+        gustFrontStrength: cur.gustFrontAmp,
         overhangAmp: 58,
+        overhangScale: Math.round(cur.overhangScale * 100) / 100,
         overhangSpacing: 420,
         ledgeSpacing: LEDGE_STEP,
-        movingLedgesEvery: 2,
+        movingLedgesEvery: Math.round(1 / cur.movingChance),
+        movingChance: Math.round(cur.movingChance * 100) / 100,
+        spikedLedgeChanceLow: 0.10,
+        spikedLedgeChanceHigh: 0.34,
+        spikedChance: Math.round(cur.spikedChance * 100) / 100,
         fallDrop: FALL_DROP,
         targetHeight: 0,
         endless: true,
         lives: 1,
-        debrisWarn: DEBRIS_WARN,
+        debrisWarn: Math.round(cur.debrisWarn * 1000) / 1000,
         debrisBaseInterval: DEBRIS_BASE,
         debrisMinInterval: DEBRIS_MIN,
+        debrisInterval: Math.round(cur.debrisInterval * 100) / 100,
         debrisSpeed: DEBRIS_SPEED,
-        debrisMaxSpeed: DEBRIS_SPEED + 240,
-        debrisScalesWithHeight: 0.0085,
+        debrisSpeedNow: cur.debrisSpeed,
+        debrisMaxSpeed: DEBRIS_SPEED_MAX,
+        icicleChance: Math.round(cur.icicleChance * 100) / 100,
+        shards: cur.shardCount,
+        shardGap: Math.round(cur.shardGap),
+        debrisScalesWithHeight: 'tiered',
         debrisFromHeight: 28,
-        icicleFromHeight: 90,
-        spikedLedgeChanceLow: 0.14,
-        spikedLedgeChanceHigh: 0.30
+        icicleFromHeight: 90
       };
     },
     press: function (side) { pressHand(side); },
@@ -1156,7 +1355,7 @@
 
   GameShell.overlay.show({
     title: 'Stickman Climb',
-    msg: 'Alternate ← and → to hammer the pickaxes up an endless neon cliff. One life only — falling rocks, icicle volleys, jagged ledges, gusts and crumbling holds all want you back at the bottom.',
+    msg: 'Alternate ← and → to hammer the pickaxes up an endless neon cliff. One life only — falling rocks, icicle volleys, jagged ledges, gusts and crumbling holds all want you back at the bottom. Every 100 m opens a harder tier: faster debris, wider icicle volleys, stronger gust fronts and more spiked or moving ledges.',
     stats: [{ label: 'Best', value: bestM + ' m' }, { label: 'Lives', value: 1 }],
     btn: '▶ Play',
     action: start

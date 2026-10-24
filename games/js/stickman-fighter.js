@@ -1,7 +1,8 @@
 /* ============================================================
    Stickman Fighter — original game for PixelPlay
    Canvas arena beat-em-up: endless waves of rival stick fighters,
-   punch / kick / guard, combos, dodge bonuses, cartoon knockouts.
+   fast Strikers and heavy Brutes, with a named boss every 4th wave.
+   Punch / kick / guard, combos, dodge bonuses, cartoon knockouts.
    Keyboard first, on-screen buttons for touch.
    ============================================================ */
 
@@ -32,6 +33,27 @@
   var ENEMY_COLS = ['#ff5c7a', '#f59e0b', '#a855f7', '#2ee6a6'];
   var PLAYER_COL = '#22d3ee';
 
+  /* Every 4th wave is a boss fight: 4, 8, 12, … */
+  var BOSS_EVERY = 4;
+  var BOSS_NAMES = ['Iron Overseer', 'Titan Warden', 'Crimson Colossus', 'Void Champion'];
+  var BOSS_COL = '#f43f5e';
+
+  /* Rival archetypes. hp/dmg/speed are multipliers over the wave baseline. */
+  var ENEMY_TYPES = {
+    grunt: {
+      col: '#ff5c7a', hp: 1, dmg: 1, speed: 1, cd: 1,
+      reach: 70, scale: 1, telegraph: 0.44, label: 'Rival'
+    },
+    striker: {
+      col: '#2ee6a6', hp: 0.72, dmg: 0.82, speed: 1.5, cd: 0.68,
+      reach: 78, scale: 0.9, telegraph: 0.29, label: 'Striker'
+    },
+    brute: {
+      col: '#f97316', hp: 2.2, dmg: 1.75, speed: 0.6, cd: 1.45,
+      reach: 86, scale: 1.28, telegraph: 0.62, label: 'Brute'
+    }
+  };
+
   /* attack tables: w0 = frame the strike resolves, all windows >= 0.05s */
   var ATK = {
     punch: { dur: 0.26, w0: 0.06, reach: 68, dmg: 7, kb: 90, stun: 0.24, cool: 0.08, pts: 10 },
@@ -53,6 +75,8 @@
   var combo = 0, comboT = 0;
   var phase = 'fight';            /* fight | breather */
   var spawnLeft = 0, spawnT = 0, spawnSide = 0, breatherT = 0;
+  var boss = null;                /* live boss object, also present in enemies */
+  var bossDefeated = false, bossNumber = 0;
   var banner = null;              /* { title, sub, t, t0 } */
   var flashT = 0, shake = 0, tGlobal = 0, hitStop = 0;
   var rafId = 0, last = 0;
@@ -88,6 +112,10 @@
   function rand(n) { return Math.floor(Math.random() * n); }
 
   function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+  function sfx(name) {
+    if (window.PixelPlayAudio) window.PixelPlayAudio.sfx(name);
+  }
 
   function now() {
     return (typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -133,6 +161,47 @@
 
   function comboWindow() {
     return COMBO_BASE + upCombo * 0.5 + comboBonus;
+  }
+
+  function isBossWave(n) {
+    return n % BOSS_EVERY === 0;
+  }
+
+  /* one place to read every progressive-difficulty dial for a wave */
+  function waveDifficulty(n) {
+    var t = Math.max(0, n - 1);
+    return {
+      wave: n,
+      hpMul: 1 + t * 0.16,
+      dmgMul: 1 + t * 0.10,
+      speedMul: Math.min(1.8, 1 + t * 0.045),
+      cooldownMul: Math.max(0.5, 1 - t * 0.04),
+      spawnCount: Math.min(2 + Math.ceil(n * 1.1), 12),
+      eliteChance: Math.min(0.7, Math.max(0, (n - 2) * 0.11))
+    };
+  }
+
+  function eliteTypeForWave(n) {
+    var d = waveDifficulty(n);
+    if (n < 2) return 'grunt';
+    var r = Math.random();
+    if (n >= 3 && r < d.eliteChance * 0.45) return 'brute';
+    if (r < d.eliteChance) return 'striker';
+    return 'grunt';
+  }
+
+  function bossStats(n) {
+    var num = Math.max(1, Math.round(n / BOSS_EVERY));
+    return {
+      num: num,
+      index: (num - 1) % BOSS_NAMES.length,
+      name: BOSS_NAMES[(num - 1) % BOSS_NAMES.length],
+      maxHp: Math.round(170 + (num - 1) * 120 + n * 4),
+      dmg: Math.round(11 + (num - 1) * 5 + n * 0.25),
+      speed: 80 + (num - 1) * 14,
+      chargeSpeed: 500 + (num - 1) * 55,
+      slamRadius: 150 + Math.min(50, (num - 1) * 14)
+    };
   }
 
   /* a cone of sparks hurled in the strike direction */
@@ -186,16 +255,21 @@
   }
 
   function updateHud() {
+    var map = {
+      Score: score,
+      Best: Math.max(best, score),
+      Wave: wave,
+      HP: (player ? Math.max(0, Math.round(player.hp)) : 0) + '/100'
+    };
+    if (boss && boss.hp > 0) {
+      map.Boss = Math.max(0, Math.ceil(boss.hp)) + '/' + boss.maxHp;
+    }
     GameShell.hud(
-      {
-        Score: score,
-        Best: Math.max(best, score),
-        Wave: wave,
-        HP: (player ? Math.max(0, Math.round(player.hp)) : 0) + '/100'
-      },
+      map,
       state === 'paused' ? '⏸ Paused · Wave ' + wave
         : (state === 'upgrade' ? 'Choose an upgrade: 1 / 2 / 3'
-          : 'Z punch · X kick · ↓ block')
+          : (boss ? 'BOSS · phase ' + boss.phase + ' · Z punch · X kick · ↓ block'
+                  : 'Z punch · X kick · ↓ block'))
     );
   }
 
@@ -226,33 +300,83 @@
     return !!player && keys.block && !player.atk && player.hurtT <= 0;
   }
 
-  function spawnEnemy() {
+  function spawnEnemy(forceType) {
+    var type = forceType || eliteTypeForWave(wave);
+    var def = ENEMY_TYPES[type] || ENEMY_TYPES.grunt;
+    var diff = waveDifficulty(wave);
     var side = spawnSide;
     spawnSide ^= 1;
-    var hp = 12 + Math.round(wave * 4) + rand(5);
+    var hp = Math.max(6, Math.round((12 + wave * 4 + rand(5)) * def.hp));
+    var dmg = Math.min(34, Math.max(3, Math.round((6 + wave * 1.5) * def.dmg)));
     enemies.push({
       x: side === 0 ? -26 : W + 26,
       face: side === 0 ? 1 : -1,
+      type: type,
+      elite: type !== 'grunt',
+      isBoss: false,
       hp: hp,
       maxHp: hp,
-      speed: Math.min(62 + wave * 8, 160) * (0.9 + Math.random() * 0.2),
+      speed: Math.min(62 + wave * 8, 170) * def.speed * diff.speedMul *
+             (0.9 + Math.random() * 0.2),
       prefer: 50 + rand(20),
-      dmg: Math.min(6 + wave * 1.5, 22),
-      state: 'enter', t: 0, atkCd: 0.5 + Math.random() * 0.8,
+      dmg: dmg,
+      reach: def.reach,
+      scale: def.scale,
+      telegraph: def.telegraph,
+      state: 'enter', t: 0, atkCd: (0.5 + Math.random() * 0.8) * diff.cooldownMul,
       strikeDone: false, dodgeX: 0, flashT: 0, hurtT: 0, kbV: 0,
       walkP: Math.random() * TAU, lastHitId: -1,
-      col: ENEMY_COLS[rand(ENEMY_COLS.length)],
+      col: def.col,
       pose: newPose(), knock: null
     });
   }
 
+  function spawnBoss(n) {
+    var st = bossStats(n);
+    var b = {
+      x: W + 78, face: -1, type: 'boss', elite: true, isBoss: true,
+      bossNum: st.num, name: st.name,
+      hp: st.maxHp, maxHp: st.maxHp, phase: 1,
+      speed: st.speed, baseSpeed: st.speed, prefer: 110,
+      dmg: st.dmg, baseDmg: st.dmg, reach: 96, scale: 1.55,
+      telegraph: 0.7, chargeSpeed: st.chargeSpeed, slamRadius: st.slamRadius,
+      state: 'enter', t: 0, atkCd: 1.1, think: 1.2, action: null, actionT: 0, chargeDir: -1,
+      strikeDone: false, dodgeX: 0, flashT: 0, hurtT: 0, kbV: 0,
+      walkP: 0, lastHitId: -1, col: BOSS_COL,
+      pose: newPose(), knock: null, summons: 0
+    };
+    boss = b;
+    bossNumber = st.num;
+    bossDefeated = false;
+    enemies.push(b);
+    addShockwave(b.x, GROUND - 40, 90, 0.5, BOSS_COL, 4, true);
+  }
+
   function beginWave(n) {
     wave = n;
-    spawnLeft = Math.min(2 + Math.ceil(n * 1.1), 9);
-    spawnT = 0.8;
     spawnSide = rand(2);
     phase = 'fight';
-    banner = { title: 'WAVE ' + n, sub: 'Fighters incoming!', t: 1.7, t0: 1.7 };
+    boss = null;
+    bossDefeated = false;
+    if (isBossWave(n)) {
+      spawnLeft = 0;
+      spawnT = 1e9;
+      spawnBoss(n);
+      banner = {
+        title: 'WARNING',
+        sub: 'BOSS INCOMING · ' + boss.name,
+        t: 2.2, t0: 2.2
+      };
+    } else {
+      spawnLeft = waveDifficulty(n).spawnCount;
+      spawnT = 0.8;
+      bossNumber = Math.floor(n / BOSS_EVERY);
+      banner = {
+        title: 'WAVE ' + n,
+        sub: wave >= 3 ? 'Elites detected · fighters incoming!' : 'Fighters incoming!',
+        t: 1.7, t0: 1.7
+      };
+    }
     updateHud();
   }
 
@@ -312,6 +436,7 @@
     combo = 0; comboT = 0;
     enemies = []; particles = []; pops = [];
     pickups = []; shockwaves = []; hitFlashes = [];
+    boss = null; bossDefeated = false; bossNumber = 0;
     flashT = 0; shake = 0; hitStop = 0;
     upDamage = 0; upSpeed = 0; upGuard = 0; upCombo = 0; comboBonus = 0;
     dmgBoostT = 0; speedT = 0; shieldCharges = 0;
@@ -400,18 +525,28 @@
     e.state = 'knocked';
     e.knock = {
       x: e.x, y: GROUND,
-      vx: dir * (300 + Math.random() * 90),
-      vy: -(240 + Math.random() * 110),
+      vx: dir * (300 + Math.random() * 90) * (e.isBoss ? 1.35 : 1),
+      vy: -(240 + Math.random() * 110) * (e.isBoss ? 1.2 : 1),
       rot: 0, spin: dir * (5 + Math.random() * 3),
-      life: 2.6, bounces: 0
+      life: e.isBoss ? 3 : 2.6, bounces: 0
     };
     knockouts++;
-    var gain = 50 + wave * 10;
+    var gain = e.isBoss ? 500 + e.bossNum * 250 : 50 + wave * 10;
     addScore(gain);
-    pop(e.x, GROUND - 74, 'KNOCKOUT +' + gain, '#facc15', 17);
-    burst(e.x, GROUND - 50, e.col, 16, true);
-    shake = Math.max(shake, 7);
-    if (Math.random() < 0.55) spawnPickup(e.x);
+    pop(e.x, GROUND - (e.isBoss ? 104 : 74),
+        (e.isBoss ? 'BOSS DOWN +' : 'KNOCKOUT +') + gain,
+        e.isBoss ? '#f43f5e' : '#facc15', e.isBoss ? 22 : 17);
+    burst(e.x, GROUND - 50, e.col, e.isBoss ? 34 : 16, true);
+    addShockwave(e.x, GROUND - 50, e.isBoss ? 150 : 60, e.isBoss ? 0.7 : 0.36, e.col, e.isBoss ? 6 : 3, true);
+    shake = Math.max(shake, e.isBoss ? 16 : 7);
+    if (e.isBoss) {
+      bossDefeated = true;
+      boss = null;
+      spawnPickup(e.x - 24);
+      spawnPickup(e.x + 24);
+    } else if (Math.random() < 0.55) {
+      spawnPickup(e.x);
+    }
   }
 
   /* resolve every connecting strike and its feedback */
@@ -456,11 +591,21 @@
       e.lastHitId = player.atkId;
       hitAny = true;
       e.hp -= dmg;
-      e.hurtT = atk.stun;
       e.flashT = 0.14;
-      e.kbV = player.face * atk.kb;
-      e.state = 'hurt';
-      e.t = atk.stun;
+      if (e.isBoss) {
+        /* bosses have poise: chip them without cancelling an active attack */
+        e.hurtT = Math.min(0.14, atk.stun);
+        e.kbV = player.face * atk.kb * 0.12;
+        if (e.state === 'walk' || e.state === 'enter' || e.state === 'recover') {
+          e.state = 'hurt';
+          e.t = 0.12;
+        }
+      } else {
+        e.hurtT = atk.stun;
+        e.kbV = player.face * atk.kb;
+        e.state = 'hurt';
+        e.t = atk.stun;
+      }
       combo++;
       comboT = comboWindow();
       var gain = atk.pts + Math.min(combo, 20) * 2;
@@ -521,7 +666,7 @@
   /* enemy strike resolution: returns nothing */
   function enemyStrike(e) {
     var dx = Math.abs(player.x - e.x);
-    if (dx <= ENEMY_REACH) {
+    if (dx <= (e.reach || ENEMY_REACH)) {
       hurtPlayer(e.dmg, e.x);
     } else if (Math.abs(player.x - e.dodgeX) >= 22) {
       addScore(15);
@@ -559,6 +704,11 @@
       if (k.life <= 0 || k.x < -90 || k.x > W + 90 || k.y > H + 90) {
         e.remove = true;
       }
+      return;
+    }
+
+    if (e.isBoss) {
+      updateBoss(e, dt);
       return;
     }
 
@@ -604,7 +754,8 @@
       if (e.t <= 0) {
         e.state = 'recover';
         e.t = Math.max(0.28, 0.5 - wave * 0.02);
-        e.atkCd = Math.max(0.25, 0.45 + Math.random() * 0.6 - wave * 0.03);
+        e.atkCd = Math.max(0.18,
+          (0.45 + Math.random() * 0.6 - wave * 0.03) * waveDifficulty(wave).cooldownMul);
       }
       poseEnemy(e, dt);
       return;
@@ -618,7 +769,7 @@
     }
 
     /* walk / approach: close to strike range, then commit */
-    var CLOSE = ENEMY_REACH - 4;
+    var CLOSE = (e.reach || ENEMY_REACH) - 4;
     var moving = 0;
     if (ad > CLOSE) {
       e.x += (dxT > 0 ? 1 : -1) * e.speed * dt;
@@ -634,9 +785,192 @@
 
     if (e.atkCd <= 0 && ad <= CLOSE) {
       e.state = 'telegraph';
-      e.t = 0.44;
+      e.t = e.telegraph || 0.44;
       e.dodgeX = player.x;
       e.atkCd = 1e9; /* restored when the sequence finishes */
+    }
+    poseEnemy(e, dt);
+  }
+
+  function bossPhaseCheck(e) {
+    if (e.phase !== 1 || e.hp > e.maxHp * 0.5) return;
+    e.phase = 2;
+    e.dmg = Math.round(e.baseDmg * 1.3);
+    e.speed = e.baseSpeed * 1.3;
+    e.telegraph = Math.max(0.44, e.telegraph * 0.82);
+    e.chargeSpeed *= 1.15;
+    shake = Math.max(shake, 14);
+    addShockwave(e.x, GROUND - 40, 190, 0.8, '#f43f5e', 7, true);
+    banner = { title: 'PHASE 2', sub: e.name + ' is enraged · reinforcements!', t: 1.8, t0: 1.8 };
+    var count = e.bossNum > 1 ? 2 : 1;
+    for (var i = 0; i < count; i++) spawnEnemy(i === 0 ? 'striker' : 'grunt');
+    e.summons += count;
+    e.state = 'recover';
+    e.t = 0.75;
+    e.action = null;
+    sfx('explode');
+    updateHud();
+  }
+
+  function updateBoss(e, dt) {
+    bossPhaseCheck(e);
+
+    var dxT = player.x - e.x;
+    var ad = Math.abs(dxT);
+    e.face = dxT >= 0 ? 1 : -1;
+
+    if (e.state === 'hurt') {
+      e.t -= dt;
+      if (e.t <= 0) { e.state = 'walk'; e.think = Math.min(e.think, 0.35); }
+      poseEnemy(e, dt);
+      return;
+    }
+
+    if (e.state === 'enter') {
+      e.x += (e.face > 0 ? 1 : -1) * e.speed * 1.3 * dt;
+      if (e.x > 58 && e.x < W - 58) { e.state = 'walk'; e.think = 0.9; }
+      e.walkP += dt * e.speed * 0.045;
+      poseEnemy(e, dt);
+      return;
+    }
+
+    if (e.state === 'telegraph') {
+      e.actionT -= dt;
+      if (e.actionT <= 0) {
+        if (e.action === 'charge') {
+          e.state = 'charge';
+          e.actionT = 0.46;
+          e.chargeDir = e.face;
+          e.strikeDone = false;
+          pop(e.x, GROUND - 118, 'CHARGE!', '#f43f5e', 16);
+          sfx('dash');
+        } else if (e.action === 'slam') {
+          e.state = 'slam';
+          e.actionT = 0.2;
+          e.strikeDone = false;
+          sfx('thud');
+        } else {
+          e.state = 'flurry';
+          e.actionT = 1.15;
+          e.flurryLeft = 3;
+          e.nextStrike = 0.14;
+          e.strikeDone = false;
+          pop(e.x, GROUND - 118, 'FLURRY!', '#f43f5e', 16);
+          sfx('hit');
+        }
+      }
+      poseEnemy(e, dt);
+      return;
+    }
+
+    if (e.state === 'charge') {
+      e.actionT -= dt;
+      e.face = e.chargeDir || e.face;
+      e.x = clamp(e.x + e.face * e.chargeSpeed * dt, 20, W - 20);
+      if (!e.strikeDone && ad <= e.reach * 0.8) {
+        e.strikeDone = true;
+        hurtPlayer(Math.round(e.dmg * 1.15), e.x);
+        addHitFlash(player.x, GROUND - 52, e.face, '#f43f5e');
+      }
+      if (player && Math.abs(player.x - e.x) < 30) {
+        player.x = clamp(player.x + (player.x >= e.x ? 1 : -1) * 16, 24, W - 24);
+      }
+      if (e.actionT <= 0 || e.x <= 20 || e.x >= W - 20) {
+        e.state = 'recover';
+        e.t = 0.55;
+        shake = Math.max(shake, 8);
+      }
+      e.walkP += dt * 12;
+      poseEnemy(e, dt);
+      return;
+    }
+
+    if (e.state === 'slam') {
+      e.actionT -= dt;
+      if (!e.strikeDone && e.actionT <= 0) {
+        e.strikeDone = true;
+        if (Math.abs(player.x - e.x) <= e.slamRadius) {
+          hurtPlayer(Math.round(e.dmg * 0.95), e.x);
+        }
+        addShockwave(e.x, GROUND - 4, e.slamRadius, 0.5, '#f43f5e', 6, true);
+        addShockwave(e.x, GROUND - 4, e.slamRadius * 0.62, 0.36, '#fbbf24', 3, false);
+        burst(e.x, GROUND - 8, '#f43f5e', 18);
+        shake = Math.max(shake, 13);
+        sfx('thud');
+      }
+      if (e.actionT <= 0) {
+        e.state = 'recover';
+        e.t = 0.62;
+      }
+      poseEnemy(e, dt);
+      return;
+    }
+
+    if (e.state === 'flurry') {
+      e.actionT -= dt;
+      e.nextStrike -= dt;
+      if (e.nextStrike <= 0 && e.flurryLeft > 0) {
+        e.flurryLeft--;
+        e.nextStrike = 0.23;
+        if (Math.abs(player.x - e.x) <= e.reach) {
+          hurtPlayer(Math.max(1, Math.round(e.dmg * 0.55)), e.x);
+          addHitFlash(player.x, GROUND - 52, e.face, '#fb7185');
+        } else {
+          addScore(8);
+          pop(player.x, GROUND - 76, 'DODGE +8', '#22d3ee', 13);
+        }
+        burstCone(e.x + e.face * 26, GROUND - 48, e.face, '#f43f5e', 220, 6, 0.7);
+      }
+      if (e.actionT <= 0) {
+        e.state = 'recover';
+        e.t = 0.7;
+      }
+      poseEnemy(e, dt);
+      return;
+    }
+
+    if (e.state === 'recover') {
+      e.t -= dt;
+      if (e.t <= 0) {
+        e.state = 'walk';
+        e.think = Math.max(0.42, 1.0 - (e.bossNum - 1) * 0.08) * (e.phase === 2 ? 0.72 : 1);
+      }
+      poseEnemy(e, dt);
+      return;
+    }
+
+    /* walk: keep pressure, then commit to a boss action */
+    var CLOSE = 118;
+    e.moving = 0;
+    if (ad > CLOSE + 28) {
+      e.x += e.face * e.speed * dt;
+      e.walkP += dt * e.speed * 0.045;
+      e.moving = 1;
+    } else if (ad < CLOSE - 34) {
+      e.x -= e.face * e.speed * 0.35 * dt;
+      e.walkP += dt * e.speed * 0.03;
+      e.moving = 1;
+    }
+    e.x = clamp(e.x, 26, W - 26);
+
+    e.think -= dt;
+    if (e.think <= 0) {
+      var action;
+      if (ad > 190) action = 'charge';
+      else if (Math.random() < 0.48) action = 'slam';
+      else action = 'flurry';
+      e.action = action;
+      e.state = 'telegraph';
+      e.actionT = e.telegraph * (action === 'charge' ? 1.15 : 1);
+      e.dodgeX = player.x;
+      if (action === 'slam') {
+        /* a red floor ring telegraphs exactly where the slam will land */
+        addShockwave(e.x, GROUND - 4, e.slamRadius, e.actionT, 'rgba(244,63,94,.55)', 3, false);
+        pop(e.x, GROUND - 118, 'SLAM!', '#fb7185', 15);
+      } else if (action === 'charge') {
+        pop(e.x, GROUND - 118, 'CHARGE!', '#f43f5e', 15);
+      }
+      sfx('select');
     }
     poseEnemy(e, dt);
   }
@@ -656,6 +990,15 @@
     } else if (e.state === 'attack') {
       t.armF = 1.5; t.armB = -0.55; t.lean = 0.2; t.crouch = 0.1;
       t.legF = 0.35; t.legB = -0.35;
+    } else if (e.state === 'charge') {
+      t.armF = 1.7; t.armB = -0.9; t.lean = 0.48; t.crouch = 0.18;
+      t.legF = 0.8; t.legB = -0.75; t.tilt = 0.12;
+    } else if (e.state === 'slam') {
+      t.armF = 2.3; t.armB = 2.15; t.lean = -0.2; t.crouch = 0.35;
+      t.legF = 0.5; t.legB = -0.55; t.tilt = -0.1;
+    } else if (e.state === 'flurry') {
+      t.armF = 1.55; t.armB = 1.1; t.lean = 0.25; t.crouch = 0.08;
+      t.legF = 0.42; t.legB = -0.4;
     } else if (e.state === 'recover') {
       t.armF = 0.95; t.armB = -0.2; t.lean = 0.12; t.crouch = 0.08;
       t.legF = 0.28; t.legB = -0.3;
@@ -759,8 +1102,10 @@
         var a = enemies[i], b = enemies[j];
         if (a.state === 'knocked' || b.state === 'knocked') continue;
         var d = b.x - a.x;
-        if (Math.abs(d) < 28) {
-          var push = (28 - Math.abs(d)) / 2 * (d >= 0 ? 1 : -1);
+        var minD = (a.isBoss || b.isBoss) ? 54 : 28;
+        if (Math.abs(d) < minD) {
+          var push = (minD - Math.abs(d)) / 2 * (d >= 0 ? 1 : -1);
+          if (a.isBoss) push *= 0.35;
           a.x = clamp(a.x - push, 14, W - 14);
           b.x = clamp(b.x + push, 14, W - 14);
         }
@@ -807,11 +1152,14 @@
       for (i = 0; i < enemies.length; i++) {
         if (enemies[i].state !== 'knocked') alive++;
       }
-      if (alive === 0) {
+      if (alive === 0 && (!isBossWave(wave) || bossDefeated)) {
         var bonus = 30 * wave;
         addScore(bonus);
         player.hp = Math.min(player.maxHp, player.hp + 12);
-        banner = { title: 'WAVE ' + wave + ' CLEAR', sub: '+' + bonus, t: 2, t0: 2 };
+        banner = {
+          title: isBossWave(wave) ? 'BOSS WAVE CLEAR' : 'WAVE ' + wave + ' CLEAR',
+          sub: '+' + bonus, t: 2, t0: 2
+        };
         if (wave % 3 === 0) {
           /* every third wave: freeze the arena and offer three upgrades */
           openUpgrade();
@@ -936,6 +1284,7 @@
 
   function drawEnemy(e, t) {
     var col = e.col;
+    var scale = e.scale || 1;
     var flash = false;
     if (e.state === 'telegraph' && Math.floor(t / 70) % 2 === 0) { flash = true; col = '#ffffff'; }
     if (e.flashT > 0) flash = true;
@@ -943,7 +1292,7 @@
     /* ground shadow */
     ctx.fillStyle = 'rgba(0,0,0,.35)';
     ctx.beginPath();
-    ctx.ellipse(e.x, GROUND + 3, 17, 4.5, 0, 0, TAU);
+    ctx.ellipse(e.x, GROUND + 3, 17 * scale, 4.5 * scale, 0, 0, TAU);
     ctx.fill();
 
     if (e.state === 'knocked') {
@@ -954,28 +1303,69 @@
       ctx.translate(k.x, k.y - 32);
       ctx.rotate(k.rot);
       ctx.translate(-k.x, -(k.y - 32));
-      drawStickman(k.x, k.y, e.face, col, KNOCK_POSE, { flash: flash });
+      drawStickman(k.x, k.y, e.face, col, KNOCK_POSE,
+        { flash: flash, scale: scale, headband: e.isBoss ? '#fbbf24' : (e.elite ? col : null) });
       ctx.restore();
       /* cartoon stars circle the tumbling fighter */
       ctx.fillStyle = '#facc15';
       ctx.globalAlpha = alpha;
-      for (var i = 0; i < 5; i++) {
-        var a = t / 140 + (i * TAU) / 5;
-        drawStar(k.x + Math.cos(a) * 30, k.y - 34 + Math.sin(a) * 26, 6, a);
+      var starN = e.isBoss ? 8 : 5;
+      for (var i = 0; i < starN; i++) {
+        var a = t / 140 + (i * TAU) / starN;
+        drawStar(k.x + Math.cos(a) * 30 * scale, k.y - 34 + Math.sin(a) * 26 * scale,
+          e.isBoss ? 8 : 6, a);
       }
       ctx.globalAlpha = 1;
       return;
     }
 
-    drawStickman(e.x, GROUND, e.face, col, e.pose, { flash: flash });
+    /* elites and bosses wear a coloured aura so their tier reads instantly */
+    if (e.elite) {
+      ctx.save();
+      ctx.globalAlpha = e.isBoss ? 0.5 + 0.2 * Math.sin(t / 120) : 0.28;
+      ctx.strokeStyle = e.isBoss ? '#f43f5e' : e.col;
+      ctx.lineWidth = e.isBoss ? 3 : 2;
+      ctx.beginPath();
+      ctx.ellipse(e.x, GROUND - 44 * scale, 30 * scale, 50 * scale, 0, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
 
-    /* small hp pips above the head */
-    if (e.hp < e.maxHp) {
+    var head = drawStickman(e.x, GROUND, e.face, col, e.pose,
+      { flash: flash, scale: scale, headband: e.isBoss ? '#fbbf24' : (e.elite ? e.col : null) });
+
+    /* boss crown: three hard spikes make a silhouette no regular rival shares */
+    if (e.isBoss) {
+      ctx.save();
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 3;
+      for (var c = 0; c < 3; c++) {
+        var ca = -Math.PI / 2 + (c - 1) * 0.42;
+        ctx.beginPath();
+        ctx.moveTo(head.hx + Math.cos(ca) * 9 * scale, head.hy + Math.sin(ca) * 9 * scale);
+        ctx.lineTo(head.hx + Math.cos(ca) * 21 * scale, head.hy + Math.sin(ca) * 21 * scale);
+        ctx.stroke();
+      }
+      ctx.restore();
+    } else if (e.elite) {
+      /* elite marker diamond above the head */
+      ctx.save();
+      ctx.fillStyle = e.col;
+      ctx.globalAlpha = 0.9;
+      ctx.translate(e.x, GROUND - 106 * scale);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillRect(-3, -3, 6, 6);
+      ctx.restore();
+    }
+
+    /* small hp pips above regular fighters; bosses use the big top bar */
+    if (!e.isBoss && e.hp < e.maxHp) {
       var w = 30, frac = Math.max(0, e.hp / e.maxHp);
+      var pipY = GROUND - 84 * scale;
       ctx.fillStyle = 'rgba(5,7,14,.8)';
-      ctx.fillRect(e.x - w / 2, GROUND - 84, w, 4);
+      ctx.fillRect(e.x - w / 2, pipY, w, 4);
       ctx.fillStyle = frac > 0.4 ? '#2ee6a6' : '#ff5c7a';
-      ctx.fillRect(e.x - w / 2, GROUND - 84, w * frac, 4);
+      ctx.fillRect(e.x - w / 2, pipY, w * frac, 4);
     }
   }
 
@@ -1048,6 +1438,34 @@
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText('HP ' + Math.ceil(hp), bx + 6, by + bh / 2 + 1);
+
+    /* boss health bar with name and phase */
+    if (boss && boss.hp > 0) {
+      var bw2 = 360, bx2 = (W - bw2) / 2, by2 = 56, bh2 = 14;
+      var frac2 = Math.max(0, boss.hp / boss.maxHp);
+      ctx.fillStyle = 'rgba(5,7,14,.82)';
+      ctx.fillRect(bx2 - 3, by2 - 3, bw2 + 6, bh2 + 6);
+      ctx.fillStyle = '#2a0f1a';
+      ctx.fillRect(bx2, by2, bw2, bh2);
+      var bg2 = ctx.createLinearGradient(bx2, 0, bx2 + bw2, 0);
+      bg2.addColorStop(0, boss.phase === 2 ? '#fb7185' : '#f43f5e');
+      bg2.addColorStop(1, '#fbbf24');
+      ctx.fillStyle = bg2;
+      ctx.fillRect(bx2, by2, bw2 * frac2, bh2);
+      ctx.strokeStyle = 'rgba(251,191,36,.7)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(bx2 - 0.5, by2 - 0.5, bw2 + 1, bh2 + 1);
+      ctx.fillStyle = '#e8eefc';
+      ctx.font = '800 11px ' + FONT;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(
+        boss.name.toUpperCase() + ' · PHASE ' + boss.phase +
+        ' · ' + Math.max(0, Math.ceil(boss.hp)) + '/' + boss.maxHp,
+        W / 2, by2 + bh2 / 2 + 1
+      );
+      ctx.textAlign = 'left';
+    }
 
     /* combo */
     if (combo >= 2) {
@@ -1575,14 +1993,22 @@
     Object.defineProperty(window, '__stickmanFighter', {
       value: Object.freeze({
         snapshot: function () {
-          var list = [], plist = [];
+          var list = [], plist = [], typeCount = {};
           for (var i = 0; i < enemies.length; i++) {
             var e = enemies[i];
+            typeCount[e.type] = (typeCount[e.type] || 0) + 1;
             list.push({
               x: Math.round(e.x * 10) / 10,
               hp: e.hp, maxHp: e.maxHp,
               state: e.state,
-              knocked: e.state === 'knocked'
+              knocked: e.state === 'knocked',
+              type: e.type,
+              elite: !!e.elite,
+              isBoss: !!e.isBoss,
+              scale: e.scale || 1,
+              dmg: e.dmg,
+              speed: Math.round((e.speed || 0) * 10) / 10,
+              reach: e.reach || ENEMY_REACH
             });
           }
           for (var k = 0; k < pickups.length; k++) {
@@ -1601,12 +2027,58 @@
             hp: player ? player.hp : 0,
             maxHp: player ? player.maxHp : 0,
             playerX: player ? Math.round(player.x * 10) / 10 : 0,
+            playerFace: player ? player.face : 0,
+            playerAtk: player ? player.atk : null,
+            playerAtkT: player ? Math.round(player.atkT * 1000) / 1000 : 0,
+            playerCool: player ? Math.round(player.cool * 1000) / 1000 : 0,
+            playerHurtT: player ? Math.round(player.hurtT * 1000) / 1000 : 0,
+            playerInvuln: player ? Math.round(player.invuln * 1000) / 1000 : 0,
+            playerAtkId: player ? player.atkId : 0,
             combo: combo,
             comboT: Math.round(comboT * 100) / 100,
             comboWindow: Math.round(comboWindow() * 100) / 100,
             phase: phase,
             spawnLeft: spawnLeft,
             hitStop: Math.round(hitStop * 1000) / 1000,
+            waveIsBoss: isBossWave(wave),
+            bossEvery: BOSS_EVERY,
+            bossNumber: bossNumber,
+            bossActive: !!boss,
+            bossName: boss ? boss.name : null,
+            bossHp: boss ? Math.max(0, boss.hp) : 0,
+            bossMaxHp: boss ? boss.maxHp : 0,
+            bossPhase: boss ? boss.phase : 0,
+            bossDefeated: bossDefeated,
+            boss: boss ? {
+              active: true,
+              number: boss.bossNum,
+              name: boss.name,
+              hp: Math.max(0, boss.hp),
+              maxHp: boss.maxHp,
+              phase: boss.phase,
+              dmg: boss.dmg,
+              speed: Math.round(boss.speed * 10) / 10,
+              telegraph: Math.round(boss.telegraph * 100) / 100,
+              state: boss.state,
+              action: boss.action,
+              summons: boss.summons,
+              lastHitId: boss.lastHitId
+            } : {
+              active: false,
+              number: bossNumber,
+              name: null,
+              hp: 0,
+              maxHp: 0,
+              phase: 0,
+              dmg: 0,
+              speed: 0,
+              telegraph: 0,
+              state: null,
+              action: null,
+              summons: 0
+            },
+            difficulty: waveDifficulty(wave),
+            enemyTypes: typeCount,
             enemies: list,
             pickups: plist,
             upgrades: {
@@ -1637,6 +2109,38 @@
               pickupsTaken: pickupsTaken
             }
           };
+        },
+        /* deterministic harness hooks that route through normal game systems */
+        debug: {
+          jumpToWave: function (n) {
+            if (state !== 'running') return false;
+            enemies.length = 0;
+            boss = null;
+            bossDefeated = false;
+            beginWave(Math.max(1, Math.floor(n) || 1));
+            return true;
+          },
+          damageBoss: function (amount) {
+            if (!boss || boss.state === 'knocked') return false;
+            boss.hp -= Math.max(1, Math.floor(amount) || 1);
+            boss.flashT = 0.14;
+            if (boss.hp <= 0) {
+              boss.hp = 0;
+              knockout(boss, player && player.x < boss.x ? 1 : -1);
+            }
+            updateHud();
+            return true;
+          },
+          damagePlayer: function (amount) {
+            if (state !== 'running' || !player) return false;
+            hurtPlayer(Math.max(1, Math.floor(amount) || 10), player.x + 1);
+            return true;
+          },
+          spawnElite: function (type) {
+            if (state !== 'running') return false;
+            spawnEnemy(type === 'brute' ? 'brute' : 'striker');
+            return true;
+          }
         }
       }),
       writable: false,
@@ -1651,7 +2155,7 @@
   ensureLoop();
   GameShell.overlay.show({
     title: 'Stickman Fighter',
-    msg: 'Rival stick fighters rush the arena from both sides. Punch with Z, kick with X, hold ↓ to guard — and sidestep every flash for a dodge bonus. Press Space or Play to enter the arena.',
+    msg: 'Rival stick fighters — including fast Strikers and heavy Brutes — rush the arena from both sides. Every fourth wave brings a named boss with charge, slam and flurry attacks. Punch with Z, kick with X, hold ↓ to guard, and sidestep every flash for a dodge bonus.',
     stats: [{ label: 'Best', value: best }],
     btn: '▶ Play',
     action: start

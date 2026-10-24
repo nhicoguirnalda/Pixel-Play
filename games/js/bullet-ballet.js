@@ -21,7 +21,7 @@
   var PAD = 16;                 /* arena wall padding */
   var PLAYER_R = 9;
   var PLAYER_SPEED = 268;       /* px per second */
-  var MAX_HP = 100;
+  var START_LIVES = 3;          /* one hit = one life unless a shield absorbs it */
   var BASE_HIT_DAMAGE = 14;
   var HIT_DAMAGE_PER_CYCLE = 2;
   var INVULN_MS = 1000;         /* tighter than the old 1300ms window */
@@ -71,7 +71,7 @@
   var newBest = false;
 
   var player = {
-    x: CX, y: H - 120, hp: MAX_HP, inv: 0, kx: 0, ky: 0, fireT: 0,
+    x: CX, y: H - 120, lives: START_LIVES, inv: 0, kx: 0, ky: 0, fireT: 0,
     dmg: BASE_DMG, fireMs: BASE_FIRE_MS, streams: 1, shield: 0, slowMs: 0
   };
   var boss = { hp: 0, phaseHp: 0, phase: 1, spin: 0, hurt: 0, rage: false, def: BOSSES[0] };
@@ -119,8 +119,8 @@
       apply: function () { player.shield = Math.min(MAX_SHIELD, player.shield + 2); }
     },
     {
-      id: 'heal', name: 'Field Repair', icon: '✚', desc: '+50 HP',
-      apply: function () { player.hp = Math.min(MAX_HP, player.hp + 50); }
+      id: 'heal', name: 'Field Repair', icon: '✚', desc: '+1 life',
+      apply: function () { player.lives += 1; }
     }
   ];
 
@@ -166,9 +166,9 @@
       {
         Score: score,
         Best: shownBest(),
-        HP: Math.max(0, Math.round(player.hp)),
+        Lives: player.lives,
         Shield: player.shield,
-        Hit: '-' + hitDamage()
+        Threat: '-' + hitDamage()
       },
       right
     );
@@ -190,7 +190,7 @@
   function reset() {
     player.x = CX;
     player.y = H - 120;
-    player.hp = MAX_HP;
+    player.lives = START_LIVES;
     player.inv = 0;
     player.kx = 0;
     player.ky = 0;
@@ -343,6 +343,7 @@
   }
 
   function hurtPlayer() {
+    if (state !== 'running') return;
     if (player.shield > 0) {
       player.shield--;
       player.inv = Math.round(INVULN_MS * 0.7);
@@ -352,16 +353,16 @@
       updateHud();
       return;
     }
-    var dmg = hitDamage();
-    player.hp -= dmg;
+    /* one clean hit always costs a life — the threat value still scales */
+    player.lives -= 1;
     player.inv = INVULN_MS;
     shake = 12;
     spark(player.x, player.y, '#f472b6', 14);
-    floater(player.x, player.y - 20, '-' + dmg, '#fca5a5');
+    floater(player.x, player.y - 20, '-1 LIFE', '#fca5a5');
     sfx('thud');
     updateHud();
-    if (player.hp <= 0) {
-      player.hp = 0;
+    if (player.lives <= 0) {
+      player.lives = 0;
       gameOver(false);
     }
   }
@@ -410,7 +411,7 @@
 
   function dropPickup() {
     var types = ['heal', 'shield', 'spread', 'slow', 'power'];
-    if (player.hp < 60) types.push('heal');
+    if (player.lives <= START_LIVES) types.push('heal');
     var type = types[Math.floor(Math.random() * types.length)];
     var a = Math.random() * Math.PI * 2;
     var rad = rnd(110, 205);
@@ -423,8 +424,8 @@
 
   function collectPickup(p) {
     if (p.type === 'heal') {
-      player.hp = Math.min(MAX_HP, player.hp + 35);
-      floater(p.x, p.y, '+35 HP', '#6ee7b7');
+      player.lives += 1;
+      floater(p.x, p.y, '+1 LIFE', '#6ee7b7');
     } else if (p.type === 'shield') {
       player.shield = Math.min(MAX_SHIELD, player.shield + 1);
       floater(p.x, p.y, '+1 SHIELD', '#7dd3fc');
@@ -491,8 +492,9 @@
       bossIndex = 0;
       cycle++;
       score += 1200 + cycle * 400;
-      player.hp = Math.min(MAX_HP, player.hp + 15);
-      say(chosen.name + ' installed', 'Bosses return stronger — cycle ' + (cycle + 1), 2200);
+      player.lives += 1;
+      floater(player.x, player.y - 24, '+1 LIFE', '#6ee7b7');
+      say(chosen.name + ' installed', 'Full cycle clear · +1 life · cycle ' + (cycle + 1), 2200);
     } else {
       say(chosen.name + ' installed', 'Next: ' + BOSSES[bossIndex].name, 2200);
     }
@@ -534,7 +536,7 @@
       msg: 'The ballet is frozen mid-step. Resume when you are ready to dance again.',
       stats: [
         { label: 'Score', value: score },
-        { label: 'HP', value: Math.max(0, Math.round(player.hp)) },
+        { label: 'Lives', value: player.lives },
         { label: 'Boss', value: bossNumber + ' · ' + boss.def.name }
       ],
       btn: '▶ Resume',
@@ -556,7 +558,7 @@
     sfx('lose');
 
     if (won) {
-      var bonus = 2000 + Math.round(player.hp) * 5;
+      var bonus = 2000 + player.lives * 150;
       score += bonus;
       say('Victory!');
     }
@@ -568,12 +570,14 @@
     updateHud();
     GameShell.overlay.show({
       title: won ? (newBest ? 'Boss defeated — new best!' : 'Boss defeated!')
-                 : (newBest ? 'New high score!' : 'Overwhelmed'),
+                 : (newBest ? 'New high score!' : 'Out of lives'),
       msg: won
-        ? 'You cleared the arena with ' + Math.max(0, Math.round(player.hp)) + ' HP left. Score: ' + score + '.'
-        : 'You fell to the ' + boss.def.name + ' in phase ' + boss.phase + ' of boss ' + bossNumber +
-          '. Score: ' + score + '. Try again — collect shields and keep circling.',
+        ? 'You cleared the arena with ' + player.lives + ' lives left. Score: ' + score + '.'
+        : 'You lost your last life to the ' + boss.def.name + ' in phase ' + boss.phase +
+          ' of boss ' + bossNumber + '. Score: ' + score +
+          '. Try again — shields absorb one hit, lives do not come back on their own.',
       stats: [
+        { label: 'Lives', value: player.lives },
         { label: 'Score', value: score },
         { label: 'Best', value: best },
         { label: 'Boss reached', value: bossNumber }
@@ -961,7 +965,7 @@
   }
 
   function drawPlayer(t) {
-    if (state === 'over' && player.hp <= 0) return;
+    if (state === 'over' && player.lives <= 0) return;
     var blink = player.inv > 0 && Math.floor(t / 90) % 2 === 0;
     ctx.save();
     ctx.globalAlpha = blink ? 0.4 : 1;
@@ -999,18 +1003,33 @@
       ctx.restore();
     }
 
-    /* player HP strip along the bottom */
-    var frac = clamp(player.hp / MAX_HP, 0, 1);
-    var bx = 48, bw = W - 96, by = H - 26, bh = 8;
-    ctx.fillStyle = 'rgba(232,238,252,.10)';
-    ctx.fillRect(bx, by, bw, bh);
-    ctx.fillStyle = frac > 0.5 ? '#22d3ee' : (frac > 0.25 ? '#fbbf24' : '#f43f5e');
-    ctx.fillRect(bx, by, bw * frac, bh);
+    /* life pips along the bottom — no health bar, one hit costs one pip */
+    var bx = 48, by = H - 28, i;
+    ctx.save();
+    ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(232,238,252,.55)';
+    ctx.fillText('LIVES', bx, by + 5);
+    for (i = 0; i < player.lives; i++) {
+      var hx = bx + 48 + i * 15;
+      ctx.fillStyle = i < player.lives ? '#22d3ee' : 'rgba(232,238,252,.15)';
+      ctx.beginPath();
+      ctx.moveTo(hx, by + 9);
+      ctx.lineTo(hx - 5, by + 3);
+      ctx.lineTo(hx - 2.5, by);
+      ctx.lineTo(hx, by + 2);
+      ctx.lineTo(hx + 2.5, by);
+      ctx.lineTo(hx + 5, by + 3);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
 
     /* slow-motion timer tick */
     if (player.slowMs > 0) {
       ctx.fillStyle = 'rgba(196, 181, 253, .8)';
-      ctx.fillRect(bx, by - 5, bw * (player.slowMs / 3800), 3);
+      ctx.fillRect(bx, by - 9, (W - 96) * (player.slowMs / 3800), 3);
     }
   }
 
@@ -1321,7 +1340,9 @@
       return {
         state: state,
         score: score,
-        hp: Math.max(0, Math.round(player.hp)),
+        lives: player.lives,
+        maxLives: START_LIVES,
+        startingLives: START_LIVES,
         shield: player.shield,
         slowMs: Math.round(player.slowMs),
         boss: bossNumber,
@@ -1350,6 +1371,9 @@
         baseHitDamage: BASE_HIT_DAMAGE,
         hitDamagePerCycle: HIT_DAMAGE_PER_CYCLE,
         hitDamage: hitDamage(),
+        startLives: START_LIVES,
+        maxLives: START_LIVES,
+        livesPerHit: 1,
         bossHpPerCycle: BOSS_HP_PER_CYCLE,
         bossHpPerIndex: BOSS_HP_PER_INDEX,
         bossSpeedPerCycle: BOSS_SPEED_PER_CYCLE,
@@ -1380,7 +1404,8 @@
         fireMs: player.fireMs,
         streams: player.streams,
         shieldMax: MAX_SHIELD,
-        shield: player.shield
+        shield: player.shield,
+        lives: player.lives
       };
     },
     choices: function () {
@@ -1398,6 +1423,34 @@
         });
       }
       return out;
+    },
+    /* deterministic harness helpers — read/write only through the game's own rules */
+    debug: {
+      hurt: function () {
+        if (state !== 'running') return false;
+        hurtPlayer();
+        return true;
+      },
+      pickup: function (type) {
+        if (state !== 'running') return false;
+        collectPickup({ x: player.x, y: player.y, type: type });
+        return true;
+      },
+      upgrade: function (id) {
+        for (var i = 0; i < UPGRADES.length; i++) {
+          if (UPGRADES[i].id !== id) continue;
+          UPGRADES[i].apply();
+          updateHud();
+          return true;
+        }
+        return false;
+      },
+      setLives: function (n) {
+        player.lives = Math.max(0, Math.floor(n) || 0);
+        if (player.lives <= 0) gameOver(false);
+        else updateHud();
+        return player.lives;
+      }
     }
   };
 
@@ -1408,7 +1461,7 @@
   ensureLoop();
   GameShell.overlay.show({
     title: 'Bullet Ballet',
-    msg: 'Move with the arrow keys, WASD or the pad below — your orb fires by itself. Three bosses cycle through distinct bullet patterns; clear a boss to pick one of three upgrades, and grab the power-ups dropped between phases.',
+    msg: 'Move with the arrow keys, WASD or the pad below — your orb fires by itself. You have 3 lives: shields absorb a hit, everything else costs one. Clear bosses to pick upgrades and grab +1 LIFE pickups between phases.',
     stats: [{ label: 'Best', value: best }],
     btn: '▶ Play',
     action: start

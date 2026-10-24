@@ -38,6 +38,8 @@
   var FALL_Y = 900;       /* below this is the chasm                */
   var VX_MAX = 720, VY_MAX = 950;
   var UNLOCK_KEY = 'pixelplay.hookhero.unlocked';
+  var WIND_FREQ = 1.15;   /* base crosswind oscillation, rad/s      */
+  var GUST_WARN = 0.9;    /* seconds of warning before each burst   */
 
   /* ---------------- hand-designed levels ----------------
      anchors + coins in world coords (y grows downwards);
@@ -52,7 +54,8 @@
       anchors: [[340, 200], [760, 250], [1180, 180], [1600, 240], [2020, 190]],
       coins: [[550, 330], [960, 310], [1390, 290], [1810, 320], [2230, 280]],
       gate: 2280, par: 26,
-      wind: 0, reach: 1, gravity: 1, hazards: []
+      wind: 0, gust: 0, gustEvery: 0, gustFor: 0,
+      reach: 1, gravity: 1, hazards: []
     },
     {
       name: 'Wide Awake',
@@ -60,7 +63,8 @@
       anchors: [[330, 160], [740, 300], [1160, 180], [1560, 320], [1980, 200], [2380, 300]],
       coins: [[540, 330], [950, 360], [1360, 330], [1770, 360], [2180, 320]],
       gate: 2620, par: 30,
-      wind: 0, reach: 1, gravity: 1, hazards: []
+      wind: 30, gust: 0, gustEvery: 0, gustFor: 0,
+      reach: 1, gravity: 1, hazards: []
     },
     {
       name: 'High and Low',
@@ -68,7 +72,7 @@
       anchors: [[340, 260], [790, 150], [1220, 330], [1650, 160], [2080, 330], [2500, 190]],
       coins: [[560, 340], [1000, 320], [1430, 350], [1860, 320], [2290, 350]],
       gate: 2740, par: 32,
-      wind: 14, reach: 1, gravity: 1,
+      wind: 55, gust: 35, gustEvery: 10, gustFor: 1.0, reach: 1, gravity: 1,
       hazards: [{ x: 1880, y: 370, range: 70, speed: 0.55, phase: 0.7, r: 16 }]
     },
     {
@@ -77,7 +81,7 @@
       anchors: [[350, 190], [820, 250], [1330, 170], [1830, 260], [2340, 180], [2790, 270]],
       coins: [[580, 320], [1070, 330], [1580, 320], [2080, 330], [2560, 330]],
       gate: 3060, par: 34,
-      wind: 24, reach: 0.97, gravity: 1.02,
+      wind: 80, gust: 45, gustEvery: 9.5, gustFor: 1.05, reach: 0.97, gravity: 1.02,
       hazards: [{ x: 1580, y: 380, range: 80, speed: 0.6, phase: 0.2, r: 16 }]
     },
     {
@@ -86,7 +90,7 @@
       anchors: [[330, 300], [720, 140], [1150, 330], [1580, 150], [2010, 330], [2440, 170]],
       coins: [[520, 360], [930, 330], [1360, 360], [1790, 330], [2220, 360]],
       gate: 2680, par: 36,
-      wind: 36, reach: 0.95, gravity: 1.03,
+      wind: 105, gust: 55, gustEvery: 9.0, gustFor: 1.1, reach: 0.95, gravity: 1.03,
       hazards: [{ x: 960, y: 360, range: 75, speed: 0.65, phase: 1.1, r: 16 },
                 { x: 1820, y: 400, range: 85, speed: 0.7, phase: 0.4, r: 16 }]
     },
@@ -96,7 +100,7 @@
       anchors: [[340, 200], [780, 320], [1240, 150], [1700, 320], [2160, 160], [2620, 320], [3080, 190]],
       coins: [[560, 340], [1010, 330], [1470, 330], [1930, 330], [2390, 330], [2850, 330]],
       gate: 3340, par: 38,
-      wind: 48, reach: 0.94, gravity: 1.04,
+      wind: 130, gust: 70, gustEvery: 8.5, gustFor: 1.15, reach: 0.94, gravity: 1.04,
       hazards: [{ x: 1000, y: 375, range: 85, speed: 0.7, phase: 0.9, r: 17 },
                 { x: 1940, y: 350, range: 90, speed: 0.75, phase: 0.3, r: 17 }]
     },
@@ -106,7 +110,7 @@
       anchors: [[340, 230], [720, 150], [1100, 290], [1480, 170], [1860, 300], [2240, 180], [2580, 290]],
       coins: [[530, 330], [900, 320], [1290, 340], [1670, 320], [2050, 340], [2420, 320]],
       gate: 2800, par: 40,
-      wind: 58, reach: 0.92, gravity: 1.05,
+      wind: 150, gust: 85, gustEvery: 8.0, gustFor: 1.2, reach: 0.92, gravity: 1.05,
       hazards: [{ x: 1150, y: 380, range: 90, speed: 0.75, phase: 0.6, r: 17 },
                 { x: 2380, y: 350, range: 90, speed: 0.8, phase: 1.5, r: 17 }]
     },
@@ -116,7 +120,7 @@
       anchors: [[330, 200], [690, 310], [1050, 160], [1410, 320], [1770, 170], [2130, 300], [2490, 160], [2850, 300]],
       coins: [[510, 330], [870, 340], [1230, 330], [1590, 340], [1950, 330], [2310, 340], [2670, 330]],
       gate: 3060, par: 42,
-      wind: 64, reach: 0.91, gravity: 1.06,
+      wind: 172, gust: 100, gustEvery: 7.5, gustFor: 1.25, reach: 0.91, gravity: 1.06,
       hazards: [{ x: 870, y: 365, range: 90, speed: 0.8, phase: 1.4, r: 17 },
                 { x: 1950, y: 390, range: 95, speed: 0.85, phase: 0.5, r: 17 },
                 { x: 2800, y: 350, range: 95, speed: 0.9, phase: 2.1, r: 17 }]
@@ -127,7 +131,7 @@
       anchors: [[340, 170], [700, 300], [1060, 140], [1420, 300], [1780, 150], [2140, 310], [2500, 160], [2860, 300]],
       coins: [[520, 330], [880, 340], [1240, 320], [1600, 340], [1960, 320], [2320, 340], [2680, 320]],
       gate: 3080, par: 44,
-      wind: 70, reach: 0.90, gravity: 1.07,
+      wind: 194, gust: 115, gustEvery: 7.0, gustFor: 1.3, reach: 0.90, gravity: 1.07,
       hazards: [{ x: 810, y: 355, range: 95, speed: 0.85, phase: 0.2, r: 18 },
                 { x: 1600, y: 385, range: 100, speed: 0.9, phase: 1.0, r: 18 },
                 { x: 2320, y: 345, range: 100, speed: 0.95, phase: 1.8, r: 18 }]
@@ -138,7 +142,7 @@
       anchors: [[330, 280], [650, 150], [980, 300], [1310, 150], [1640, 300], [1970, 150], [2300, 300], [2630, 150], [2960, 300]],
       coins: [[490, 340], [815, 330], [1145, 340], [1475, 330], [1805, 340], [2135, 330], [2465, 340], [2795, 330]],
       gate: 3180, par: 46,
-      wind: 76, reach: 0.89, gravity: 1.08,
+      wind: 216, gust: 130, gustEvery: 6.5, gustFor: 1.35, reach: 0.89, gravity: 1.08,
       hazards: [{ x: 800, y: 380, range: 100, speed: 0.9, phase: 0.9, r: 18 },
                 { x: 1460, y: 350, range: 105, speed: 0.95, phase: 1.7, r: 18 },
                 { x: 2450, y: 390, range: 105, speed: 1.0, phase: 0.3, r: 18 }]
@@ -149,7 +153,7 @@
       anchors: [[340, 160], [660, 300], [990, 150], [1320, 300], [1650, 140], [1980, 300], [2310, 150], [2640, 300], [2970, 160]],
       coins: [[500, 330], [825, 340], [1155, 320], [1485, 340], [1815, 320], [2145, 340], [2475, 320], [2805, 340]],
       gate: 3190, par: 48,
-      wind: 80, reach: 0.88, gravity: 1.09,
+      wind: 238, gust: 145, gustEvery: 6.0, gustFor: 1.4, reach: 0.88, gravity: 1.09,
       hazards: [{ x: 820, y: 350, range: 105, speed: 0.95, phase: 0.4, r: 18 },
                 { x: 1490, y: 385, range: 105, speed: 1.0, phase: 1.3, r: 18 },
                 { x: 2160, y: 340, range: 110, speed: 1.05, phase: 2.1, r: 19 },
@@ -161,7 +165,7 @@
       anchors: [[330, 290], [640, 140], [950, 290], [1260, 140], [1570, 290], [1880, 140], [2190, 290], [2500, 140], [2810, 290], [3120, 150]],
       coins: [[485, 340], [795, 330], [1105, 340], [1415, 330], [1725, 340], [2035, 330], [2345, 340], [2655, 330], [2965, 340]],
       gate: 3340, par: 52,
-      wind: 85, reach: 0.87, gravity: 1.10,
+      wind: 258, gust: 160, gustEvery: 5.6, gustFor: 1.45, reach: 0.87, gravity: 1.10,
       hazards: [{ x: 780, y: 355, range: 110, speed: 1.0, phase: 1.1, r: 19 },
                 { x: 1420, y: 330, range: 110, speed: 1.05, phase: 0.2, r: 19 },
                 { x: 2060, y: 375, range: 115, speed: 1.1, phase: 1.7, r: 19 },
@@ -174,7 +178,7 @@
       anchors: [[330, 290], [640, 150], [950, 290], [1260, 150], [1570, 290], [1880, 150], [2190, 290], [2500, 150], [2810, 290], [3120, 150], [3430, 290]],
       coins: [[485, 470], [795, 465], [1105, 455], [1415, 455], [1725, 465], [2035, 470], [2345, 475], [2655, 475], [2965, 465], [3275, 460]],
       gate: 3640, par: 54,
-      wind: 86, reach: 0.866, gravity: 1.11,
+      wind: 278, gust: 175, gustEvery: 5.2, gustFor: 1.5, reach: 0.866, gravity: 1.11,
       hazards: [{ type: 'beam', x: 1160, top: 360, bottom: 560, period: 3.2, on: 0.8, warn: 0.6, phase: 0.15, r: 9 },
                 { type: 'beam', x: 2380, top: 360, bottom: 560, period: 3.2, on: 0.8, warn: 0.6, phase: 0.62, r: 9 },
                 { type: 'orb', x: 795, y: 430, range: 70, speed: 0.7, phase: 0.3, r: 18 },
@@ -188,7 +192,7 @@
       anchors: [[330, 280], [650, 140], [970, 280], [1290, 150], [1610, 280], [1930, 140], [2250, 280], [2570, 150], [2890, 280], [3210, 140], [3530, 280]],
       coins: [[490, 485], [810, 495], [1130, 505], [1450, 510], [1770, 515], [2090, 520], [2410, 520], [2730, 520], [3050, 520], [3370, 520]],
       gate: 3740, par: 56,
-      wind: 88, reach: 0.862, gravity: 1.12,
+      wind: 298, gust: 190, gustEvery: 4.8, gustFor: 1.5, reach: 0.862, gravity: 1.12,
       hazards: [{ type: 'beam', x: 1810, top: 370, bottom: 560, period: 3.1, on: 0.85, warn: 0.55, phase: 0.35, r: 9 },
                 { type: 'beam', x: 3090, top: 370, bottom: 560, period: 3.1, on: 0.85, warn: 0.55, phase: 0.85, r: 9 },
                 { type: 'orb', x: 810, y: 440, range: 75, speed: 0.8, phase: 0.2, r: 18 },
@@ -203,7 +207,7 @@
       anchors: [[330, 280], [650, 150], [970, 280], [1290, 150], [1610, 280], [1930, 150], [2250, 280], [2570, 150], [2890, 280], [3210, 150], [3530, 280], [3850, 150]],
       coins: [[490, 480], [810, 490], [1130, 500], [1450, 510], [1770, 515], [2090, 520], [2410, 520], [2730, 525], [3050, 530], [3370, 535], [3690, 535]],
       gate: 4070, par: 58,
-      wind: 90, reach: 0.858, gravity: 1.13,
+      wind: 318, gust: 205, gustEvery: 4.4, gustFor: 1.55, reach: 0.858, gravity: 1.13,
       hazards: [{ type: 'beam', x: 840, top: 370, bottom: 570, period: 3.0, on: 0.9, warn: 0.55, phase: 0.1, r: 9 },
                 { type: 'beam', x: 1480, top: 370, bottom: 570, period: 3.0, on: 0.9, warn: 0.55, phase: 0.8, r: 9 },
                 { type: 'beam', x: 2120, top: 360, bottom: 570, period: 2.9, on: 0.9, warn: 0.55, phase: 0.4, r: 9 },
@@ -218,7 +222,7 @@
       anchors: [[330, 290], [630, 150], [930, 290], [1230, 150], [1530, 290], [1830, 150], [2130, 290], [2430, 150], [2730, 290], [3030, 150], [3330, 290], [3630, 150], [3930, 290]],
       coins: [[480, 465], [780, 450], [1080, 420], [1380, 410], [1680, 400], [1980, 410], [2280, 435], [2580, 440], [2880, 445], [3180, 440], [3480, 430], [3780, 425]],
       gate: 4150, par: 60,
-      wind: 92, reach: 0.854, gravity: 1.14,
+      wind: 338, gust: 220, gustEvery: 4.0, gustFor: 1.55, reach: 0.854, gravity: 1.14,
       hazards: [{ type: 'beam', x: 1130, top: 340, bottom: 570, period: 3.0, on: 0.9, warn: 0.6, phase: 0.2, r: 9 },
                 { type: 'beam', x: 1790, top: 340, bottom: 570, period: 2.9, on: 0.9, warn: 0.6, phase: 0.7, r: 9 },
                 { type: 'beam', x: 2450, top: 340, bottom: 570, period: 2.9, on: 0.95, warn: 0.55, phase: 1.2, r: 9 },
@@ -234,7 +238,7 @@
       anchors: [[330, 280], [620, 140], [910, 280], [1200, 140], [1490, 280], [1780, 140], [2070, 280], [2360, 140], [2650, 280], [2940, 140], [3230, 280], [3520, 140], [3810, 280], [4100, 140]],
       coins: [[475, 465], [765, 455], [1055, 440], [1345, 440], [1635, 450], [1925, 455], [2215, 460], [2505, 460], [2795, 450], [3085, 445], [3375, 430], [3665, 420], [3955, 415]],
       gate: 4320, par: 62,
-      wind: 94, reach: 0.850, gravity: 1.15,
+      wind: 358, gust: 235, gustEvery: 3.7, gustFor: 1.6, reach: 0.850, gravity: 1.15,
       hazards: [{ type: 'beam', x: 1110, top: 330, bottom: 580, period: 2.8, on: 0.95, warn: 0.55, phase: 0.15, r: 9 },
                 { type: 'beam', x: 1750, top: 330, bottom: 580, period: 2.8, on: 0.95, warn: 0.55, phase: 0.75, r: 9 },
                 { type: 'beam', x: 2390, top: 320, bottom: 580, period: 2.7, on: 1.0, warn: 0.55, phase: 0.0, r: 9 },
@@ -251,7 +255,7 @@
       anchors: [[330, 290], [610, 140], [890, 290], [1170, 140], [1450, 290], [1730, 140], [2010, 290], [2290, 140], [2570, 290], [2850, 140], [3130, 290], [3410, 140], [3690, 290], [3970, 140], [4250, 290]],
       coins: [[470, 480], [750, 470], [1030, 460], [1310, 455], [1590, 450], [1870, 445], [2150, 435], [2430, 430], [2710, 420], [2990, 415], [3270, 420], [3550, 425], [3830, 435], [4110, 440]],
       gate: 4470, par: 65,
-      wind: 96, reach: 0.846, gravity: 1.16,
+      wind: 380, gust: 250, gustEvery: 3.4, gustFor: 1.6, reach: 0.846, gravity: 1.16,
       hazards: [{ type: 'beam', x: 1080, top: 320, bottom: 580, period: 2.7, on: 1.0, warn: 0.55, phase: 0.1, r: 9 },
                 { type: 'beam', x: 1720, top: 310, bottom: 580, period: 2.6, on: 1.0, warn: 0.55, phase: 0.7, r: 9 },
                 { type: 'beam', x: 2360, top: 310, bottom: 580, period: 2.6, on: 1.0, warn: 0.55, phase: 1.3, r: 9 },
@@ -281,9 +285,63 @@
   var hudKey = '';
   var rafId = 0, last = 0;
   var flash = 0;              /* red pulse after a hazard hit      */
-  var windNow = 0;            /* current lateral gust, px/s²       */
+  var windNow = 0;            /* current lateral wind, px/s²       */
+  var windState = { base: 0, gust: 0, active: false, warn: false,
+                    dir: 1, warnDir: 1, nextIn: 0, into: 0, cycle: 0 };
+  var windPeakSeen = 0;       /* strongest push observed this stage */
+  var gustPeakSeen = 0, gustBursts = 0, gustWasActive = false;
   var lastRespawn = null;     /* diagnostic for the test snapshot  */
   var unlocked = loadUnlocked();
+
+  /* Difficulty tiers group the eighteen stages into six bands. */
+  function difficultyTier() { return Math.ceil((levelIdx + 1) / 3); }
+  function tierName(t) {
+    return ['Calm', 'Breezy', 'Windy', 'Gale', 'Storm', 'Hurricane'][t - 1] || 'Calm';
+  }
+
+  /* Base crosswind plus periodic, telegraphed gust bursts.
+     The gust direction alternates every burst so the arrow always
+     tells the player which side the next shove comes from. */
+  function computeWind(lt) {
+    var baseAmp = level ? (level.wind || 0) : 0;
+    var base = baseAmp * Math.sin(lt * WIND_FREQ + levelIdx * 1.7);
+    var every = level ? (level.gustEvery || 0) : 0;
+    var dur = level ? (level.gustFor || 0) : 0;
+    var str = level ? (level.gust || 0) : 0;
+    var gust = 0, active = false, warn = false;
+    var dir = 1, warnDir = 1, nextIn = 0, into = 0, cyc = 0;
+
+    if (every > 0 && str > 0) {
+      /* stagger the first burst a little, but keep it early enough that
+         every stage shows its gust mechanic within the opening seconds */
+      var firstGust = 1.4 + (levelIdx % 3) * 0.35;
+      var off = every - firstGust;
+      cyc = Math.floor((lt + off) / every);
+      into = (lt + off) - cyc * every;
+      dir = (cyc % 2 === 0) ? 1 : -1;
+      if (into < dur) {
+        active = true;
+        gust = dir * str * Math.sin(Math.PI * into / dur);
+      } else {
+        nextIn = every - into;
+        if (nextIn <= GUST_WARN) {
+          warn = true;
+          warnDir = ((cyc + 1) % 2 === 0) ? 1 : -1;
+        }
+      }
+    }
+
+    windState.base = base;
+    windState.gust = gust;
+    windState.active = active;
+    windState.warn = warn;
+    windState.dir = dir;
+    windState.warnDir = warnDir;
+    windState.nextIn = nextIn;
+    windState.into = into;
+    windState.cycle = cyc;
+    return base + gust;
+  }
 
   /* ---------------- unlock progress ---------------- */
 
@@ -316,16 +374,27 @@
   /* ---------------- HUD / stages / states ---------------- */
 
   function updateHud(force) {
-    var windKey = Math.round(windNow / 10);
+    var windKey = Math.round(windNow / 10) + ':' + (windState.active ? 1 : 0) +
+                  ':' + (windState.warn ? 1 : 0) + ':' + levelIdx;
     var key = state + '|' + score + '|' + coins + '|' + levelIdx + '|' +
               Math.max(best, score) + '|' + unlocked + '|' + windKey;
     if (!force && key === hudKey) return;
     hudKey = key;
     var windTxt = '';
-    if (Math.abs(windNow) >= 5) {
-      windTxt = ' · gust ' + (windNow > 0 ? '→ ' : '← ') + Math.round(Math.abs(windNow));
+    if (level && (level.wind || level.gust)) {
+      var wArrow = windNow >= 0 ? '→' : '←';
+      var peak = Math.round((level.wind || 0) + (level.gust || 0));
+      if (windState.active) {
+        windTxt = ' · GUST ' + wArrow + ' ' + Math.round(Math.abs(windNow)) + ' (peak ' + peak + ')';
+      } else if (windState.warn) {
+        windTxt = ' · gust ' + (windState.warnDir > 0 ? '→' : '←') +
+                  ' in ' + windState.nextIn.toFixed(1) + 's';
+      } else {
+        windTxt = ' · wind ' + wArrow + ' ' + Math.round(Math.abs(windNow)) + ' · peak ' + peak;
+      }
     }
-    var hint = 'Hold Space = hook · release = fly';
+    var hint = 'T' + difficultyTier() + ' ' + tierName(difficultyTier()) +
+               ' · hold Space = hook · release = fly';
     if (level && level.hazards.length) hint += ' · dodge sparks, beams & orbs';
     GameShell.hud(
       {
@@ -381,7 +450,11 @@
     levelTime = 0;
     trail = [];
     flash = 0;
-    windNow = 0;
+    windNow = computeWind(0);
+    windPeakSeen = Math.abs(windNow);
+    gustPeakSeen = 0;
+    gustBursts = 0;
+    gustWasActive = false;
     if (!coinTaken[idx]) {
       coinTaken[idx] = [];
       for (var i = 0; i < level.coins.length; i++) coinTaken[idx].push(false);
@@ -639,7 +712,11 @@
 
     levelTime += dt;
     if (flash > 0) flash = Math.max(0, flash - dt * 1.5);
-    windNow = (level.wind || 0) * Math.sin(levelTime * 1.15 + levelIdx * 1.7);
+    windNow = computeWind(levelTime);
+    if (Math.abs(windNow) > windPeakSeen) windPeakSeen = Math.abs(windNow);
+    if (Math.abs(windState.gust) > gustPeakSeen) gustPeakSeen = Math.abs(windState.gust);
+    if (windState.active && !gustWasActive) gustBursts++;
+    gustWasActive = windState.active;
 
     if (hookHeld && !attached) tryAttach();
 
@@ -1031,19 +1108,107 @@
 
   function drawWind(t) {
     var str = Math.abs(windNow);
-    if (str < 4) return;
-    var dir = windNow > 0 ? 1 : -1;
+    var warn = windState.warn;
+    if (str < 4 && !warn) return;
+    var dir = str >= 4 ? (windNow > 0 ? 1 : -1) : windState.warnDir;
+    var gusting = windState.active;
     ctx.save();
-    ctx.strokeStyle = 'rgba(147,197,253,.9)';
-    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = gusting ? 'rgba(253,186,116,.95)' : 'rgba(147,197,253,.9)';
+    ctx.lineWidth = gusting ? 1.7 : 1.2;
     for (var i = 0; i < windMotes.length; i++) {
       var m = windMotes[i];
       var x = ((m.x + dir * t * 0.001 * m.sp * (str / 40)) % W + W) % W;
-      ctx.globalAlpha = 0.06 + Math.min(0.22, str / 420);
+      var len = Math.min(92, m.len + str * 0.24);
+      var alpha = (0.06 + Math.min(0.30, str / 380)) * (gusting ? 1.8 : 1) * (warn ? 0.75 : 1);
+      ctx.globalAlpha = Math.min(0.72, alpha);
       ctx.beginPath();
       ctx.moveTo(x, m.y);
-      ctx.lineTo(x + dir * (m.len + str * 0.25), m.y);
+      ctx.lineTo(x + dir * len, m.y);
       ctx.stroke();
+      if (str > 150) {
+        /* arrowheads make the push direction unmistakable in late stages */
+        ctx.beginPath();
+        ctx.moveTo(x + dir * len, m.y);
+        ctx.lineTo(x + dir * (len - 7), m.y - 3.5);
+        ctx.moveTo(x + dir * len, m.y);
+        ctx.lineTo(x + dir * (len - 7), m.y + 3.5);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  /* Persistent wind gauge: a centre-zero bar whose fill and arrow show
+     the current shove, plus a pulsing warning before each gust burst. */
+  function drawWindGauge(t) {
+    if (!level) return;
+    var baseAmp = level.wind || 0, gustAmp = level.gust || 0;
+    if (!baseAmp && !gustAmp) return;
+    var gx = W / 2 - 108, gy = 12, gw = 216, gh = 18;
+    var peak = Math.max(1, baseAmp + gustAmp);
+    var mag = Math.abs(windNow);
+    var frac = clamp(mag / peak, 0, 1);
+    var dir = windNow >= 0 ? 1 : -1;
+    var active = windState.active, warn = windState.warn;
+    var cx = gx + gw / 2;
+    var span = (gw / 2 - 9) * frac;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(5,7,14,.58)';
+    ctx.fillRect(gx, gy, gw, gh);
+    ctx.strokeStyle = active ? 'rgba(253,186,116,.95)'
+      : (warn ? 'rgba(255,220,160,.95)' : 'rgba(147,197,253,.45)');
+    ctx.lineWidth = warn && Math.sin(t / 95) > 0 ? 2 : 1;
+    ctx.strokeRect(gx + 0.5, gy + 0.5, gw - 1, gh - 1);
+
+    /* centre mark and graduated ticks */
+    ctx.fillStyle = 'rgba(232,238,252,.30)';
+    ctx.fillRect(cx - 0.5, gy + 2, 1, gh - 4);
+    ctx.fillStyle = 'rgba(232,238,252,.13)';
+    for (var k = 1; k <= 3; k++) {
+      ctx.fillRect(cx + (gw / 2 - 9) * (k / 4), gy + 2, 1, 4);
+      ctx.fillRect(cx - (gw / 2 - 9) * (k / 4), gy + 2, 1, 4);
+    }
+
+    /* fill from the centre towards the current push */
+    ctx.fillStyle = active ? '#fbbf24' : (warn ? '#fdba74' : '#93c5fd');
+    ctx.globalAlpha = active ? 0.95 : 0.78;
+    ctx.fillRect(dir > 0 ? cx : cx - span, gy + 4, span, gh - 8);
+
+    /* arrowhead at the leading edge */
+    var tip = cx + dir * span;
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = active ? '#fde68a' : '#dbeafe';
+    ctx.beginPath();
+    ctx.moveTo(tip, gy + 3);
+    ctx.lineTo(tip + dir * 7, gy + gh / 2);
+    ctx.lineTo(tip, gy + gh - 3);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.font = '700 9px ' + FONT;
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(232,238,252,.72)';
+    ctx.textAlign = 'left';
+    ctx.fillText('WIND', gx + 5, gy + gh / 2 + 0.5);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = active ? '#fdba74' : 'rgba(232,238,252,.55)';
+    ctx.fillText(active ? 'GUST' : (warn ? 'SOON' : 'T' + difficultyTier()),
+                 gx + gw - 5, gy + gh / 2 + 0.5);
+
+    /* on-canvas banner: warn first, then report the live gust */
+    ctx.textAlign = 'center';
+    ctx.font = '700 12px ' + FONT;
+    if (warn) {
+      var wa = windState.warnDir > 0 ? '→' : '←';
+      ctx.fillStyle = 'rgba(255,220,160,' + (0.65 + 0.35 * Math.abs(Math.sin(t / 110))) + ')';
+      ctx.fillText('GUST ' + wa + ' INCOMING · ' + windState.nextIn.toFixed(1) + 's',
+                   W / 2, gy + gh + 15);
+    } else if (active) {
+      var aa = windNow >= 0 ? '→' : '←';
+      ctx.fillStyle = 'rgba(253,186,116,.95)';
+      ctx.fillText('GUST ' + aa + ' ' + Math.round(Math.abs(windNow)) + ' · HOLD ON',
+                   W / 2, gy + gh + 15);
     }
     ctx.restore();
   }
@@ -1156,8 +1321,9 @@
 
     ctx.restore();
 
-    /* crosswind streaks + spark-gate hit flash */
+    /* crosswind streaks, wind gauge + spark-gate hit flash */
     drawWind(t);
+    drawWindGauge(t);
     if (flash > 0) {
       var fg = ctx.createRadialGradient(W / 2, H / 2, 80, W / 2, H / 2, H * 0.75);
       fg.addColorStop(0, 'rgba(255,92,122,0)');
@@ -1344,11 +1510,25 @@
               return p;
             }),
             difficulty: {
+              tier: difficultyTier(),
+              tierName: tierName(difficultyTier()),
               hookReach: Math.round(MAX_REACH * (level ? (level.reach || 1) : 1)),
               reachFactor: level ? level.reach : 1,
               gravity: GRAV * (level ? (level.gravity || 1) : 1),
               wind: level ? (level.wind || 0) : 0,
+              windBase: level ? (level.wind || 0) : 0,
               windNow: Math.round(windNow * 10) / 10,
+              windPeak: level ? (level.wind || 0) + (level.gust || 0) : 0,
+              gustStrength: level ? (level.gust || 0) : 0,
+              gustPeriod: level ? (level.gustEvery || 0) : 0,
+              gustDuration: level ? (level.gustFor || 0) : 0,
+              gustActive: windState.active,
+              gustWarn: windState.warn,
+              gustDir: windState.active ? windState.dir : windState.warnDir,
+              gustNextIn: Math.round(windState.nextIn * 100) / 100,
+              windPeakSeen: Math.round(windPeakSeen * 10) / 10,
+              gustPeakSeen: Math.round(gustPeakSeen * 10) / 10,
+              gustBursts: gustBursts,
               hazards: hzs.length,
               sentries: sentries,
               beams: beams,
@@ -1377,7 +1557,7 @@
   ensureLoop();
   GameShell.overlay.show({
     title: 'Hook Hero',
-    msg: 'Hold Space to fire your hook at the glowing rings, swing like a pendulum, then release to fly. Eighteen stages of crosswinds, sweeping spark sentries, blinking pulse beams and climbing energy orbs await — clear one to unlock the next.',
+    msg: 'Hold Space to fire your hook at the glowing rings, swing like a pendulum, then release to fly. Eighteen stages of escalating crosswinds and telegraphed gust bursts, sweeping spark sentries, blinking pulse beams and climbing energy orbs await — watch the wind gauge, clear a stage to unlock the next.',
     stats: [{ label: 'Best', value: best }, { label: 'Stages', value: LEVELS.length }],
     btn: '▶ Play',
     action: start

@@ -20,12 +20,32 @@
   var TURRET_DMG_PER_UPGRADE = 0.75;
   var REPAIR_AMOUNT = 8;
   var BOSS_EVERY = 5;
-  var BOSS_TIER_HP = 1.7;
-  var BOSS_WAVE_HP = 0.055;
-  var BOSS_TIER_SPEED = 0.10;
-  var BOSS_WAVE_SPEED = 0.045;
-  var BOSS_TIER_DMG = 0.20;
-  var BOSS_WAVE_DMG = 0.02;
+  var BOSS_TIER_HP = 1.85;
+  var BOSS_WAVE_HP = 0.07;
+  var BOSS_TIER_SPEED = 0.12;
+  var BOSS_WAVE_SPEED = 0.05;
+  var BOSS_TIER_DMG = 0.30;
+  var BOSS_WAVE_DMG = 0.03;
+  var BOSS_PHASE2_SPEED = 1.35;
+  var BOSS_SUMMON_BASE = 7000;
+  var BOSS_SUMMON_SLOPE = 110;
+  var BOSS_SUMMON_MIN = 3200;
+
+  /* minion escalation: health growth, a speed ramp with a ceiling,
+     faster spawn cadence and veteran units from wave eight onward */
+  var MINION_HP_GROWTH = 1.16;
+  var MINION_SPEED_GROWTH = 3.2;
+  var MINION_SPEED_CAP = 56;
+  var MINION_DMG_EVERY = 5;
+  var MINION_DMG_CAP = 3;
+  var VETERAN_FROM = 8;
+  var VETERAN_EVERY = 4;
+  var VETERAN_HP = 1.55;
+  var VETERAN_SPEED = 1.15;
+  var VETERAN_DMG = 1;
+  var SPAWN_BASE = 1000;
+  var SPAWN_SLOPE = 55;
+  var SPAWN_MIN = 260;
 
   var state = 'ready';                 /* ready | running | paused | over */
   var best = GameShell.best.get(BEST_KEY, 0);
@@ -262,8 +282,14 @@
     }
   }
 
+  function threatTier() {
+    return Math.max(1, Math.ceil(wave / BOSS_EVERY));
+  }
+
   function updateHud() {
     var boss = findBoss();
+    var status = 'Wave ' + wave + ' · THREAT ' + threatTier();
+    if (boss) status += ' · BOSS';
     GameShell.hud(
       {
         Score: score,
@@ -271,7 +297,7 @@
         Base: baseHp + '/' + BASE_MAX,
         Credits: credits
       },
-      state === 'paused' ? '⏸ Paused' : ('Wave ' + wave + (boss ? ' · BOSS' : ''))
+      state === 'paused' ? '⏸ Paused' : status
     );
     refreshBuy();
   }
@@ -316,8 +342,8 @@
     var bossFirst = q[0] === 'boss';
     if (bossFirst) q.shift();
     spawnQueue = (bossFirst ? ['boss'] : []).concat(interleave(q));
-    spawnEvery = Math.max(300, 1000 - n * 50);
-    spawnMs = bossFirst ? 600 : 700;
+    spawnEvery = Math.max(SPAWN_MIN, SPAWN_BASE - n * SPAWN_SLOPE);
+    spawnMs = bossFirst ? 500 : 620;
     if (bossFirst) {
       toast(W / 2, 86, '⚠ WAVE ' + n + ' — ARMOURED WALKER', '#fdba74');
       shake = Math.max(shake, 6);
@@ -336,7 +362,7 @@
     if (type === 'boss') {
       return Math.round(def.hp * Math.pow(BOSS_TIER_HP, bossTier() - 1) * (1 + (wave - 1) * BOSS_WAVE_HP));
     }
-    return Math.round(def.hp * Math.pow(1.13, wave - 1));
+    return Math.round(def.hp * Math.pow(MINION_HP_GROWTH, wave - 1));
   }
 
   function scaledSpeed(type, def) {
@@ -344,7 +370,7 @@
       var tier = bossTier();
       return def.speed * (1 + (wave - 1) * BOSS_WAVE_SPEED) * (1 + (tier - 1) * BOSS_TIER_SPEED);
     }
-    return def.speed + Math.min(36, (wave - 1) * 2.2);
+    return def.speed + Math.min(MINION_SPEED_CAP, (wave - 1) * MINION_SPEED_GROWTH);
   }
 
   function scaledDamage(type, def) {
@@ -352,21 +378,23 @@
       var tier = bossTier();
       return Math.round(def.dmg * (1 + (wave - BOSS_EVERY) * BOSS_WAVE_DMG) * (1 + (tier - 1) * BOSS_TIER_DMG));
     }
-    return def.dmg;
+    return def.dmg + Math.min(MINION_DMG_CAP, Math.floor((wave - 1) / MINION_DMG_EVERY));
   }
 
   function spawnUnit(type, startD) {
     if (units.length >= 80) return null;
     var def = TYPES[type];
     var d0 = Math.max(0, startD || 0);
-    var hp = scaledHp(type, def);
+    var veteran = type !== 'boss' && wave >= VETERAN_FROM &&
+                  (nextId % VETERAN_EVERY === 0);
+    var hp = Math.round(scaledHp(type, def) * (veteran ? VETERAN_HP : 1));
     var u = {
       id: nextId++,
       type: type, def: def, d: d0, x: PATH[0].x, y: PATH[0].y,
-      hp: hp, maxHp: hp, r: def.r,
-      speed: scaledSpeed(type, def),
-      dmg: scaledDamage(type, def),
-      step: Math.random() * 6, hurt: 0,
+      hp: hp, maxHp: hp, r: def.r + (veteran ? 2 : 0),
+      speed: scaledSpeed(type, def) * (veteran ? VETERAN_SPEED : 1),
+      dmg: scaledDamage(type, def) + (veteran ? VETERAN_DMG : 0),
+      step: Math.random() * 6, hurt: 0, veteran: veteran,
       boss: type === 'boss', phase: 1, summonT: -1, phaseFlash: 0
     };
     var p = { x: 0, y: 0 };
@@ -395,11 +423,13 @@
     var index = units.indexOf(u);
     if (index < 0) return;
     units.splice(index, 1);
-    score += u.def.score;
-    credits += u.def.credits;
+    var reward = u.veteran ? 1.5 : 1;
+    var gained = Math.round(u.def.score * reward);
+    score += gained;
+    credits += Math.round(u.def.credits * reward);
     kills++;
-    burst(u.x, u.y, u.boss ? 34 : 16, u.def.body, u.boss ? 210 : 150);
-    toast(u.x, u.y - 16, '+' + u.def.score, '#dcfce7');
+    burst(u.x, u.y, u.boss ? 34 : (u.veteran ? 22 : 16), u.def.body, u.boss ? 210 : 150);
+    toast(u.x, u.y - 16, '+' + gained, u.veteran ? '#fde68a' : '#dcfce7');
     if (u.boss) {
       var bonus = 12 + Math.floor(wave / BOSS_EVERY) * 4;
       credits += bonus;
@@ -462,12 +492,13 @@
 
   function summonMinions(u) {
     var kind = (wave >= 10 && Math.random() < 0.5) ? 'crawler' : 'scout';
-    for (var i = 0; i < 2; i++) {
+    var count = Math.min(5, 2 + Math.floor(wave / 10));
+    for (var i = 0; i < count; i++) {
       var d = Math.max(0, u.d - 26 - i * 24);
       spawnUnit(kind, d);
     }
-    toast(u.x, u.y - 46, 'MINIONS!', '#fdba74');
-    burst(u.x, u.y, 14, '#fdba74', 130);
+    toast(u.x, u.y - 46, count + ' MINIONS!', '#fdba74');
+    burst(u.x, u.y, 14 + count * 2, '#fdba74', 130);
     shake = Math.max(shake, 6);
   }
 
@@ -476,18 +507,18 @@
     if (u.phase === 1 && u.hp <= u.maxHp * 0.5) {
       u.phase = 2;
       u.phaseFlash = 1300;
-      u.speed *= 1.3;
-      u.summonT = 1500;
+      u.speed *= BOSS_PHASE2_SPEED;
+      u.summonT = 900;
       toast(u.x, u.y - 52, '⚠ WALKER PHASE 2', '#fca5a5');
       burst(u.x, u.y, 26, '#f97316', 190);
       shake = Math.max(shake, 12);
       sfx('laser');
     }
     if (u.phase === 2) {
-      if (u.summonT < 0) u.summonT = 1600;
+      if (u.summonT < 0) u.summonT = 1200;
       u.summonT -= dt;
       if (u.summonT <= 0) {
-        u.summonT = Math.max(4200, 7000 - wave * 90);
+        u.summonT = Math.max(BOSS_SUMMON_MIN, BOSS_SUMMON_BASE - wave * BOSS_SUMMON_SLOPE);
         summonMinions(u);
       }
     }
@@ -996,9 +1027,22 @@
     ctx.fillStyle = u.hurt > 0 ? '#ffffff' : def.body;
     rr(x - u.r, y - u.r, u.r * 2, u.r * 2, u.r * 0.45);
     ctx.fill();
-    ctx.strokeStyle = def.dark;
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = u.veteran ? '#fbbf24' : def.dark;
+    ctx.lineWidth = u.veteran ? 2.4 : 2;
     ctx.stroke();
+
+    if (u.veteran) {
+      /* gold veteran ring + shoulder chevrons mark the buffed units */
+      ctx.shadowColor = '#fbbf24';
+      ctx.shadowBlur = 9;
+      ctx.strokeStyle = 'rgba(251,191,36,.9)';
+      ctx.lineWidth = 1.4;
+      rr(x - u.r - 3, y - u.r - 3, (u.r + 3) * 2, (u.r + 3) * 2, u.r * 0.5);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#fde68a';
+      ctx.fillRect(x - u.r * 0.55, y - u.r * 0.82, u.r * 1.1, 2.5);
+    }
 
     ctx.fillStyle = '#05070e';
     ctx.beginPath();
@@ -1325,6 +1369,9 @@
         baseHp: baseHp,
         kills: kills,
         units: units.length,
+        threatTier: threatTier(),
+        bossTier: bossTier(),
+        veterans: units.filter(function (u) { return u.veteran; }).length,
         turretDamage: weapon.dmg,
         boss: bossUnit ? {
           hp: bossUnit.hp, maxHp: bossUnit.maxHp, phase: bossUnit.phase,
@@ -1337,7 +1384,8 @@
       var bossUnit = findBoss();
       return bossUnit ? {
         hp: bossUnit.hp, maxHp: bossUnit.maxHp, phase: bossUnit.phase,
-        speed: bossUnit.speed, damage: bossUnit.dmg, progress: bossUnit.d
+        speed: bossUnit.speed, damage: bossUnit.dmg, progress: bossUnit.d,
+        tier: bossTier()
       } : null;
     },
     balance: function () {
@@ -1345,7 +1393,19 @@
         baseTurretDamage: TURRET_BASE_DMG,
         damagePerUpgrade: TURRET_DMG_PER_UPGRADE,
         turretDamage: weapon.dmg,
-        minionHpPerWave: 1.13,
+        minionHpPerWave: MINION_HP_GROWTH,
+        minionSpeedGrowth: MINION_SPEED_GROWTH,
+        minionSpeedCap: MINION_SPEED_CAP,
+        minionDamageEvery: MINION_DMG_EVERY,
+        minionDamageCap: MINION_DMG_CAP,
+        spawnBaseMs: SPAWN_BASE,
+        spawnSlopeMs: SPAWN_SLOPE,
+        spawnMinMs: SPAWN_MIN,
+        veteranFromWave: VETERAN_FROM,
+        veteranEvery: VETERAN_EVERY,
+        veteranHpScale: VETERAN_HP,
+        veteranSpeedScale: VETERAN_SPEED,
+        veteranDamageBonus: VETERAN_DMG,
         bossEvery: BOSS_EVERY,
         bossBaseHp: TYPES.boss.hp,
         bossBaseSpeed: TYPES.boss.speed,
@@ -1356,6 +1416,10 @@
         bossWaveSpeedScale: BOSS_WAVE_SPEED,
         bossTierDamageScale: BOSS_TIER_DMG,
         bossWaveDamageScale: BOSS_WAVE_DMG,
+        bossPhase2SpeedScale: BOSS_PHASE2_SPEED,
+        bossSummonBaseMs: BOSS_SUMMON_BASE,
+        bossSummonSlopeMs: BOSS_SUMMON_SLOPE,
+        bossSummonMinMs: BOSS_SUMMON_MIN,
         repairAmount: REPAIR_AMOUNT
       };
     },
@@ -1380,8 +1444,8 @@
       for (i = 0; i < units.length; i++) {
         out.push({
           id: units[i].id, type: units[i].type, boss: units[i].boss,
-          x: Math.round(units[i].x), y: Math.round(units[i].y),
-          hp: units[i].hp, maxHp: units[i].maxHp,
+          veteran: units[i].veteran, x: Math.round(units[i].x), y: Math.round(units[i].y),
+          hp: units[i].hp, maxHp: units[i].maxHp, r: units[i].r,
           d: Math.round(units[i].d), phase: units[i].phase,
           speed: units[i].speed, damage: units[i].dmg
         });

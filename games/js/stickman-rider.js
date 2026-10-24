@@ -30,31 +30,67 @@
     };
   }
 
-  /* ---------------- level configs (hand-tuned, easiest → hardest) ---------------- */
-
+  /* ---------------- level configs (hand-tuned, easiest → hardest) ----------------
+     Every row is strictly harder than the row above: longer course, rougher and
+     taller terrain, more chasms and wider gaps, more rocks/logs, more swinging
+     logs at higher speed, and a tighter clock per pixel. `hazard` scales the
+     height of rock/log bumps. */
   var LEVELS = [
-    { name: 'Sunny Slopes', seed: 13579, len: 2450, amp: 30, rough: 4.0,
-      gaps: [[1560, 104]], rocks: 4, logs: 6, coins: 6, time: 40, swingers: 1 },
-    { name: 'Rocky Ridge', seed: 24680, len: 2750, amp: 37, rough: 5.6,
-      gaps: [[1380, 108], [2160, 112]], rocks: 7, logs: 8, coins: 7, time: 40, swingers: 1 },
-    { name: 'Timber Trail', seed: 31415, len: 3000, amp: 44, rough: 7.0,
-      gaps: [[1220, 104], [1750, 108], [2340, 112]], rocks: 9, logs: 13, coins: 8, time: 42, swingers: 2 },
-    { name: 'Craggy Pass', seed: 42424, len: 3250, amp: 51, rough: 8.6,
-      gaps: [[1080, 106], [1550, 108], [2070, 110], [2860, 112]], rocks: 12, logs: 10, coins: 9, time: 44, swingers: 2 },
-    { name: 'Boulder Basin', seed: 55551, len: 3500, amp: 58, rough: 10.2,
-      gaps: [[990, 108], [1930, 110], [2450, 112], [3010, 114]], rocks: 16, logs: 12, coins: 10, time: 46, swingers: 3 },
-    { name: 'Devils Drop', seed: 66613, len: 3750, amp: 66, rough: 11.8,
-      gaps: [[940, 110], [1810, 112], [2700, 114], [3330, 116]], rocks: 19, logs: 15, coins: 12, time: 48, swingers: 3 },
-    { name: 'Rattler Ridge', seed: 70707, len: 4000, amp: 74, rough: 13.4,
-      gaps: [[860, 112], [1560, 113], [2260, 115], [2960, 116], [3660, 117]],
-      rocks: 23, logs: 18, coins: 13, time: 50, swingers: 4 },
-    { name: 'Scorpion Steps', seed: 80808, len: 4300, amp: 82, rough: 15.2,
-      gaps: [[820, 116], [1500, 117], [2180, 118], [2860, 119], [3540, 120]],
-      rocks: 27, logs: 21, coins: 15, time: 52, swingers: 4 },
-    { name: 'Nightfall Gauntlet', seed: 90909, len: 4600, amp: 90, rough: 17.0,
-      gaps: [[800, 118], [1450, 119], [2100, 120], [2750, 121], [3400, 122], [4050, 122]],
-      rocks: 31, logs: 24, coins: 17, time: 54, swingers: 5 }
+    { name: 'Sunny Slopes', seed: 13579, len: 2400, amp: 30, rough: 4.0,
+      gaps: [[1520, 104]], rocks: 5, logs: 6, coins: 6, time: 28, swingers: 1, hazard: 1.00 },
+    { name: 'Rocky Ridge', seed: 24680, len: 2800, amp: 37, rough: 5.4,
+      gaps: [[1350, 108], [2150, 110]], rocks: 7, logs: 8, coins: 7, time: 31, swingers: 1, hazard: 1.05 },
+    { name: 'Timber Trail', seed: 31415, len: 3200, amp: 44, rough: 6.8,
+      gaps: [[850, 108], [1650, 110], [2450, 112]], rocks: 9, logs: 10, coins: 8, time: 34, swingers: 2, hazard: 1.10 },
+    { name: 'Craggy Pass', seed: 42424, len: 3650, amp: 51, rough: 8.2,
+      gaps: [[800, 110], [1550, 112], [2300, 114], [3050, 112]], rocks: 10, logs: 11, coins: 9, time: 37, swingers: 2, hazard: 1.15 },
+    { name: 'Boulder Basin', seed: 55551, len: 4100, amp: 58, rough: 9.6,
+      gaps: [[850, 112], [1650, 114], [2450, 116], [3250, 114]], rocks: 12, logs: 12, coins: 10, time: 40, swingers: 3, hazard: 1.20 },
+    { name: 'Devils Drop', seed: 66613, len: 4550, amp: 65, rough: 11.0,
+      gaps: [[800, 114], [1600, 115], [2400, 116], [3200, 117], [4000, 116]], rocks: 14, logs: 13, coins: 12, time: 43, swingers: 3, hazard: 1.25 },
+    { name: 'Rattler Ridge', seed: 70707, len: 5000, amp: 72, rough: 12.4,
+      gaps: [[850, 116], [1650, 117], [2450, 118], [3250, 119], [4050, 118]], rocks: 16, logs: 14, coins: 13, time: 46, swingers: 4, hazard: 1.30 },
+    { name: 'Scorpion Steps', seed: 80808, len: 5500, amp: 79, rough: 13.8,
+      gaps: [[800, 118], [1600, 119], [2400, 120], [3200, 121], [4000, 120], [4800, 119]], rocks: 18, logs: 15, coins: 15, time: 49, swingers: 4, hazard: 1.35 },
+    { name: 'Nightfall Gauntlet', seed: 90909, len: 6000, amp: 86, rough: 15.2,
+      gaps: [[800, 120], [1650, 121], [2500, 122], [3350, 123], [4200, 122], [5050, 121]], rocks: 20, logs: 17, coins: 17, time: 52, swingers: 5, hazard: 1.40 }
   ];
+
+  /* One score derived from every difficulty lever. Because each input rises
+     with the level index, the score is strictly increasing too. */
+  function levelStats(i) {
+    var c = LEVELS[clampLevel(i)];
+    var maxGap = 0, g;
+    for (g = 0; g < c.gaps.length; g++) if (c.gaps[g][1] > maxGap) maxGap = c.gaps[g][1];
+    var speed = c.len / c.time;
+    var score = Math.round(10 * (
+      (i + 1) * 1.0 +
+      maxGap * 0.12 +
+      c.gaps.length * 1.2 +
+      c.rocks * 0.35 +
+      c.logs * 0.30 +
+      (c.swingers || 0) * 0.9 +
+      c.amp * 0.06 +
+      c.rough * 0.30 +
+      (c.hazard - 1) * 10 +
+      (speed - 85) * 0.20
+    ));
+    return {
+      tier: i + 1,
+      score: score,
+      maxGap: maxGap,
+      requiredSpeed: Math.round(speed * 10) / 10,
+      timePerPixel: Math.round((c.time / c.len) * 100000) / 100000,
+      hazardFactor: c.hazard,
+      nextHarder: i < LEVELS.length - 1
+    };
+  }
+
+  function clampLevel(n) {
+    n = n | 0;
+    return n < 0 ? 0 : (n > LEVELS.length - 1 ? LEVELS.length - 1 : n);
+  }
+
 
   /* ---------------- physics constants ---------------- */
 
@@ -81,7 +117,7 @@
   var BOWL_BASE = 30;       /* landing bowl depth on level one */
   var BOWL_STEP = 3;        /* extra bowl depth per level */
   var SWING_OMEGA = 1.9;    /* pendulum angular speed on level one, rad/s */
-  var SWING_STEP = 0.06;    /* +0.06 rad/s per level */
+  var SWING_STEP = 0.075;   /* +0.075 rad/s per level */
   var SWING_ROPE = 118;     /* pendulum rope length, px */
   var SWING_AMP = 0.95;     /* swing amplitude, radians */
   var SWING_R = 13;         /* log bob radius */
@@ -220,39 +256,88 @@
       }
     }
 
-    /* rocks and logs as gentle bumps you can bounce over */
+    /* rocks and logs as gentle bumps you can bounce over.
+       Slots are laid out evenly across the safe stretches between chasms (so
+       later, longer trails really do carry more obstacles) and the two kinds
+       are interleaved with a seeded shuffle. Heights scale with `hazard`. */
     rocks = []; logs = [];
-    function place(count, list, minH, maxH, halfW, gapBefore, gapAfter) {
-      var placed = 0, tries = 0;
-      while (placed < count && tries++ < count * 30) {
-        var px = 460 + rnd() * (cfg.len - 700);
-        var ok = true, g;
-        for (g = 0; g < gaps.length; g++) {
-          if (px > gaps[g][0] - gapBefore &&
-              px < gaps[g][0] + gaps[g][1] + gapAfter) { ok = false; break; }
-        }
-        if (ok) {
-          for (g = 0; g < list.length; g++) {
-            if (Math.abs(list[g].x - px) < halfW * 2 + 60) { ok = false; break; }
-          }
-        }
-        if (!ok) continue;
-        var h = minH + rnd() * (maxH - minH);
-        list.push({ x: px, h: h, w: halfW });
-        var k0 = Math.floor((px - halfW) / TS), k1 = Math.ceil((px + halfW) / TS);
-        for (var k = k0; k <= k1; k++) {
-          if (k < 0 || k >= n) continue;
-          var d = (k * TS - px) / halfW;
-          if (Math.abs(d) > 1) continue;
-          hs[k] -= h * Math.exp(-d * d * 2.4);
-        }
-        placed++;
+    var hz = cfg.hazard || 1;
+    function addBump(px, halfW, isLog) {
+      var lo = (isLog ? 7 : 9) * hz;
+      var hi = (isLog ? 10 : 14) * hz;
+      var h = lo + rnd() * (hi - lo);
+      if (isLog) logs.push({ x: px, h: h, w: halfW });
+      else rocks.push({ x: px, h: h, w: halfW });
+      var k0 = Math.floor((px - halfW) / TS), k1 = Math.ceil((px + halfW) / TS);
+      for (var k = k0; k <= k1; k++) {
+        if (k < 0 || k >= n) continue;
+        var d = (k * TS - px) / halfW;
+        if (Math.abs(d) > 1) continue;
+        hs[k] -= h * Math.exp(-d * d * 2.4);
       }
     }
-    /* Obstacles stay off the kicker and its immediate run-up (250px before
-       each chasm) but may sit after the landing bowl. */
-    place(cfg.rocks, rocks, 9, 14, 16, 250, 100);
-    place(cfg.logs, logs, 7, 10, 18, 250, 100);
+    (function placeObstacles() {
+      var startX = 460, endX = cfg.len - 340;
+      var gapBefore = 165, gapAfter = 140;
+      var blocked = [], g;
+      for (g = 0; g < gaps.length; g++) {
+        blocked.push([gaps[g][0] - gapBefore, gaps[g][0] + gaps[g][1] + gapAfter]);
+      }
+      blocked.sort(function (a, b) { return a[0] - b[0]; });
+      var spans = [], cursor = startX;
+      for (g = 0; g < blocked.length; g++) {
+        if (blocked[g][0] > cursor) spans.push([cursor, Math.min(blocked[g][0], endX)]);
+        if (blocked[g][1] > cursor) cursor = blocked[g][1];
+        if (cursor >= endX) break;
+      }
+      if (cursor < endX) spans.push([cursor, endX]);
+
+      var total = 0, i;
+      for (i = 0; i < spans.length; i++) total += Math.max(0, spans[i][1] - spans[i][0]);
+      var count = cfg.rocks + cfg.logs;
+      if (total <= 0 || count <= 0) return;
+
+      /* Allocate exactly `count` slots across the spans, proportionally to
+         their length (largest-remainder rounding), then space them evenly. */
+      var alloc = [], remainders = [], used = 0;
+      for (i = 0; i < spans.length; i++) {
+        var ideal = count * Math.max(0, spans[i][1] - spans[i][0]) / total;
+        var base = Math.floor(ideal);
+        alloc.push(base);
+        remainders.push({ i: i, frac: ideal - base });
+        used += base;
+      }
+      remainders.sort(function (a, b) { return b.frac - a.frac; });
+      var guard = 0;
+      for (i = 0; used < count && guard++ < 400; i = (i + 1) % remainders.length) {
+        var spanIdx = remainders[i].i;
+        if (spans[spanIdx][1] - spans[spanIdx][0] >= (alloc[spanIdx] + 1) * 48) {
+          alloc[spanIdx]++;
+          used++;
+        }
+      }
+
+      var slots = [];
+      for (i = 0; i < spans.length; i++) {
+        var a = spans[i][0], b = spans[i][1], nSlots = alloc[i];
+        for (var s = 0; s < nSlots; s++) {
+          slots.push(Math.round(a + (b - a) * (s + 0.5) / nSlots));
+        }
+      }
+
+      /* seeded interleave of rock/log types */
+      var types = [], r;
+      for (i = 0; i < cfg.rocks; i++) types.push(0);
+      for (i = 0; i < cfg.logs; i++) types.push(1);
+      for (i = types.length - 1; i > 0; i--) {
+        r = Math.floor(rnd() * (i + 1));
+        var tmp = types[i]; types[i] = types[r]; types[r] = tmp;
+      }
+      for (i = 0; i < slots.length; i++) {
+        var isLog = types[i % types.length] === 1;
+        addBump(slots[i], isLog ? 18 : 16, isLog);
+      }
+    })();
 
     /* slope limiter: no wall steeper than ~40 degrees, and cap per-sample steps too */
     for (var pass = 0; pass < 5; pass++) {
@@ -307,7 +392,9 @@
 
     function freeOfGaps(x) {
       for (var zg = 0; zg < gaps.length; zg++) {
-        if (x > gaps[zg][0] - 150 && x < gaps[zg][0] + gaps[zg][1] + 150) return false;
+        /* keep the whole kicker run-up and landing bowl clear: a swinging log
+           in a landing zone is unfair, not just hard */
+        if (x > gaps[zg][0] - 170 && x < gaps[zg][0] + gaps[zg][1] + 380) return false;
       }
       return true;
     }
@@ -315,51 +402,78 @@
     swingers = [];
     swingClock = 0;
     var ns = cfg.swingers || 0;
+
+    function swingerTooClose(cx) {
+      for (var q = 0; q < swingers.length; q++) {
+        if (Math.abs(swingers[q].x - cx) < 220) return true;
+      }
+      return false;
+    }
+
+    function addSwinger(sx, idx) {
+      var pivotBase = -1e9;
+      for (var pg = sx - 60; pg <= sx + 60; pg += 10) {
+        var pgy = groundAt(pg);
+        if (pgy !== null && pgy > pivotBase) pivotBase = pgy;
+      }
+      if (pivotBase < -1e8) pivotBase = groundAt(sx);
+      swingers.push({
+        x: sx,
+        phase: idx * 2.1,
+        omega: SWING_OMEGA + levelIdx * SWING_STEP,
+        pivotBase: pivotBase
+      });
+    }
+
     for (i = 0; i < ns; i++) {
       var base = 700 + (cfg.len - 1600) * (i + 0.5) / Math.max(1, ns);
-      var sx = -1;
-      for (var off = 0; off <= 300 && sx < 0; off += 24) {
-        var cand = off === 0 ? [base] : [base + off, base - off];
-        for (var ci = 0; ci < cand.length; ci++) {
-          var cx = Math.round(cand[ci] / TS) * TS;
-          if (cx < 520 || cx > cfg.len - 320) continue;
-          if (!freeOfGaps(cx) || !flatSpan(cx, 95, 34)) continue;
-          var tooClose = false;
-          for (var q = 0; q < swingers.length; q++) {
-            if (Math.abs(swingers[q].x - cx) < 260) { tooClose = true; break; }
+      var sx = -1, pass, off, ci;
+      /* pass 0-1: near the nominal slot, flat first then rougher */
+      for (pass = 0; pass < 2 && sx < 0; pass++) {
+        var tol = pass === 0 ? 34 : 95;
+        for (off = 0; off <= 600 && sx < 0; off += 24) {
+          var cand = off === 0 ? [base] : [base + off, base - off];
+          for (ci = 0; ci < cand.length; ci++) {
+            var cx = Math.round(cand[ci] / TS) * TS;
+            if (cx < 900 || cx > cfg.len - 320) continue;
+            if (!freeOfGaps(cx) || groundAt(cx) === null || swingerTooClose(cx)) continue;
+            if (!flatSpan(cx, 95, tol)) continue;
+            sx = cx;
+            break;
           }
-          if (tooClose) continue;
-          sx = cx;
+        }
+      }
+      /* pass 2: near the nominal slot even if the ground is not flat */
+      if (sx < 0) {
+        for (off = 0; off <= 600 && sx < 0; off += 24) {
+          cand = off === 0 ? [base] : [base + off, base - off];
+          for (ci = 0; ci < cand.length; ci++) {
+            var cx1 = Math.round(cand[ci] / TS) * TS;
+            if (cx1 < 900 || cx1 > cfg.len - 320) continue;
+            if (!freeOfGaps(cx1) || groundAt(cx1) === null || swingerTooClose(cx1)) continue;
+            sx = cx1;
+            break;
+          }
+        }
+      }
+      /* pass 3: scan the whole course for a readable flat stretch */
+      if (sx < 0) {
+        for (var cx2 = 900; cx2 <= cfg.len - 320; cx2 += 24) {
+          if (!freeOfGaps(cx2) || groundAt(cx2) === null || swingerTooClose(cx2)) continue;
+          if (!flatSpan(cx2, 95, 120)) continue;
+          sx = cx2;
           break;
         }
       }
+      /* pass 4: last resort, any clear spot away from chasms */
       if (sx < 0) {
-        /* fallback: original spread-out slot, nudged clear of the chasms */
-        var fbase = Math.round(base / TS) * TS;
-        for (var guard = 0; guard < 40; guard++) {
-          var cx2 = fbase + guard * 60;
-          if (cx2 >= cfg.len - 320) break;
-          var clash = false;
-          for (var fq = 0; fq < swingers.length; fq++) {
-            if (Math.abs(swingers[fq].x - cx2) < 260) { clash = true; break; }
-          }
-          if (!clash && freeOfGaps(cx2) && groundAt(cx2) !== null) { sx = cx2; break; }
+        for (var cx3 = 900; cx3 <= cfg.len - 320; cx3 += 24) {
+          if (!freeOfGaps(cx3) || groundAt(cx3) === null || swingerTooClose(cx3)) continue;
+          sx = cx3;
+          break;
         }
       }
-      if (sx >= 0 && sx < cfg.len - 300 && freeOfGaps(sx) && groundAt(sx) !== null) {
-        var pivotBase = -1e9;
-        for (var pg = sx - 60; pg <= sx + 60; pg += 10) {
-          var pgy = groundAt(pg);
-          if (pgy !== null && pgy > pivotBase) pivotBase = pgy;
-        }
-        if (pivotBase < -1e8) pivotBase = groundAt(sx);
-        swingers.push({
-          x: sx,
-          phase: i * 2.1,
-          omega: SWING_OMEGA + levelIdx * SWING_STEP,
-          pivotBase: pivotBase
-        });
-      }
+      if (sx >= 0) addSwinger(Math.round(sx / TS) * TS, i);
     }
   }
 
@@ -584,7 +698,8 @@
       msg: 'Catch your breath — the trail will wait.',
       stats: [
         { label: 'Score', value: score },
-        { label: 'Level', value: levelIdx + 1 },
+        { label: 'Level', value: (levelIdx + 1) + '/' + LEVELS.length },
+        { label: 'Tier', value: (levelIdx + 1) + '/9' },
         { label: 'Time', value: Math.ceil(timeLeft) + 's' }
       ],
       btn: '▶ Resume',
@@ -641,11 +756,14 @@
     GameShell.overlay.show({
       title: lastLevel ? 'Trail complete!' : 'Level cleared!',
       msg: (lastLevel ? 'You conquered all ' + LEVELS.length + ' trails of ' : 'You crossed ') + cfg.name +
-           ' with ' + Math.ceil(timeLeft) + ' seconds left. Clear bonus: +' + bonus + '.',
+           ' with ' + Math.ceil(timeLeft) + ' seconds left.' +
+           (lastLevel ? '' : ' Next trail is harder: longer, rougher and tighter on time.') +
+           ' Clear bonus: +' + bonus + '.',
       stats: [
         { label: 'Score', value: score },
         { label: 'Best', value: best },
-        { label: 'Level', value: (levelIdx + 1) + '/' + LEVELS.length }
+        { label: 'Level', value: (levelIdx + 1) + '/' + LEVELS.length },
+        { label: 'Tier', value: (levelIdx + 1) + '/9' }
       ],
       btn: lastLevel ? '▶ Play again' : '▶ Next level',
       action: lastLevel ? start : nextLevel
@@ -655,14 +773,17 @@
   function updateHud() {
     hudDirty = false;
     hudSec = Math.ceil(timeLeft);
+    var st = levelStats(levelIdx);
+    var cue = st.nextHarder ? 'next: harder' : 'final trail';
     GameShell.hud(
       {
         Score: score,
         Best: Math.max(best, score),
         Level: (levelIdx + 1) + '/' + LEVELS.length,
+        Tier: st.tier + '/9',
         Time: hudSec + 's'
       },
-      state === 'paused' ? '⏸ Paused' : '↑ throttle · ←→ lean'
+      state === 'paused' ? '⏸ Paused' : '↑ throttle · ←→ lean · L' + (levelIdx + 1) + '/9 · ' + cue
     );
   }
 
@@ -1237,8 +1358,13 @@
     ctx.font = '700 15px ' + FONT;
     ctx.fillStyle = 'rgba(147,163,194,.95)';
     ctx.fillText(cfg.name, 14, 26);
+    ctx.font = '700 10px ' + FONT;
+    ctx.fillStyle = 'rgba(46,230,166,.9)';
+    ctx.fillText('LEVEL ' + (levelIdx + 1) + '/' + LEVELS.length +
+                 (levelIdx < LEVELS.length - 1 ? ' · NEXT: HARDER' : ' · FINAL'), 14, 42);
     ctx.fillStyle = timeLeft <= 10 && state === 'running' ? '#ff5c7a' : '#f5b12b';
     ctx.textAlign = 'right';
+    ctx.font = '700 15px ' + FONT;
     ctx.fillText(Math.ceil(timeLeft) + 's', W - 14, 26);
 
     if (state === 'paused') {
@@ -1385,6 +1511,13 @@
               };
             }),
             difficulty: cfg ? {
+              tier: levelIdx + 1,
+              tiers: LEVELS.length,
+              difficultyScore: levelStats(levelIdx).score,
+              nextHarder: levelIdx < LEVELS.length - 1,
+              hazardFactor: cfg.hazard,
+              requiredSpeed: levelStats(levelIdx).requiredSpeed,
+              timePerPixel: levelStats(levelIdx).timePerPixel,
               amp: cfg.amp,
               rough: cfg.rough,
               gaps: gaps.length,

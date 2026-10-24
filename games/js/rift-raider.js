@@ -35,10 +35,12 @@
   var homingMs, pierceMs, bombFlash, upgradeChoices, upgradeRects, upgradeSel;
   var upDamage, upRate, upPierce, shieldUp, lifeUp, powerupSpawns, powerupCount;
   var boss, bossNum, bossAt, bossesSpawned, bossesDefeated, upgradeCount, bombsUsed;
+  var bossWarnMs, bossDeath, victoryMs, level, levelBannerMs, levelBannerText;
   var newBest = false, rafId = 0, lastT = 0;
 
-  /* Boss milestones: the first arrives at 1250 m, then roughly every 1400 m. */
-  var FIRST_BOSS = 1250, BOSS_GAP = 1400;
+  /* Boss milestones: the first duel at 720 m, then roughly every 1000 m. */
+  var FIRST_BOSS = 720, BOSS_GAP = 1000;
+  var BOSS_NAMES = ['Crimson Warden', 'Violet Hydra', 'Amber Tyrant'];
 
   var UPGRADES = {
     damage: { title: 'Heavy Rounds', desc: '+1 cannon damage', col: '#fb7185' },
@@ -62,6 +64,18 @@
   /* ---------------- helpers ---------------- */
 
   function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+  function sfx(name) {
+    if (window.PixelPlayAudio) window.PixelPlayAudio.sfx(name);
+  }
+
+  function threatName(lv) {
+    if (lv <= 2) return 'Low';
+    if (lv <= 4) return 'Rising';
+    if (lv <= 6) return 'High';
+    if (lv <= 8) return 'Severe';
+    return 'Critical';
+  }
 
   function toast(x, y, txt, colour) {
     texts.push({ x: x, y: y, txt: txt, colour: colour || '#e8eefc', life: 900, max: 900 });
@@ -104,8 +118,8 @@
     if (spacer) {
       if (state === 'paused') spacer.textContent = '⏸ Paused';
       else if (state === 'upgrade') spacer.textContent = 'Boss defeated — choose an upgrade';
-      else if (boss) spacer.textContent = '⚠ ' + boss.name + ' · ' + metres() + ' m';
-      else spacer.textContent = 'Distance ' + metres() + ' m';
+      else if (boss) spacer.textContent = '⚠ ' + boss.name + ' · phase ' + boss.phase + ' · ' + metres() + ' m';
+      else spacer.textContent = 'Threat ' + level + ' · ' + threatName(level) + ' · ' + metres() + ' m';
     }
   }
 
@@ -117,6 +131,7 @@
     var verts = [], i;
     for (i = 0; i < n; i++) verts.push(0.72 + Math.random() * 0.42);
     var hp = r < 16 ? 1 : (r < 23 ? 2 : 3);
+    if (level >= 8) hp++;
     rocks.push({
       x: W + 30 + Math.random() * 70,
       y: 34 + Math.random() * (H - 68),
@@ -131,12 +146,13 @@
 
   function spawnEnemy() {
     var y = 46 + Math.random() * (H - 92);
+    var hp = 3 + Math.floor((level - 1) / 3);
     enemies.push({
       x: W + 50, y: y, y0: y,
-      r: 16, hp: 3, maxHp: 3,
-      vx: -(scroll * 0.72 + 26),
+      r: 16, hp: hp, maxHp: hp,
+      vx: -(scroll * 0.72 + 26 + level * 5),
       phase: Math.random() * Math.PI * 2,
-      fire: 800 + Math.random() * 1000,
+      fire: Math.max(420, 1100 - level * 55) + Math.random() * 900,
       hurt: 0
     });
   }
@@ -190,12 +206,13 @@
       bullets.push({
         x: ship.x + 22,
         y: ship.y + vy * 0.02,
-        vx: 650, vy: vy, life: 1.3, r: 4,
+        vx: 800, vy: vy, life: 1.3, r: 4,
         dmg: dmg, pierce: piercing, homing: homing, cool: 0
       });
     }
     if (bullets.length > 140) bullets.splice(0, bullets.length - 140);
     muzzle = 60;
+    sfx('shoot');
   }
 
   function nearestTarget(x, y) {
@@ -218,21 +235,25 @@
     return bestT;
   }
 
-  function hurt() {
+  function hurt(dmg) {
     if (invuln > 0 || state !== 'running') return;
+    var loss = Math.max(1, dmg || 1);
     if (shield) {
       shield = false;
       invuln = 900;
       shake = Math.max(shake, 7);
       burst(ship.x, ship.y, 18, '#a78bfa', 170);
       toast(ship.x + 30, ship.y - 26, 'Shield absorbed it!', '#c4b5fd');
+      sfx('hit');
       paintHud();
       return;
     }
-    lives--;
+    lives -= loss;
     invuln = 1600;
     shake = Math.max(shake, 14);
     burst(ship.x, ship.y, 24, '#f87171', 210);
+    if (loss > 1) toast(ship.x + 34, ship.y - 38, '-' + loss + ' hull!', '#fca5a5');
+    sfx('hit');
     rapidMs = 0;
     spreadMs = 0;
     homingMs = 0;
@@ -250,6 +271,7 @@
     bonus += 8;
     burst(r.x, r.y, 12, '#94a3b8', 140);
     toast(r.x, r.y - 12, '+8', '#cbd5e1');
+    sfx('thud');
   }
 
   function destroyEnemy(e, i) {
@@ -260,6 +282,7 @@
     if (Math.random() < 0.26) {
       powerups.push(makePowerup(e.x, e.y));
     }
+    sfx('explode');
     paintHud();
   }
 
@@ -297,83 +320,173 @@
       if (boss.hp <= 0) defeatBoss();
     }
     toast(ship.x + 54, ship.y - 34, 'BOMB!', '#fdba74');
+    sfx('explode');
     paintHud();
   }
 
   /* ---------------- bosses ---------------- */
 
+  /* Every boss is a little tougher, quicker and more dangerous than the last. */
+  function bossStats(n) {
+    var variant = (n - 1) % 3;
+    var steps = Math.max(0, n - 1);
+    var distSteps = Math.max(0, Math.floor((dist - FIRST_BOSS) / BOSS_GAP));
+    return {
+      variant: variant,
+      name: BOSS_NAMES[variant],
+      hp: Math.round(38 + variant * 6 + steps * 28 + distSteps * 9),
+      speed: Math.min(1.9, 1 + steps * 0.08 + distSteps * 0.02),
+      fireGap: Math.max(0.5, [1.28, 1.12, 1.2][variant] - steps * 0.05),
+      damage: Math.min(3, 1 + Math.floor(n / 2))
+    };
+  }
+
+  function clearLaneForBoss() {
+    var i;
+    for (i = 0; i < enemies.length; i++) burst(enemies[i].x, enemies[i].y, 8, '#fb7185', 130);
+    for (i = 0; i < rocks.length; i++) burst(rocks[i].x, rocks[i].y, 6, '#94a3b8', 90);
+    enemies.length = 0;
+    rocks.length = 0;
+    ebullets.length = 0;
+  }
+
   function spawnBoss() {
     bossNum++;
-    var variant = bossNum % 2 === 1 ? 0 : 1;
-    var baseHp = variant === 0 ? 80 : 108;
-    var hp = Math.round(baseHp + (bossNum - 1) * 46);
+    var st = bossStats(bossNum);
+    clearLaneForBoss();
     boss = {
-      variant: variant,
-      name: variant === 0 ? 'Crimson Warden' : 'Violet Hydra',
-      x: W + 100, y: H / 2, y0: H / 2,
-      r: variant === 0 ? 46 : 42,
-      hp: hp, maxHp: hp,
+      variant: st.variant,
+      name: st.name,
+      x: W + 130, y: H / 2, y0: H / 2,
+      r: [46, 42, 40][st.variant],
+      hp: st.hp, maxHp: st.hp,
       hurt: 0,
       entering: true,
-      fireT: 1.4,
+      phase: 1, phase2: false,
+      fireT: 1.5,
       cycle: 0,
       spiral: 0,
-      phase: Math.random() * Math.PI * 2,
-      targetX: W - 118
+      wobble: Math.random() * Math.PI * 2,
+      targetX: W - 118,
+      speed: st.speed,
+      fireGap: st.fireGap,
+      damage: st.damage,
+      entrySpeed: 88 + bossNum * 9
     };
     bossesSpawned++;
-    ebullets.length = 0;
-    toast(W / 2 - 40, H / 2 - 90, 'WARNING — ' + boss.name, '#fca5a5');
+    bossWarnMs = 2400;
     shake = Math.max(shake, 8);
+    toast(W / 2 - 70, H / 2 - 58, 'WARNING — ' + boss.name, '#fca5a5');
+    sfx('laser');
     paintHud();
   }
 
-  function bossShot(x, y, vx, vy, col) {
-    ebullets.push({ x: x, y: y, vx: vx, vy: vy, life: 4.2, col: col || '#fdba74' });
-    if (ebullets.length > 130) ebullets.shift();
+  function bossShot(x, y, vx, vy, col, dmg, r) {
+    ebullets.push({
+      x: x, y: y, vx: vx, vy: vy, life: 4.6,
+      col: col || '#fdba74', dmg: dmg || 1, r: r || 4
+    });
+    if (ebullets.length > 140) ebullets.shift();
   }
 
   function bossFire() {
     if (!boss) return;
-    var i, a, sp;
+    var i, a, sp, base, count, sx;
+    var p2 = boss.phase2;
+    var dmg = boss.damage;
     boss.cycle++;
 
     if (boss.variant === 0) {
-      /* Crimson Warden: aimed triple burst, then a wide fan. */
-      if (boss.cycle % 2 === 1) {
-        var base = Math.atan2(ship.y - boss.y, ship.x - boss.x);
-        for (i = -1; i <= 1; i++) {
-          a = base + i * 0.15;
-          sp = 330;
-          bossShot(boss.x - boss.r * 0.7, boss.y,
-                   Math.cos(a) * sp, Math.sin(a) * sp, '#fdba74');
+      /* Crimson Warden: aimed volleys, wide fans, saturated side bursts. */
+      if (boss.cycle % 3 === 0) {
+        count = p2 ? 15 : 11;
+        for (i = 0; i < count; i++) {
+          a = Math.PI + (i - (count - 1) / 2) * (p2 ? 0.13 : 0.16);
+          sp = p2 ? 260 : 225;
+          bossShot(boss.x - boss.r * 0.55, boss.y, Math.cos(a) * sp, Math.sin(a) * sp, '#fb7185', dmg, 4);
         }
       } else {
+        base = Math.atan2(ship.y - boss.y, ship.x - boss.x);
+        count = p2 ? 5 : 3;
+        for (i = 0; i < count; i++) {
+          a = base + (i - (count - 1) / 2) * 0.12;
+          sp = p2 ? 370 : 330;
+          bossShot(boss.x - boss.r * 0.7, boss.y, Math.cos(a) * sp, Math.sin(a) * sp, '#fdba74', dmg, 4.5);
+        }
+        if (p2) {
+          bossShot(boss.x - 10, boss.y - boss.r * 0.5, -300, -38, '#fca5a5', dmg, 4);
+          bossShot(boss.x - 10, boss.y + boss.r * 0.5, -300, 38, '#fca5a5', dmg, 4);
+        }
+      }
+    } else if (boss.variant === 1) {
+      /* Violet Hydra: rotating spirals and walls with a safe gap. */
+      if (boss.cycle % 3 === 0) {
+        var gaps = p2
+          ? [2 + ((Math.random() * 3) | 0), 6 + ((Math.random() * 3) | 0)]
+          : [1 + ((Math.random() * 6) | 0)];
         for (i = 0; i < 9; i++) {
-          a = Math.PI + (i - 4) * 0.15;
-          bossShot(boss.x - boss.r * 0.6, boss.y, Math.cos(a) * 235, Math.sin(a) * 235, '#fb7185');
+          if (gaps.indexOf(i) >= 0) continue;
+          bossShot(boss.x - boss.r * 0.6, 42 + i * 42, -(p2 ? 250 : 215), 0, '#a78bfa', dmg, 4);
+        }
+      } else {
+        boss.spiral += p2 ? 0.72 : 0.5;
+        count = p2 ? 5 : 3;
+        for (i = 0; i < count; i++) {
+          a = boss.spiral + i * (Math.PI * 2 / count);
+          sp = p2 ? 250 : 210;
+          bossShot(boss.x, boss.y, Math.cos(a) * sp, Math.sin(a) * sp, '#c4b5fd', dmg, 4);
+        }
+      }
+      if (p2 && boss.cycle % 2 === 0) {
+        base = Math.atan2(ship.y - boss.y, ship.x - boss.x);
+        for (i = -1; i <= 1; i++) {
+          bossShot(boss.x - boss.r * 0.7, boss.y,
+                   Math.cos(base + i * 0.1) * 420, Math.sin(base + i * 0.1) * 420,
+                   '#f0abfc', dmg, 4.5);
         }
       }
     } else {
-      /* Violet Hydra: rotating triple spiral, alternating with a wall that leaves a gap. */
-      if (boss.cycle % 3 !== 0) {
-        boss.spiral += 0.55;
-        for (i = 0; i < 3; i++) {
-          a = boss.spiral + i * (Math.PI * 2 / 3);
-          bossShot(boss.x, boss.y, Math.cos(a) * 205, Math.sin(a) * 205, '#c4b5fd');
+      /* Amber Tyrant: top/bottom side streams, radial rings and shotguns. */
+      if (boss.cycle % 3 === 0) {
+        count = p2 ? 4 : 3;
+        for (i = 0; i < count; i++) {
+          sx = W - 60 - i * 52;
+          bossShot(sx, 26, -140, 240, '#fbbf24', dmg, 4);
+          bossShot(sx, H - 26, -140, -240, '#fbbf24', dmg, 4);
+        }
+      } else if (boss.cycle % 3 === 1) {
+        count = p2 ? 14 : 10;
+        boss.spiral += p2 ? 0.66 : 0.48;
+        for (i = 0; i < count; i++) {
+          a = boss.spiral + i * (Math.PI * 2 / count);
+          sp = p2 ? 235 : 200;
+          bossShot(boss.x, boss.y, Math.cos(a) * sp, Math.sin(a) * sp, '#fde68a', dmg, 4);
         }
       } else {
-        var gap = 1 + ((Math.random() * 6) | 0);
-        for (i = 0; i < 8; i++) {
-          if (i === gap) continue;
-          bossShot(boss.x - boss.r * 0.6, 54 + i * 44, -205, 0, '#a78bfa');
+        base = Math.atan2(ship.y - boss.y, ship.x - boss.x);
+        count = p2 ? 4 : 3;
+        for (i = 0; i < count; i++) {
+          a = base + (i - (count - 1) / 2) * (p2 ? 0.16 : 0.22);
+          sp = p2 ? 390 : 350;
+          bossShot(boss.x - boss.r * 0.7, boss.y, Math.cos(a) * sp, Math.sin(a) * sp, '#fcd34d', dmg, 4.5);
         }
       }
-      if (boss.cycle % 4 === 0) {
-        bossShot(boss.x - boss.r * 0.7, boss.y,
-                 -360, clamp((ship.y - boss.y) * 0.9, -210, 210), '#f0abfc');
-      }
     }
+    sfx('laser');
+  }
+
+  function enterPhase2() {
+    if (!boss || boss.phase2) return;
+    boss.phase2 = true;
+    boss.phase = 2;
+    boss.fireT = 1.0;
+    boss.hurt = 260;
+    ebullets.length = 0;              /* the enrage shockwave clears the screen */
+    shake = Math.max(shake, 11);
+    burst(boss.x, boss.y, 36, '#fda4af', 260);
+    toast(boss.x - 90, boss.y - boss.r - 26, 'PHASE 2 — ' + boss.name.toUpperCase() + ' ENRAGES', '#fda4af');
+    sfx('dash');
+    paintHud();
   }
 
   function updateBoss(s, dt) {
@@ -381,46 +494,66 @@
     if (boss.hurt > 0) boss.hurt -= dt;
 
     if (boss.entering) {
-      boss.x -= 92 * s;
+      boss.x -= boss.entrySpeed * s;
+      boss.y = H / 2 + Math.sin(clock / 260 + boss.wobble) * 22;
       if (boss.x <= boss.targetX) {
         boss.x = boss.targetX;
         boss.entering = false;
-        boss.fireT = 1.1;
+        boss.fireT = 0.9;
+        burst(boss.x, boss.y, 18, boss.variant === 1 ? '#c4b5fd' : (boss.variant === 2 ? '#fcd34d' : '#fca5a5'), 180);
+        shake = Math.max(shake, 7);
       }
     } else {
-      boss.y = clamp(H / 2 + Math.sin(clock / 720 + boss.phase) * 92, 82, H - 82);
+      var move = boss.phase2 ? 1.35 : 1;
+      var amp = Math.min(126, 68 + bossNum * 5) * (boss.phase2 ? 1.1 : 1);
+      var yRate = boss.phase2 ? 620 : 760;
+      boss.y = clamp(H / 2 + Math.sin(clock / yRate + boss.wobble) * amp, 78, H - 78);
+
+      var xRange = boss.phase2 ? 42 : 8;
+      var xRate = boss.phase2 ? 520 : 1200;
+      boss.x = clamp(boss.targetX - xRange * 0.5 + Math.sin(clock / xRate + boss.wobble * 0.7) * xRange * move,
+                     W - 190, W - 78);
+
       boss.fireT -= s;
       if (boss.fireT <= 0) {
         bossFire();
-        var speedUp = Math.min(0.4, bossNum * 0.05);
-        boss.fireT = (boss.variant === 0 ? 1.35 : 1.15) - speedUp;
+        var gap = boss.fireGap * (boss.phase2 ? 0.72 : 1);
+        boss.fireT = Math.max(0.34, gap * (0.85 + Math.random() * 0.3));
       }
+      if (!boss.phase2 && boss.hp <= boss.maxHp * 0.5) enterPhase2();
     }
 
     if (state === 'running') {
       var bdx = boss.x - ship.x, bdy = boss.y - ship.y;
       var bt = boss.r * 0.72 + SHIP_R;
       if (bdx * bdx + bdy * bdy < bt * bt) {
-        hurt();
+        hurt(boss.damage);
       }
     }
   }
 
   function defeatBoss() {
     if (!boss) return;
-    var bx = boss.x, by = boss.y;
+    var bx = boss.x, by = boss.y, bv = boss.variant;
     var payout = 250 + bossNum * 100;
     bonus += payout;
     bossesDefeated++;
     boss = null;
     ebullets.length = 0;
+    bossWarnMs = 0;
+    bossAt = metres() + BOSS_GAP;
+    bossDeath = {
+      x: bx, y: by, r: [46, 42, 40][bv],
+      life: 1100, max: 1100, variant: bv
+    };
+    victoryMs = 1200;
     shake = Math.max(shake, 18);
     burst(bx, by, 60, '#fde68a', 320);
     burst(bx, by, 40, '#fb7185', 240);
     burst(bx, by, 30, '#ffffff', 180);
     toast(bx - 40, by, 'BOSS DOWN +' + payout, '#fde68a');
     powerups.push(makePowerup(bx, by));
-    openUpgrade();
+    sfx('explode');
     paintHud();
   }
 
@@ -452,11 +585,11 @@
 
     upgradeCount++;
     bonus += 30;
-    bossAt = Math.max(bossAt, metres() + BOSS_GAP);
     state = 'running';
     upgradeChoices = [];
     upgradeRects = [];
     toast(ship.x + 70, ship.y - 44, UPGRADES[id].title + '!', UPGRADES[id].col);
+    sfx('select');
     paintHud();
   }
 
@@ -517,6 +650,12 @@
     bossAt = FIRST_BOSS;
     bossesSpawned = 0;
     bossesDefeated = 0;
+    bossWarnMs = 0;
+    bossDeath = null;
+    victoryMs = 0;
+    level = 1;
+    levelBannerMs = 0;
+    levelBannerText = '';
     upgradeCount = 0;
     bombsUsed = 0;
     upgradeChoices = [];
@@ -562,6 +701,7 @@
       newBest = true;
       GameShell.best.set(BEST_KEY, best);
     }
+    sfx('lose');
     paintHud();
     GameShell.overlay.show({
       title: newBest ? 'New high score!' : 'Ship destroyed',
@@ -595,9 +735,16 @@
     var s = dt / 1000;
     var i, j, b;
 
-    /* difficulty rises with distance */
-    var level = 1 + Math.floor(dist / 340);
-    scroll = Math.min(MAX_SCROLL, BASE_SCROLL + (level - 1) * 16);
+    /* threat rises with distance and tightens every spawn timer */
+    var nextLevel = 1 + Math.floor(dist / 340);
+    if (nextLevel !== level) {
+      level = nextLevel;
+      levelBannerMs = 1900;
+      levelBannerText = 'THREAT ' + level + ' — ' + threatName(level).toUpperCase();
+      toast(W / 2 - 70, 96, 'THREAT ' + level + ' — ' + threatName(level).toUpperCase(), '#fcd34d');
+      sfx('point');
+    }
+    scroll = Math.min(MAX_SCROLL, BASE_SCROLL + (level - 1) * 22);
 
     dist += scroll * s / 10;                 /* 10 px = 1 metre */
 
@@ -609,9 +756,22 @@
     if (homingMs > 0) homingMs = Math.max(0, homingMs - dt);
     if (pierceMs > 0) pierceMs = Math.max(0, pierceMs - dt);
     if (bombFlash > 0) bombFlash = Math.max(0, bombFlash - dt);
+    if (bossWarnMs > 0) bossWarnMs = Math.max(0, bossWarnMs - dt);
+    if (levelBannerMs > 0) levelBannerMs = Math.max(0, levelBannerMs - dt);
+    if (bossDeath) {
+      bossDeath.life -= dt;
+      if (bossDeath.life <= 0) bossDeath = null;
+    }
+    if (victoryMs > 0) {
+      victoryMs = Math.max(0, victoryMs - dt);
+      if (victoryMs === 0) {
+        openUpgrade();
+        return;
+      }
+    }
 
     /* boss arrivals are distance milestones, not random spawns */
-    if (!boss && dist >= bossAt) spawnBoss();
+    if (!boss && victoryMs <= 0 && dist >= bossAt) spawnBoss();
 
     /* --- ship --- */
     var tx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
@@ -630,16 +790,16 @@
     }
 
     /* --- spawning (the boss clears the lane for its duel) --- */
-    if (!boss) {
+    if (!boss && victoryMs <= 0) {
       rockMs -= dt;
       if (rockMs <= 0) {
         spawnRock();
-        rockMs = Math.max(300, 950 - level * 45) * (0.7 + Math.random() * 0.6);
+        rockMs = Math.max(240, 880 - level * 58) * (0.68 + Math.random() * 0.64);
       }
       enemyMs -= dt;
       if (enemyMs <= 0) {
         spawnEnemy();
-        enemyMs = Math.max(900, 2700 - level * 140) * (0.7 + Math.random() * 0.6);
+        enemyMs = Math.max(650, 2500 - level * 170) * (0.68 + Math.random() * 0.64);
       }
       powMs -= dt;
       if (powMs <= 0) {
@@ -681,7 +841,7 @@
       e.fire -= dt;
       if (e.fire <= 0 && e.x < W - 40) {
         enemyShot(e);
-        e.fire = Math.max(700, 1500 + Math.random() * 900 - level * 60);
+        e.fire = Math.max(520, 1500 + Math.random() * 900 - level * 80);
       }
       if (state === 'running') {
         var edx = e.x - ship.x, edy = e.y - ship.y;
@@ -753,12 +913,14 @@
       }
       if (!hit && boss) {
         var obx = boss.x - b.x, oby = boss.y - b.y;
-        var obl = boss.r * 0.78 + b.r;
+        var obl = boss.r * 0.95 + b.r;
         if (obx * obx + oby * oby < obl * obl) {
           boss.hp -= b.dmg;
           boss.hurt = 80;
-          burst(b.x, b.y, 4, boss.variant === 0 ? '#fecaca' : '#ddd6fe', 90);
+          burst(b.x, b.y, 4,
+                boss.variant === 0 ? '#fecaca' : (boss.variant === 1 ? '#ddd6fe' : '#fef08a'), 90);
           if (boss.hp <= 0) defeatBoss();
+          else if (!boss.phase2 && boss.hp <= boss.maxHp * 0.5) enterPhase2();
           hit = true;
         }
       }
@@ -780,10 +942,11 @@
       b.life -= s;
       if (b.life <= 0 || b.x < -20 || b.y < -20 || b.y > H + 20) { ebullets.splice(i, 1); continue; }
       var bx = b.x - ship.x, by = b.y - ship.y;
-      var bl = SHIP_R + 5;
+      /* the cockpit hitbox is deliberately smaller than the ship sprite */
+      var bl = SHIP_R * 0.62 + (b.r || 4);
       if (state === 'running' && bx * bx + by * by < bl * bl) {
         ebullets.splice(i, 1);
-        hurt();
+        hurt(b.dmg || 1);
       }
     }
 
@@ -820,6 +983,7 @@
             shield = true;
             toast(ship.x + 46, ship.y - 30, 'Shield up!', '#c4b5fd');
           }
+          if (p.type !== 'bomb') sfx('powerup');
           paintHud();
         }
       }
@@ -1116,7 +1280,7 @@
       ctx.beginPath();
       ctx.arc(-boss.r * 0.15, 0, 9 + Math.sin(clock / 200) * 2, 0, Math.PI * 2);
       ctx.fill();
-    } else {
+    } else if (boss.variant === 1) {
       /* Violet Hydra: a round core with three orbiting stingers. */
       ctx.shadowColor = '#a855f7';
       ctx.shadowBlur = 24;
@@ -1147,21 +1311,67 @@
       ctx.beginPath();
       ctx.arc(0, 0, 8, 0, Math.PI * 2);
       ctx.fill();
+    } else {
+      /* Amber Tyrant: a gold-plated diamond with top and bottom cannon prongs. */
+      ctx.shadowColor = '#f59e0b';
+      ctx.shadowBlur = 24;
+      ctx.fillStyle = hit ? '#ffffff' : '#78350f';
+      ctx.beginPath();
+      ctx.moveTo(-boss.r, 0);
+      ctx.lineTo(0, -boss.r * 0.9);
+      ctx.lineTo(boss.r, 0);
+      ctx.lineTo(0, boss.r * 0.9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = hit ? '#ffffff' : '#fcd34d';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      ctx.fillStyle = hit ? '#ffffff' : '#b45309';
+      ctx.beginPath();
+      ctx.moveTo(-boss.r * 0.5, -boss.r * 0.75);
+      ctx.lineTo(-boss.r * 0.95, -boss.r * 1.25);
+      ctx.lineTo(-boss.r * 0.25, -boss.r * 1.05);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-boss.r * 0.5, boss.r * 0.75);
+      ctx.lineTo(-boss.r * 0.95, boss.r * 1.25);
+      ctx.lineTo(-boss.r * 0.25, boss.r * 1.05);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(253,230,138,.8)';
+      ctx.lineWidth = 2;
+      for (var q = 0; q < 3; q++) {
+        var qa = clock / 500 + q * (Math.PI * 2 / 3);
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(qa) * boss.r * 0.5, Math.sin(qa) * boss.r * 0.5);
+        ctx.lineTo(Math.cos(qa) * boss.r * 0.95, Math.sin(qa) * boss.r * 0.95);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#fef3c7';
+      ctx.beginPath();
+      ctx.arc(0, 0, 9 + Math.sin(clock / 160) * 2, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.restore();
 
     /* visible boss health bar across the top of the playfield */
     var bw = 420, bx = (W - bw) / 2, by = 22;
     var frac = clamp(boss.hp / boss.maxHp, 0, 1);
+    var barCol = boss.variant === 0 ? '#ef4444' : (boss.variant === 1 ? '#a855f7' : '#f59e0b');
     ctx.save();
     ctx.fillStyle = 'rgba(5,7,14,.78)';
     ctx.fillRect(bx - 4, by - 4, bw + 8, 22);
     ctx.fillStyle = '#1c2740';
     ctx.fillRect(bx, by, bw, 14);
-    ctx.fillStyle = boss.variant === 0 ? '#ef4444' : '#a855f7';
+    ctx.fillStyle = barCol;
     ctx.fillRect(bx, by, bw * frac, 14);
     ctx.fillStyle = 'rgba(255,255,255,.28)';
     ctx.fillRect(bx, by, bw * frac, 4);
+    /* 50% phase threshold */
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.fillRect(bx + bw * 0.5, by, 1.5, 14);
     ctx.strokeStyle = 'rgba(232,238,252,.4)';
     ctx.lineWidth = 1;
     ctx.strokeRect(bx - 0.5, by - 0.5, bw + 1, 15);
@@ -1169,9 +1379,101 @@
     ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(boss.name.toUpperCase(), bx, by - 11);
+    ctx.fillText(boss.name.toUpperCase() + '  ·  BOSS ' + bossNum +
+                 '  ·  PHASE ' + boss.phase, bx, by - 11);
     ctx.textAlign = 'right';
     ctx.fillText(Math.max(0, Math.ceil(boss.hp)) + ' / ' + boss.maxHp, bx + bw, by - 11);
+    ctx.restore();
+  }
+
+  function drawBossWarning() {
+    if (!boss || (bossWarnMs <= 0 && !boss.entering)) return;
+    var fade = boss.entering ? 1 : clamp(bossWarnMs / 420, 0, 1);
+    var pulse = 0.65 + 0.35 * Math.sin(clock / 110);
+    ctx.save();
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = 'rgba(24,7,13,.88)';
+    ctx.fillRect(0, H * 0.24, W, 86);
+    ctx.strokeStyle = 'rgba(248,113,113,' + (0.55 * pulse) + ')';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, H * 0.24);
+    ctx.lineTo(W, H * 0.24);
+    ctx.moveTo(0, H * 0.24 + 86);
+    ctx.lineTo(W, H * 0.24 + 86);
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fecaca';
+    ctx.font = '800 13px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText('⚠ WARNING — BOSS INBOUND ⚠', W / 2, H * 0.24 + 22);
+    ctx.fillStyle = '#fff1f2';
+    ctx.font = '800 27px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(boss.name.toUpperCase(), W / 2, H * 0.24 + 50);
+    ctx.fillStyle = 'rgba(254,226,226,.8)';
+    ctx.font = '600 12px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText('Normal raiders are holding back — the lane is yours alone', W / 2, H * 0.24 + 72);
+    ctx.restore();
+  }
+
+  function drawLevelBanner() {
+    if (levelBannerMs <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = clamp(levelBannerMs / 420, 0, 1);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(8,12,22,.74)';
+    ctx.fillRect(W / 2 - 190, 74, 380, 34);
+    ctx.strokeStyle = 'rgba(252,211,77,.55)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(W / 2 - 190, 74, 380, 34);
+    ctx.fillStyle = '#fde68a';
+    ctx.font = '800 15px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(levelBannerText, W / 2, 91);
+    ctx.restore();
+  }
+
+  function drawThreatHud() {
+    ctx.save();
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.font = '700 11px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(232,238,252,.72)';
+    ctx.fillText('THREAT ' + level + ' · ' + threatName(level).toUpperCase(), W - 14, 55);
+    if (boss) {
+      ctx.fillStyle = boss.phase2 ? '#fda4af' : '#fca5a5';
+      ctx.fillText('BOSS PHASE ' + boss.phase + (boss.phase2 ? ' · ENRAGED' : ''), W - 14, 71);
+    } else {
+      ctx.fillStyle = 'rgba(148,163,184,.8)';
+      ctx.fillText('NEXT BOSS ' + Math.max(0, Math.round(bossAt - dist)) + ' m', W - 14, 71);
+    }
+    ctx.restore();
+  }
+
+  function drawBossDeath() {
+    if (!bossDeath) return;
+    var f = clamp(bossDeath.life / bossDeath.max, 0, 1);
+    var age = 1 - f;
+    var rad = bossDeath.r * (0.55 + age * 2.8);
+    var col = bossDeath.variant === 0 ? '#f87171' : (bossDeath.variant === 1 ? '#c084fc' : '#fbbf24');
+    ctx.save();
+    ctx.globalAlpha = f * 0.75;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 6 * f + 1;
+    ctx.beginPath();
+    ctx.arc(bossDeath.x, bossDeath.y, rad, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = f * 0.45;
+    ctx.strokeStyle = '#fef3c7';
+    ctx.lineWidth = 3 * f + 1;
+    ctx.beginPath();
+    ctx.arc(bossDeath.x, bossDeath.y, rad * 0.62, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = f * 0.8;
+    ctx.fillStyle = '#fff7ed';
+    ctx.beginPath();
+    ctx.arc(bossDeath.x, bossDeath.y, bossDeath.r * (0.5 + age * 0.8), 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
 
@@ -1241,7 +1543,7 @@
 
     ctx.fillStyle = 'rgba(232,238,252,.55)';
     ctx.font = '600 12px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText('The rift pushes on. Bosses return every ' + BOSS_GAP + ' m.', W / 2, 356);
+    ctx.fillText('The rift pushes on. Every boss is stronger — the next duel is about ' + BOSS_GAP + ' m away.', W / 2, 356);
     ctx.restore();
   }
 
@@ -1360,6 +1662,7 @@
     for (i = 0; i < powerups.length; i++) drawPowerup(powerups[i]);
     for (i = 0; i < enemies.length; i++) drawEnemy(enemies[i]);
     drawBoss();
+    drawBossDeath();
 
     /* enemy plasma */
     ctx.save();
@@ -1369,7 +1672,7 @@
       ctx.shadowBlur = 10;
       ctx.fillStyle = eb.col || '#fdba74';
       ctx.beginPath();
-      ctx.arc(eb.x, eb.y, 4, 0, Math.PI * 2);
+      ctx.arc(eb.x, eb.y, eb.r || 4, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();
@@ -1453,6 +1756,10 @@
       ctx.fillRect(0, 0, W, H);
       ctx.restore();
     }
+
+    drawThreatHud();
+    drawLevelBanner();
+    drawBossWarning();
 
     if (state === 'upgrade') drawUpgradePanel();
   }
@@ -1599,6 +1906,12 @@
   bossAt = FIRST_BOSS;
   bossesSpawned = 0;
   bossesDefeated = 0;
+  bossWarnMs = 0;
+  bossDeath = null;
+  victoryMs = 0;
+  level = 1;
+  levelBannerMs = 0;
+  levelBannerText = '';
   upgradeCount = 0;
   bombsUsed = 0;
   upgradeChoices = [];
@@ -1616,7 +1929,7 @@
 
   GameShell.overlay.show({
     title: 'Rift Raider',
-    msg: 'Fly with the arrow keys or WASD — your cannon fires on its own. Dodge the rocks, blast the raiders and grab every power-up you can.',
+    msg: 'Fly with the arrow keys or WASD — your cannon fires on its own. The first boss duel is at 720 m; survive its phase-two enrage to earn a permanent upgrade.',
     stats: [{ label: 'Best', value: best }],
     btn: '▶ Play',
     action: start
@@ -1646,17 +1959,36 @@
             lives: lives,
             shipX: Math.round(ship.x),
             shipY: Math.round(ship.y),
+            level: level,
+            threat: threatName(level),
+            bossActive: !!boss,
+            bossName: boss ? boss.name : null,
+            bossHp: boss ? Math.max(0, Math.round(boss.hp)) : 0,
+            bossMaxHp: boss ? boss.maxHp : 0,
+            bossPhase: boss ? boss.phase : 0,
             boss: boss ? {
               name: boss.name,
               variant: boss.variant,
               hp: Math.max(0, Math.round(boss.hp)),
               maxHp: boss.maxHp,
+              phase: boss.phase,
+              phase2: boss.phase2,
               x: Math.round(boss.x),
               y: Math.round(boss.y),
+              speed: Math.round(boss.speed * 100) / 100,
+              damage: boss.damage,
+              fireGap: Math.round(boss.fireGap * 1000) / 1000,
               entering: boss.entering,
               cycle: boss.cycle
             } : null,
             bossAt: Math.round(bossAt),
+            bossCount: bossesSpawned,
+            victoryMs: Math.round(victoryMs),
+            spawn: {
+              rockMs: Math.max(240, 880 - level * 58),
+              enemyMs: Math.max(650, 2500 - level * 170),
+              enemyFireMs: Math.max(520, 1500 - level * 80)
+            },
             powerups: ps,
             enemyBullets: bs,
             active: {
