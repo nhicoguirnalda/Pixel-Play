@@ -111,8 +111,8 @@
   }
 
   function gravInterval() {
-    var g = 0.9 * Math.pow(0.875, level - 1);
-    return g < 0.06 ? 0.06 : g;
+    var g = 0.9 * Math.pow(0.8, level - 1);
+    return g < 0.05 ? 0.05 : g;
   }
 
   /* Higher levels lock pieces sooner, so the stack punishes slow play. */

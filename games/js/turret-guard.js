@@ -120,7 +120,8 @@
     repair: { x: 434, y: H - 50, w: 200, h: 38 }
   };
 
-  var MAX_SPLASH = 4, MAX_PIERCE = 3, MAX_SLOW = 3, MAX_RATE = 5;
+  /* Upgrade ranks shown in the UI start at Lv1, so six purchases reach Lv7. */
+  var MAX_SPLASH = 4, MAX_PIERCE = 6, MAX_SLOW = 3, MAX_RATE = 6;
 
   /* ---------------- helpers ---------------- */
 
@@ -196,7 +197,7 @@
   }
 
   function refreshWeapon() {
-    weapon.rate = Math.max(0.085, 0.26 - upg.rate * 0.035);   /* seconds between shots */
+    weapon.rate = Math.max(0.085, 0.26 - upg.rate * 0.03);   /* seconds between shots */
     weapon.dmg = TURRET_BASE_DMG + upg.dmg * TURRET_DMG_PER_UPGRADE;
     weapon.splashR = upg.splash ? 34 + upg.splash * 10 : 0;
     weapon.splashFrac = upg.splash ? 0.4 + upg.splash * 0.12 : 0;
@@ -1084,7 +1085,7 @@
       ctx.restore();
     }
 
-    panel('rate', '⚡ Fire rate', Math.min(MAX_RATE, upg.rate + 1), rateCost(), credits >= rateCost(), upg.rate >= MAX_RATE);
+    panel('rate', '⚡ Fire rate', upg.rate + 1, rateCost(), credits >= rateCost(), upg.rate >= MAX_RATE);
     panel('dmg', '💥 Damage', upg.dmg + 1, dmgCost(), credits >= dmgCost(), false);
     panel('splash', '✷ Splash', upg.splash + 1, splashCost(), credits >= splashCost(), upg.splash >= MAX_SPLASH);
     panel('pierce', '➤ Pierce', upg.pierce + 1, pierceCost(), credits >= pierceCost(), upg.pierce >= MAX_PIERCE);

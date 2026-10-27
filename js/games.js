@@ -72,7 +72,7 @@ var GAMES = [
     icon: '❌', c1: '#8b5cf6', c2: '#22d3ee',
     plays: '640K', playsN: 640000, rating: 4.4, added: 1,
     controls: 'Click / Tap',
-    desc: 'Three in a row against an unbeatable AI — or grab a friend and share the screen.',
+    desc: 'Climb seven levels of AI - from easy blunders to an unbeatable minimax bot - or share the screen with a friend.',
     url: 'games/tic-tac-toe.html'
   },
   {

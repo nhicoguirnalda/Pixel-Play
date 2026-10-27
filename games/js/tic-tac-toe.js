@@ -1,6 +1,6 @@
 /* ============================================================
    Tic Tac Toe — original game for PixelPlay
-   DOM board: 3x3, minimax AI (Hard) or two players on one screen.
+   DOM board: 3x3, seven-level minimax AI or two players on one screen.
    You are X and always move first against the AI.
    ============================================================ */
 
@@ -18,11 +18,15 @@
   ];
 
   var els = [], board = [];
-  var turn = 'X', mode = 'ai', hard = true, busy = false;
+  var turn = 'X', mode = 'ai', level = 1, busy = false;
   var state = 'ready';               /* ready | running | over */
   var aiTimer = 0, aiPaused = false;
   var wins = 0, draws = 0, losses = 0;
   var streak = GameShell.best.get(BEST_KEY, 0);
+
+  /* Chance the AI picks a random square instead of the best one. Level 7
+     (index 6) never blunders, so it plays perfect minimax. */
+  var LEVEL_BLUNDER = [0.85, 0.7, 0.55, 0.4, 0.28, 0.14, 0];
 
   /* ---------------- pure rules ---------------- */
 
@@ -113,12 +117,17 @@
     var right = '';
     if (state === 'running') {
       if (mode === 'ai') {
-        right = (hard ? '🤖 Hard · ' : '🤖 Easy · ') + (busy ? 'thinking…' : 'your move');
+        right = '🤖 Level ' + level + '/7 · ' + (busy ? 'thinking…' : 'your move');
       } else {
         right = '👥 ' + turn + ' to move';
       }
     }
-    GameShell.hud({ Wins: wins, Draws: draws, Losses: losses, Best: streak }, right);
+    GameShell.hud(
+      mode === 'ai'
+        ? { Level: level, Wins: wins, Draws: draws, Losses: losses, Best: streak }
+        : { Wins: wins, Draws: draws, Losses: losses },
+      right
+    );
   }
 
   function saveStreak(v) {
@@ -154,20 +163,30 @@
       draws++;
       if (mode === 'ai') saveStreak(0);
       title = 'Draw';
-      msg = 'Nine squares, no line. Against a perfect opponent a draw really is a job well done.';
+      msg = mode === 'ai'
+        ? 'Nine squares, no line. Level ' + level + ' stays put — go again to climb.'
+        : 'Nine squares, no line. Nobody moves ahead.';
     } else if (mode === 'ai') {
       if (res === 'X') {
         wins++;
         saveStreak(streak + 1);
         title = 'You win!';
-        msg = 'Three in a row with ❌ — your streak is now ' + streak + '. Can you keep it alive?';
+        if (level < 7) {
+          level++;
+          msg = 'Level cleared — the bot is now on level ' + level + '/7. It blunders less each time.';
+        } else {
+          msg = 'You beat level 7, the perfect minimax bot. Nothing left to climb.';
+        }
       } else {
         losses++;
         saveStreak(0);
         title = 'AI wins!';
-        msg = hard
-          ? 'The minimax bot had already seen every reply you could make. Try Easy mode, or grab a friend for two players.'
-          : 'Even on Easy the bot found its line. Go again and block it earlier!';
+        if (level > 1) {
+          level--;
+          msg = 'Level ' + (level + 1) + ' got you. You drop to level ' + level + '/7 — win to climb back.';
+        } else {
+          msg = 'Even level 1 found a line. Block earlier and take the rematch!';
+        }
       }
     } else {
       if (res === 'X') { wins++; title = '❌ X wins!'; }
@@ -181,6 +200,7 @@
       title: title,
       msg: msg,
       stats: [
+        { label: 'Level', value: mode === 'ai' ? level + '/7' : '—' },
         { label: 'Wins', value: wins },
         { label: 'Draws', value: draws },
         { label: 'Losses', value: losses },
@@ -240,7 +260,7 @@
     if (!list.length) { busy = false; return; }
 
     var move;
-    if (!hard && Math.random() < 0.6) {
+    if (level < 7 && Math.random() < LEVEL_BLUNDER[level - 1]) {
       move = list[Math.floor(Math.random() * list.length)];
     } else {
       var opts = bestMoves('O');
@@ -298,7 +318,6 @@
 
   var modeAiBtn = document.getElementById('modeAiBtn');
   var mode2pBtn = document.getElementById('mode2pBtn');
-  var diffBtn = document.getElementById('diffBtn');
   var newGameBtn = document.getElementById('newGameBtn');
 
   function syncControls() {
@@ -310,10 +329,6 @@
       mode2pBtn.className = 'tbtn' + (mode === '2p' ? ' on' : '');
       mode2pBtn.setAttribute('aria-pressed', mode === '2p' ? 'true' : 'false');
     }
-    if (diffBtn) {
-      diffBtn.style.display = mode === 'ai' ? '' : 'none';
-      diffBtn.textContent = hard ? '🎚️ Hard' : '🎚️ Easy';
-    }
   }
 
   function setMode(next) {
@@ -324,14 +339,6 @@
 
   if (modeAiBtn) modeAiBtn.addEventListener('click', function () { if (mode !== 'ai') setMode('ai'); });
   if (mode2pBtn) mode2pBtn.addEventListener('click', function () { if (mode !== '2p') setMode('2p'); });
-
-  if (diffBtn) {
-    diffBtn.addEventListener('click', function () {
-      hard = !hard;
-      syncControls();
-      if (mode === 'ai') start();
-    });
-  }
 
   if (newGameBtn) newGameBtn.addEventListener('click', start);
 
@@ -347,12 +354,17 @@
   updateHud();
   GameShell.overlay.show({
     title: 'Tic Tac Toe',
-    msg: 'Three in a row wins. You are ❌ X and you move first — take on the Hard AI, or share the screen in two-player mode.',
+    msg: 'Seven levels of AI stand between you and the top. Win to climb, lose and you drop one — level 7 is perfect minimax. Or share the screen in two-player mode.',
     stats: [{ label: 'Best streak', value: streak }],
     btn: '▶ Play',
     action: start
   });
 
-  /* shared HUD reset button */
-  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
+  /* shared HUD reset button — fresh campaign at level 1 */
+  if (typeof GameShell.onReset === 'function') {
+    GameShell.onReset(function () {
+      wins = 0; draws = 0; losses = 0; level = 1;
+      start();
+    });
+  }
 })();

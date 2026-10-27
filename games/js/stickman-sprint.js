@@ -43,7 +43,7 @@
 
   /* ---------------- state ---------------- */
 
-  var state = 'ready';          /* ready | running | paused | stumble | over */
+  var state = 'ready';          /* ready | running | paused | stumble | falling | over */
   var worldX = 0, speed = SPEED0, distance = 0;
   var score = 0, coins = 0;
   var best = GameShell.best.get(BEST_KEY, 0);
@@ -53,7 +53,7 @@
   };
   var obstacles = [], coinList = [], particles = [];
   var nextSpawnX = 0;
-  var stumbleT = 0, shake = 0;
+  var stumbleT = 0, fallT = 0, shake = 0;
   var keys = { slide: false };
   var hudScore = -1;
   var rafId = 0, last = 0;
@@ -154,7 +154,7 @@
     score = 0; coins = 0;
     obstacles = []; coinList = []; particles = [];
     nextSpawnX = FIRST_SPAWN + PX;
-    stumbleT = 0; shake = 0; hudScore = -1;
+    stumbleT = 0; fallT = 0; shake = 0; hudScore = -1;
     player.feetY = GROUND; player.vy = 0; player.onGround = true;
     player.jumps = 0; player.sliding = false; player.slideT = 0;
     player.runPhase = 0; player.tumble = 0;
@@ -204,6 +204,18 @@
     stumbleT = 0.95;
     shake = 14;
     burst(PX + 10, player.feetY - 30, '#ff5c7a', 18);
+    releaseKeys();
+  }
+
+  /* A missed gap is not a trip: the runner drops into the chasm and the
+     camera holds while gravity carries them off the bottom of the screen. */
+  function fallIn() {
+    if (state !== 'running') return;
+    state = 'falling';
+    fallT = 0;
+    shake = 10;
+    player.vy = Math.max(player.vy, 160);
+    player.tumble = 0;
     releaseKeys();
   }
 
@@ -335,6 +347,16 @@
       if (stumbleT <= 0) gameOver();
       return;
     }
+    if (state === 'falling') {
+      player.vy += GRAV * dt;
+      player.feetY += player.vy * dt;
+      player.tumble += dt * 5;
+      fallT += dt;
+      if (shake > 0) shake = Math.max(0, shake - dt * 40);
+      updateParticles(dt);
+      if (fallT > 1.1 || player.feetY > H + 80) gameOver();
+      return;
+    }
     if (state !== 'running') return;
 
     /* --- speed ramp + distance --- */
@@ -356,7 +378,7 @@
     } else if (player.feetY >= GROUND && player.vy >= 0) {
       player.onGround = false;            /* the road has vanished — fall in */
     }
-    if (player.feetY > GROUND + 96) { stumble(); return; }
+    if (player.feetY > GROUND + 34) { fallIn(); return; }
 
     /* --- slide --- */
     if (keys.slide && player.onGround) {
@@ -466,6 +488,12 @@
         armF: -2.0 + Math.sin(t / 45) * 0.4, armB: 2.1,
         elbowF: -0.3, elbowB: 0.3,
         legF: 1.0, legB: -1.1, kneeF: -0.2, kneeB: -0.45
+      };
+    }
+    if (state === 'falling') {
+      return {
+        lean: -0.2, armF: -2.6, armB: 2.4, elbowF: -0.5, elbowB: 0.5,
+        legF: 0.8, legB: -0.9, kneeF: -1.1, kneeB: -0.8
       };
     }
     if (player.sliding) return SLIDE_POSE;
@@ -677,7 +705,7 @@
 
     /* player */
     var hipY = player.sliding ? player.feetY - 6 : player.feetY - 34;
-    drawStick(PX, hipY, currentPose(t), state === 'stumble' ? player.tumble : 0, '#22d3ee');
+    drawStick(PX, hipY, currentPose(t), (state === 'stumble' || state === 'falling') ? player.tumble : 0, '#22d3ee');
 
     ctx.restore();
 
@@ -697,7 +725,7 @@
     last = t;
     if (!(dt > 0)) dt = 0;
     if (dt > 0.05) dt = 0.05;
-    if (state === 'running' || state === 'stumble') update(dt);
+    if (state === 'running' || state === 'stumble' || state === 'falling') update(dt);
     draw(t);
   }
 

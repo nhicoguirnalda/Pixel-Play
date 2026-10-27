@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Tic Tac Toe — Play Free Online | PixelPlay</title>
-  <meta name="description" content="Play Tic Tac Toe free online at PixelPlay. Beat an unbeatable minimax AI in Hard mode or challenge a friend in local two-player games. No downloads.">
+  <meta name="description" content="Play Tic Tac Toe free online at PixelPlay. Climb seven levels of minimax AI, from easy blunders to an unbeatable level 7, or challenge a friend locally.">
   <meta name="theme-color" content="#070b14">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E❌%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="../css/style.css">
@@ -85,7 +85,6 @@
         <div class="touch-controls">
           <button class="tbtn on" type="button" id="modeAiBtn" aria-pressed="true">🤖 vs AI</button>
           <button class="tbtn" type="button" id="mode2pBtn" aria-pressed="false">👥 2 players</button>
-          <button class="tbtn" type="button" id="diffBtn">🎚️ Hard</button>
           <button class="tbtn" type="button" id="newGameBtn">↻ New game</button>
         </div>
 
@@ -94,23 +93,23 @@
           <p>Take it in turns to drop your mark into one of the nine squares. You are <b>❌ X</b>, the
              opponent is <b>⭕ O</b>, and X always moves first. Line up three of your marks in a row —
              across, down or diagonally — and you take the round. Fill all nine squares with no line and
-             it's a draw. Play against the machine to build a win streak, or switch to two players and
+             it's a draw. Play against the machine and climb seven levels, or switch to two players and
              share the screen with a friend.</p>
           <h3>Controls</h3>
           <ul>
             <li><kbd>Click</kbd> / <kbd>Tap</kbd> an empty square to place your mark</li>
-            <li><b>🤖 vs AI</b> and <b>👥 2 players</b> switch the mode; <b>🎚️ Easy / Hard</b> changes
-                the bot's strength (it only appears in AI mode)</li>
-            <li><kbd>Space</kbd> or <kbd>Enter</kbd> starts a new round, and the Reset button restarts at any time</li>
+            <li><b>🤖 vs AI</b> and <b>👥 2 players</b> switch the mode; the HUD shows your current AI level</li>
+            <li><kbd>Space</kbd> or <kbd>Enter</kbd> starts a new round, and the Reset button restarts the campaign at level 1</li>
           </ul>
-          <h3>How the Hard AI thinks (minimax, in plain words)</h3>
-          <p>The Hard bot plays out every possible future of the board before it commits to a move. It
-             tries each empty square in turn, then imagines the best reply you could make, then the best
-             reply to that reply, all the way down to the end of the game. Finished lines are scored —
-             winning is worth +10, drawing 0, losing −10 — and the bot picks whichever square gives it
-             the best score <i>even if you answer perfectly from then on</i>. That search-and-backtrack
-             loop is called minimax, and it makes Hard mode literally unbeatable: the best a flawless
-             human can force is a draw. Which is exactly the goal — draw, don't lose.</p>
+          <h3>How the seven AI levels work</h3>
+          <p>Level 1 blunders on most turns, picking a random square. Each win moves you up a level and
+             makes those blunders rarer; level 7 never slips. From there it plays minimax: it tries every
+             empty square in turn, then imagines the best reply you could make, then the best reply to that
+             reply, all the way to the end of the game. Finished lines score +10 for a win, 0 for a draw
+             and −10 for a loss, and the bot picks whichever square gives it the best score <i>even if you
+             answer perfectly from then on</i>. That search-and-backtrack loop makes level 7 literally
+             unbeatable: the best a flawless human can force is a draw. Which is exactly the goal — draw,
+             don't lose.</p>
           <h3>Tips for drawing or winning</h3>
           <ul>
             <li>Open with the centre square. It belongs to four of the eight possible winning lines, twice
@@ -119,8 +118,8 @@
                 before doing anything else.</li>
             <li>Build forks. A fork is one square that creates two threats at once — the opponent can only
                 block one, so the other wins the game.</li>
-            <li>Against Hard, grabbing the centre then the opposite corner is the classic route to a safe
-                draw. On Easy the bot sometimes plays randomly, so punish that by finishing your lines fast.</li>
+            <li>Win to climb a level, lose and you drop one; draws hold your place. On the early levels
+                punish the random moves by finishing your lines fast.</li>
             <li>Your current win streak against the AI is saved in this browser — the HUD's Best shows it.</li>
           </ul>
         </section>
