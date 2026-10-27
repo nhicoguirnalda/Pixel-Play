@@ -162,8 +162,6 @@
     } else if (k === 'p' || k === 'P' || k === 'Escape') {
       if (state === 'running') pause();
       else if (state === 'paused') resume();
-    } else if (k === 'r' || k === 'R') {
-      start();
     }
   });
 
@@ -334,4 +332,7 @@
     btn: '▶ Play',
     action: start
   });
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

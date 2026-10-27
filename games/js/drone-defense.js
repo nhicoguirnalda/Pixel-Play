@@ -108,27 +108,35 @@
     tank:  { r: 22, hp: 6, speed: 0.62, cap: 1.35, score: 250, dmg: 15, color: '#f59e0b' }
   };
 
+  /* Each warden is tougher than the last. Tier is picked by boss count,
+     so the same wave can never roll an easier variant twice. */
+  var BOSS_TITLES = ['WARDEN PRIME', 'WARDEN TITAN', 'WARDEN APEX', 'WARDEN OVERLORD'];
+  var BOSS_COLORS = ['#fb7185', '#fb923c', '#a855f7', '#22d3ee'];
+  var BOSS_DARK = ['#3f1d2b', '#3f2a10', '#2e1a45', '#0e2b36'];
+
   function queueWave() {
     spawnQueue = [];
     if (wave % BOSS_EVERY === 0) { spawnBoss(); return; }
-    var n = Math.min(24, 3 + wave * 2);
+    var n = Math.min(30, 3 + wave * 2);
     for (var i = 0; i < n; i++) {
       var roll = Math.random();
       var type = 'basic';
-      if (wave >= 3 && roll < 0.24) type = 'fast';
-      if (wave >= 5 && roll > 0.82) type = 'tank';
+      if (wave >= 3 && roll < 0.22 + wave * 0.008) type = 'fast';
+      if (wave >= 5 && roll > 0.86 - wave * 0.008) type = 'tank';
       spawnQueue.push(type);
     }
-    spawnCd = 420;
+    spawnCd = Math.max(200, 430 - wave * 10);
   }
 
   function makeDrone(type, x, y) {
     var def = TYPES[type];
+    var hpBonus = Math.floor(wave / 2);
+    var dmgBonus = Math.floor(wave / 3) * 2;
     drones.push({
       x: x, y: y, r: def.r,
-      hp: def.hp, maxHp: def.hp,
-      speed: Math.min(def.cap, def.speed + wave * 0.035),
-      score: def.score, dmg: def.dmg, color: def.color,
+      hp: def.hp + hpBonus, maxHp: def.hp + hpBonus,
+      speed: Math.min(def.cap + wave * 0.015, def.speed + wave * 0.04),
+      score: def.score, dmg: def.dmg + dmgBonus, color: def.color,
       hitFlash: 0, wob: Math.random() * Math.PI * 2
     });
   }
@@ -152,16 +160,20 @@
 
   function spawnBoss() {
     bossCount++;
-    var bhp = Math.round((70 + wave * 13) * (1 + (bossCount - 1) * 0.12));
+    var tier = Math.min(BOSS_TITLES.length - 1, bossCount - 1);
+    var bhp = Math.round((90 + wave * 16) * (1 + (bossCount - 1) * 0.22));
+    var bdmg = Math.round(14 + wave * 1.3 + (bossCount - 1) * 5);
     boss = {
-      x: W / 2, y: -100, r: 48,
-      hp: bhp, maxHp: bhp, phase: 1, phase2: false,
+      x: W / 2, y: -100, r: 48 + tier * 2,
+      hp: bhp, maxHp: bhp, phase: 1, phase2: false, tier: tier,
+      name: BOSS_TITLES[tier], col: BOSS_COLORS[tier], dark: BOSS_DARK[tier],
+      dmg: bdmg,
       entering: true, t: 0, hitFlash: 0,
       radialCd: 1800, aimCd: 1100, summonCd: 5200, heavyCd: 7200,
       heavyTele: 0
     };
     phaseFlash = 1400;
-    phaseFlashText = 'WARDEN PRIME INBOUND';
+    phaseFlashText = boss.name + ' INBOUND';
   }
 
   /* ---------------- shooting ---------------- */
@@ -266,6 +278,8 @@
 
   function bossRadial(count, speed) {
     if (!boss) return;
+    count += (boss.phase - 1) * 3 + boss.tier * 2;
+    speed += (boss.phase - 1) * 0.3 + boss.tier * 0.12;
     var off = boss.t * 0.0011;
     for (var i = 0; i < count; i++) {
       var a = off + (i / count) * Math.PI * 2;
@@ -278,6 +292,9 @@
 
   function bossVolley(count, speed, spread) {
     if (!boss) return;
+    count += (boss.phase - 1) * 2 + boss.tier;
+    speed += (boss.phase - 1) * 0.35 + boss.tier * 0.12;
+    spread += boss.tier * 0.015;
     var base = Math.atan2(player.y - boss.y, player.x - boss.x);
     for (var i = 0; i < count; i++) {
       var a = base + (-spread + (count === 1 ? 0 : (i / (count - 1)) * spread * 2));
@@ -290,14 +307,15 @@
 
   function bossHeavy() {
     if (!boss) return;
-    var count = boss.phase === 2 ? 28 : 22;
+    var count = (boss.phase >= 3 ? 34 : boss.phase === 2 ? 28 : 22) + boss.tier * 2;
+    var speed = 3.4 + (boss.phase - 1) * 0.25 + boss.tier * 0.12;
     var off = boss.t * 0.0007;
     for (var i = 0; i < count; i++) {
       if (i % 7 === 0) continue;      /* four safe gaps to dodge through */
       var a = off + (i / count) * Math.PI * 2;
       eBullets.push({
         x: boss.x, y: boss.y, r: 6,
-        vx: Math.cos(a) * 3.4, vy: Math.sin(a) * 3.4
+        vx: Math.cos(a) * speed, vy: Math.sin(a) * speed
       });
     }
     spark(boss.x, boss.y, 40, '#fb7185', 1.6);
@@ -323,9 +341,19 @@
       b.phase2 = true;
       b.phase = 2;
       phaseFlash = 1600;
-      phaseFlashText = 'WARDEN PRIME — PHASE 2';
+      phaseFlashText = b.name + ' — PHASE 2';
       b.heavyCd = Math.min(b.heavyCd, 2600);
-      spark(b.x, b.y, 46, '#fb7185', 1.7);
+      spark(b.x, b.y, 46, b.col, 1.7);
+    }
+
+    /* Veterans reach a desperate final phase at a quarter health. */
+    if (b.tier >= 1 && b.phase === 2 && b.hp <= b.maxHp * 0.25) {
+      b.phase = 3;
+      phaseFlash = 1400;
+      phaseFlashText = b.name + ' — ENRAGED';
+      b.heavyCd = Math.min(b.heavyCd, 1800);
+      b.radialCd = 400;
+      spark(b.x, b.y, 40, b.col, 1.5);
     }
 
     if (b.heavyTele > 0) {
@@ -339,27 +367,29 @@
     b.summonCd -= dt;
     b.heavyCd -= dt;
 
+    var tierRate = Math.max(0.58, 1 - b.tier * 0.11);
+
     if (b.heavyCd <= 0) {
-      b.heavyCd = b.phase === 2 ? 5600 : 7600;
+      b.heavyCd = (b.phase >= 2 ? 5600 : 7600) * tierRate;
       b.heavyTele = 1000;
       b.radialCd = 500;
       return;
     }
 
     if (b.radialCd <= 0) {
-      bossRadial(b.phase === 2 ? 15 : 11, b.phase === 2 ? 2.9 : 2.6);
-      b.radialCd = b.phase === 2 ? 1500 : 2100;
+      bossRadial(b.phase >= 2 ? 15 : 11, b.phase >= 2 ? 2.9 : 2.6);
+      b.radialCd = (b.phase >= 3 ? 1200 : b.phase === 2 ? 1500 : 2100) * tierRate;
     }
     if (b.aimCd <= 0) {
-      bossVolley(b.phase === 2 ? 5 : 3, b.phase === 2 ? 4.8 : 4.2, 0.14);
-      b.aimCd = b.phase === 2 ? 850 : 1250;
+      bossVolley(b.phase >= 2 ? 5 : 3, b.phase >= 2 ? 4.8 : 4.2, 0.14);
+      b.aimCd = (b.phase >= 3 ? 680 : b.phase === 2 ? 850 : 1250) * tierRate;
     }
     if (b.summonCd <= 0) {
-      if (drones.length < 12) {
-        spawnMinion(b.phase === 2 ? 'fast' : 'basic');
-        spawnMinion(b.phase === 2 ? 'fast' : 'basic');
+      if (drones.length < 12 + b.tier * 2) {
+        spawnMinion(b.phase >= 2 ? 'fast' : 'basic');
+        spawnMinion(b.phase >= 2 ? 'fast' : 'basic');
       }
-      b.summonCd = b.phase === 2 ? 3800 : 5200;
+      b.summonCd = (b.phase >= 2 ? 3800 : 5200) * tierRate;
     }
   }
 
@@ -616,7 +646,7 @@
       var edx = eb.x - player.x, edy = eb.y - player.y;
       if (edx * edx + edy * edy < (player.r + eb.r) * (player.r + eb.r)) {
         eBullets.splice(m, 1);
-        hurtPlayer({ x: eb.x, y: eb.y, dmg: 9 });
+        hurtPlayer({ x: eb.x, y: eb.y, dmg: Math.round(7 + wave * 0.8) });
         if (state !== 'running') return;
       }
     }
@@ -845,9 +875,9 @@
     ctx.save();
     ctx.translate(b.x, b.y);
     ctx.rotate(b.t * 0.0004);
-    ctx.shadowColor = hurt ? '#ffffff' : '#fb7185';
+    ctx.shadowColor = hurt ? '#ffffff' : b.col;
     ctx.shadowBlur = 24;
-    ctx.fillStyle = hurt ? '#ffffff' : (b.phase2 ? '#7f1d1d' : '#3f1d2b');
+    ctx.fillStyle = hurt ? '#ffffff' : (b.phase >= 2 ? b.col : b.dark);
     ctx.beginPath();
     for (var i = 0; i < 8; i++) {
       var a = (i / 8) * Math.PI * 2;
@@ -858,11 +888,11 @@
     }
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = hurt ? '#ffffff' : '#fb7185';
+    ctx.strokeStyle = hurt ? '#ffffff' : b.col;
     ctx.lineWidth = 5;
     ctx.stroke();
 
-    ctx.fillStyle = hurt ? '#ffffff' : '#fb7185';
+    ctx.fillStyle = hurt ? '#ffffff' : b.col;
     ctx.beginPath();
     ctx.arc(0, 0, 22, 0, Math.PI * 2);
     ctx.fill();
@@ -872,7 +902,7 @@
     ctx.fill();
 
     ctx.rotate(-b.t * 0.0004);
-    ctx.fillStyle = hurt ? '#ffffff' : '#fda4af';
+    ctx.fillStyle = hurt ? '#ffffff' : b.col;
     for (var k = 0; k < 4; k++) {
       ctx.save();
       ctx.rotate((k / 4) * Math.PI * 2 + b.t * 0.0012);
@@ -888,15 +918,15 @@
     ctx.fillStyle = 'rgba(5,7,14,.75)';
     roundRect(bx - 6, by - 4, bw + 12, 30, 8);
     ctx.fill();
-    ctx.fillStyle = '#fb7185';
+    ctx.fillStyle = b.col;
     ctx.font = '700 12px "Segoe UI", system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('WARDEN PRIME  ·  PHASE ' + b.phase, W / 2, by + 3);
+    ctx.fillText(b.name + '  ·  PHASE ' + b.phase, W / 2, by + 3);
     ctx.fillStyle = 'rgba(255,255,255,.15)';
     roundRect(bx, by + 11, bw, 9, 4);
     ctx.fill();
-    ctx.fillStyle = frac > 0.4 ? '#fb7185' : '#fbbf24';
+    ctx.fillStyle = frac > 0.4 ? b.col : '#fbbf24';
     roundRect(bx, by + 11, Math.max(0, bw * frac), 9, 4);
     ctx.fill();
     ctx.restore();
@@ -1226,8 +1256,6 @@
     } else if (key === 'p' || key === 'P' || key === 'Escape') {
       if (state === 'running') pause();
       else if (state === 'paused') resume();
-    } else if (key === 'r' || key === 'R') {
-      start();
     }
   });
 
@@ -1340,4 +1368,7 @@
     btn: '▶ Play',
     action: start
   });
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

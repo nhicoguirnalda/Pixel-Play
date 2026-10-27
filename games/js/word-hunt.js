@@ -718,8 +718,6 @@
     } else if (k === 'p' || k === 'P' || k === 'Escape') {
       if (state === 'running') pause();
       else if (state === 'paused') resume();
-    } else if (k === 'r' || k === 'R') {
-      start();
     }
     /* Letters a-z do nothing here — Word Hunt is traced, not typed. */
   });
@@ -759,4 +757,7 @@
     get grid() { return grid.map(function (row) { return row.join(''); }); },
     geometry: Object.freeze({ gx: GX, gy: GY, cell: CELL, cols: COLS, rows: ROWS, w: W, h: H })
   });
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

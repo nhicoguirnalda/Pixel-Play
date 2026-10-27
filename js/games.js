@@ -80,7 +80,7 @@ var GAMES = [
     icon: '🫧', c1: '#38bdf8', c2: '#a855f7',
     plays: '1.5M', playsN: 1500000, rating: 4.8, added: 10,
     controls: 'Mouse / Touch',
-    desc: 'Bounce the aim guide off the walls, pop groups of three or more bubbles and drop clumps for bonus points.',
+    desc: 'Bounce the aim guide off the walls, pop groups of three or more bubbles and fill the level meter for deeper, faster walls.',
     url: 'games/bubble-burst.html'
   },
   {
@@ -88,7 +88,7 @@ var GAMES = [
     icon: '🎯', c1: '#4ade80', c2: '#0ea5e9',
     plays: '690K', playsN: 690000, rating: 4.5, added: 11,
     controls: 'Mouse / Touch',
-    desc: 'Track the crosshair, shoot down aircraft before they slip past the sky and keep the city standing.',
+    desc: 'Track the crosshair, shoot down aircraft before they slip past the sky and keep the city standing with quick reloads.',
     url: 'games/sky-defense.html'
   },
   {
@@ -104,7 +104,7 @@ var GAMES = [
     icon: '🤖', c1: '#a3e635', c2: '#22d3ee',
     plays: '760K', playsN: 760000, rating: 4.6, added: 13,
     controls: 'WASD + Mouse',
-    desc: 'Drive a robot around a neon arena, aim with the mouse and blast chasing drones wave after wave.',
+    desc: 'Drive a robot around a neon arena, blast escalating drone waves and topple wardens that return as Titans, Apexes and Overlords.',
     url: 'games/drone-defense.html'
   },
   {
@@ -112,7 +112,7 @@ var GAMES = [
     icon: '💫', c1: '#f472b6', c2: '#8b5cf6',
     plays: '920K', playsN: 920000, rating: 4.7, added: 14,
     controls: 'Arrows / WASD',
-    desc: 'Dodge swirling patterns with three lives, grab health power-ups for extra lives, and grind down bosses that hit harder each cycle.',
+    desc: 'Dodge swirling patterns with three lives, grab health power-ups for extra lives, and grind down bosses that hit harder each cycle until upgrades stop after the fifth.',
     url: 'games/bullet-ballet.html'
   },
   {
@@ -120,7 +120,7 @@ var GAMES = [
     icon: '🥏', c1: '#fbbf24', c2: '#f97316',
     plays: '580K', playsN: 580000, rating: 4.4, added: 15,
     controls: 'Mouse / Touch',
-    desc: 'Launch clay targets, aim with mouse or finger and build combos across three rounds of skeet.',
+    desc: 'Launch clay targets, aim with mouse or finger and build combos across three rounds of skeet with three lives on the line.',
     url: 'games/skeet-shot.html'
   },
   {
@@ -144,7 +144,7 @@ var GAMES = [
     icon: '🔷', c1: '#a855f7', c2: '#22d3ee',
     plays: '1.9M', playsN: 1900000, rating: 4.9, added: 18,
     controls: 'Arrows / WASD',
-    desc: 'Rotate and slide glowing blocks, clear complete lines and chain combos — the timeless stacker reborn in neon.',
+    desc: 'Rotate and slide glowing blocks, clear complete lines and chain combos as gravity and lock speed climb every eight lines — the timeless stacker reborn in neon.',
     url: 'games/neon-blocks.html'
   },
   {
@@ -152,7 +152,7 @@ var GAMES = [
     icon: '🤖', c1: '#8b5cf6', c2: '#22d3ee',
     plays: '1.1M', playsN: 1100000, rating: 4.5, added: 21,
     controls: 'WASD + Mouse',
-    desc: 'Hold the arena against escalating drone waves with a forward-pointing Blaster, Rifle or SMG, then topple a boss every fifth wave.',
+    desc: 'Hold the arena against escalating drone waves with a Blaster, Rifle or SMG, press R to reload early and topple a boss every fifth wave.',
     url: 'games/wavebreak.html'
   },
   {
@@ -168,7 +168,7 @@ var GAMES = [
     icon: '🪝', c1: '#f59e0b', c2: '#22d3ee',
     plays: '610K', playsN: 610000, rating: 4.7, added: 25,
     controls: 'Hold Space',
-    desc: 'Fire your hook across eighteen increasingly windy chasm stages, dodge pulse beams and energy orbs, and clear one stage to unlock the next.',
+    desc: 'Fire your hook across eighteen windy chasm stages with three lives, dodge pulse beams and energy orbs, and clear one stage to unlock the next.',
     url: 'games/hook-hero.html'
   },
   {
@@ -184,7 +184,7 @@ var GAMES = [
     icon: '🧗', c1: '#a855f7', c2: '#f59e0b',
     plays: '310K', playsN: 310000, rating: 4.6, added: 28,
     controls: 'Arrows / A D',
-    desc: 'Hammer two pickaxes up an endless neon cliff with one life, where every 100 metres adds faster debris, wider icicle volleys and stronger gusts.',
+    desc: 'Hammer two pickaxes up an endless neon cliff with one life, where spikes are lethal and every 100 metres adds faster debris, wider icicles and stronger gusts.',
     url: 'games/stickman-climb.html'
   },
   {
@@ -192,7 +192,7 @@ var GAMES = [
     icon: '🏍️', c1: '#38bdf8', c2: '#f43f5e',
     plays: '620K', playsN: 620000, rating: 4.7, added: 30,
     controls: 'Arrows / WASD',
-    desc: 'Race nine increasingly brutal trials trails, time the faster swinging logs, pull big flips and beat a tighter clock each level.',
+    desc: 'Race nine increasingly brutal trials trails with three lives, time the faster swinging logs, pull big flips and beat a tighter clock each level.',
     url: 'games/stickman-rider.html'
   },
   {

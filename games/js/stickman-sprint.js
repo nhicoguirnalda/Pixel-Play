@@ -36,7 +36,7 @@
   var GRAV = 2400;              /* px/s²                             */
   var JUMP_V = -840;            /* first jump                        */
   var DJUMP_V = -740;           /* double jump                       */
-  var STAND_H = 64, SLIDE_H = 30;
+  var STAND_H = 64, SLIDE_H = 22;
   var SPEED0 = 330, SPEED_MAX = 720, SPEED_RAMP = 3.6; /* +3.6 px/s per metre */
   var FIRST_SPAWN = 660;        /* world px before the first obstacle */
   var LOOP = 1280;              /* skyline tiling period              */
@@ -441,7 +441,7 @@
   ];
   var JUMP_POSE  = { lean: 0.16, armF: -2.20, armB: 1.10, elbowF: -0.45, elbowB: 0.30, legF: 0.90, legB: -0.50, kneeF: -1.20, kneeB: -0.70 };
   var DJUMP_POSE = { lean: 0.10, armF: -2.50, armB: -2.20, elbowF: -0.30, elbowB: 0.30, legF: 0.60, legB: -0.85, kneeF: -1.00, kneeB: -0.45 };
-  var SLIDE_POSE = { lean: -0.95, armF: -1.50, armB: -1.70, elbowF: -0.30, elbowB: -0.30, legF: 1.30, legB: 1.10, kneeF: -0.30, kneeB: -0.50 };
+  var SLIDE_POSE = { lean: -1.12, armF: -1.60, armB: -2.05, elbowF: -0.30, elbowB: -0.30, legF: 1.38, legB: 1.18, kneeF: -0.35, kneeB: -0.35 };
 
   function lerpPose(a, b, t) {
     var out = {};
@@ -676,7 +676,7 @@
     ctx.globalAlpha = 1;
 
     /* player */
-    var hipY = player.sliding ? player.feetY - 16 : player.feetY - 34;
+    var hipY = player.sliding ? player.feetY - 6 : player.feetY - 34;
     drawStick(PX, hipY, currentPose(t), state === 'stumble' ? player.tumble : 0, '#22d3ee');
 
     ctx.restore();
@@ -733,8 +733,6 @@
     } else if (k === 'p' || k === 'P' || k === 'Escape') {
       if (state === 'running') pause();
       else if (state === 'paused') resume();
-    } else if (k === 'r' || k === 'R') {
-      start();
     }
   });
 
@@ -818,4 +816,7 @@
     btn: '▶ Play',
     action: start
   });
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

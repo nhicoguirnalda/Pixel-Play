@@ -37,6 +37,7 @@
   var tracers = [];
   var pops = [];
 
+  var lives = 3;
   var roundNo = 1;
   var launchesLeft = LAUNCHES_PER_ROUND;
   var shells = SHELLS_PER_PAIR;
@@ -69,6 +70,7 @@
       {
         Score: score,
         Best: shownBest(),
+        Lives: lives,
         Accuracy: shots ? Math.round(accuracy() * 100) + '%' : '—'
       },
       state === 'paused' ? '⏸ Paused' : 'Round ' + roundNo
@@ -83,6 +85,7 @@
     tracers.length = 0;
     pops.length = 0;
 
+    lives = 3;
     roundNo = 1;
     launchesLeft = LAUNCHES_PER_ROUND;
     shells = SHELLS_PER_PAIR;
@@ -232,6 +235,40 @@
     updateHud();
   }
 
+  function loseLife() {
+    if (state !== 'running') return;
+    lives = Math.max(0, lives - 1);
+    banner = lives > 0 ? 'Life lost - ' + lives + ' left' : 'Out of lives!';
+    bannerMs = 1200;
+    updateHud();
+    if (lives <= 0) gameOver();
+  }
+
+  function gameOver() {
+    state = 'over';
+    targets.length = 0;
+    frags.length = 0;
+    if (score > best) {
+      best = score;
+      newBest = true;
+      GameShell.best.set(BEST_KEY, best);
+    }
+    updateHud();
+    GameShell.overlay.show({
+      title: 'Out of lives!',
+      msg: 'Three clays escaped and the range is closed. You scored ' + score +
+           ' in round ' + roundNo + ' - reset and take another run at it.',
+      stats: [
+        { label: 'Score', value: score },
+        { label: 'Best', value: best },
+        { label: 'Round', value: roundNo },
+        { label: 'Accuracy', value: Math.round(accuracy() * 100) + '%' }
+      ],
+      btn: '▶ Try again',
+      action: start
+    });
+  }
+
   function endRound() {
     if (roundNo >= TOTAL_ROUNDS) { finish(); return; }
     roundNo++;
@@ -312,8 +349,10 @@
       if (t.y - t.r > GROUND + 30 || t.x < -100 || t.x > W + 100) {
         targets.splice(i, 1);
         combo = 0;                 /* a clay that lands unbroken costs the combo */
+        loseLife();
       }
     }
+    if (state !== 'running') return;
 
     /* debris */
     for (var f = frags.length - 1; f >= 0; f--) {
@@ -653,8 +692,6 @@
     } else if (k === 'p' || k === 'P' || k === 'Escape') {
       if (state === 'running') pause();
       else if (state === 'paused') resume();
-    } else if (k === 'r' || k === 'R') {
-      start();
     }
   });
 
@@ -681,9 +718,21 @@
   ensureLoop();
   GameShell.overlay.show({
     title: 'Skeet Shot',
-    msg: 'Aim with the mouse or your finger and click or tap to fire. You get two shells per pair of clays — break both, build your combo and finish the round with a clean accuracy.',
+    msg: 'Aim with the mouse or your finger and click or tap to fire. You get three lives and two shells per pair of clays — break them before they escape, build your combo and finish the round with a clean accuracy.',
     stats: [{ label: 'Best', value: best }],
     btn: '▶ Play',
     action: start
   });
+
+  /* read-only snapshot for automated smoke tests */
+  window.__skeetShot = {
+    state: function () { return state; },
+    lives: function () { return lives; },
+    round: function () { return roundNo; },
+    score: function () { return score; },
+    targets: function () { return targets.length; }
+  };
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

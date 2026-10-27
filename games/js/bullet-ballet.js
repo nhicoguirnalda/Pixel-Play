@@ -471,11 +471,37 @@
     score += 900 + bossNumber * 150;
     bullets.length = 0;
     shots.length = 0;
+    dropPickup();
+    sfx('explode');
+    if (bossNumber >= 5) {
+      /* The fifth boss is the last one that rewards an upgrade. */
+      pendingChoices = [];
+      say('BOSS DOWN', 'No more upgrades after boss 5 — keep fighting!', 2200);
+      advanceBoss();
+      return;
+    }
     pendingChoices = rollChoices();
     state = 'choosing';
-    dropPickup();
     say('BOSS DOWN', 'Choose an upgrade — 1 / 2 / 3 or click', 2000);
-    sfx('explode');
+    updateHud();
+  }
+
+  function advanceBoss() {
+    bossIndex++;
+    bossNumber++;
+    if (bossIndex >= BOSSES.length) {
+      bossIndex = 0;
+      cycle++;
+      score += 1200 + cycle * 400;
+      player.lives += 1;
+      floater(player.x, player.y - 24, '+1 LIFE', '#6ee7b7');
+      say('Full cycle clear', '+1 life · cycle ' + (cycle + 1), 2200);
+    }
+
+    spawnBoss(bossIndex);
+    state = 'running';
+    lastT = 0;
+    calmMs = 1500;
     updateHud();
   }
 
@@ -1257,7 +1283,6 @@
         applyChoice(parseInt(k, 10) - 1);
         return;
       }
-      if (k === 'r' || k === 'R') { start(); return; }
       return;
     }
 
@@ -1272,8 +1297,6 @@
     } else if (k === 'p' || k === 'P' || k === 'Escape') {
       if (state === 'running') pause();
       else if (state === 'paused') resume();
-    } else if (k === 'r' || k === 'R') {
-      start();
     }
   });
 
@@ -1466,4 +1489,7 @@
     btn: '▶ Play',
     action: start
   });
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

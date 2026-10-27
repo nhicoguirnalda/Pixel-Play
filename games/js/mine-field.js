@@ -312,8 +312,6 @@
 
     if (k === ' ' || k === 'Enter') {
       if (state === 'ready' || state === 'over') start();
-    } else if (k === 'r' || k === 'R') {
-      start();
     }
   });
 
@@ -345,4 +343,7 @@
     btn: '▶ Play',
     action: start
   });
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

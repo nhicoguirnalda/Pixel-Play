@@ -34,6 +34,7 @@
 
   var grid = null;                     /* ROWS x COLS of colour index or null */
   var level = 1, score = 0, paletteSize = 4, shotCount = 0;
+  var levelPopped = 0, levelTarget = 40;
   var curColor = 0, nextColor = 0;
   var shot = null;                     /* the bubble in flight */
   var pops = [];                       /* little burst animations */
@@ -85,7 +86,9 @@
 
   function buildBoard(lvl) {
     paletteSize = Math.min(COLORS.length, 2 + lvl);
-    var fillRows = Math.min(ROWS - 5, 3 + lvl);
+    var fillRows = Math.min(ROWS - 5, 3 + Math.floor(lvl * 0.8));
+    levelTarget = 30 + lvl * 10;
+    levelPopped = 0;
     grid = [];
     for (var r = 0; r < ROWS; r++) {
       var row = [];
@@ -138,7 +141,8 @@
   }
 
   function updateHud() {
-    var right = (state === 'paused' ? '⏸ Paused · ' : '') + 'Level ' + level;
+    var right = (state === 'paused' ? '⏸ Paused · ' : '') +
+                'Level ' + level + ' · ' + Math.min(levelPopped, levelTarget) + '/' + levelTarget;
     GameShell.hud({ Score: score || 0, Best: shownBest() }, right);
   }
 
@@ -178,15 +182,15 @@
   }
 
   function levelClear() {
-    score += 250;
+    score += 250 + level * 50;
     level++;
     state = 'paused';
     pendingLevel = true;
     updateHud();
     GameShell.overlay.show({
-      title: 'Board cleared! 🫧',
-      msg: 'Every bubble is gone — 250 bonus points banked. Level ' + level +
-           ' starts with a deeper wall and an extra colour.',
+      title: 'Level cleared!',
+      msg: 'Level bonus banked. Level ' + level +
+           ' starts with a deeper wall, an extra colour and a faster row drop.',
       stats: [{ label: 'Score', value: score }, { label: 'Level', value: level }],
       btn: '▶ Continue',
       action: continueLevel
@@ -226,6 +230,11 @@
       btn: '▶ Play again',
       action: start
     });
+  }
+
+  /* Rows arrive faster as the levels climb. */
+  function shotsPerRow() {
+    return Math.max(3, SHOTS_PER_ROW - Math.floor((level - 1) / 2));
   }
 
   /* ---------------- shooting ---------------- */
@@ -283,10 +292,10 @@
     resolveMatches(cell.r, cell.c);
     if (state !== 'running') return;
 
-    if (boardEmpty()) { levelClear(); return; }
+    if (boardEmpty() || levelPopped >= levelTarget) { levelClear(); return; }
 
     shotCount++;
-    if (shotCount >= SHOTS_PER_ROW) { shotCount = 0; descend(); }
+    if (shotCount >= shotsPerRow()) { shotCount = 0; descend(); }
     if (state !== 'running') return;
     if (reachBottom()) gameOver();
     updateHud();
@@ -330,8 +339,9 @@
       addPop(group[i].r, group[i].c, color);
       grid[group[i].r][group[i].c] = null;
     }
+    var dropped = dropFloaters();
+    levelPopped += group.length + dropped;
     score += group.length * 10;
-    dropFloaters();
     updateHud();
   }
 
@@ -539,8 +549,8 @@
     ctx.fillStyle = 'rgba(148,163,184,.7)';
     ctx.font = '600 12px system-ui, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('Next row in ' + (SHOTS_PER_ROW - shotCount) + ' shot' +
-                 (SHOTS_PER_ROW - shotCount === 1 ? '' : 's'), 14, H - 14);
+    var rowIn = shotsPerRow() - shotCount;
+    ctx.fillText('Next row in ' + rowIn + ' shot' + (rowIn === 1 ? '' : 's'), 14, H - 14);
     ctx.restore();
   }
 
@@ -616,8 +626,6 @@
     } else if (k === 'p' || k === 'P' || k === 'Escape') {
       if (state === 'running') pause();
       else if (state === 'paused') resume();
-    } else if (k === 'r' || k === 'R') {
-      start();
     }
   });
 
@@ -665,4 +673,7 @@
       return grid.map(function (row) { return row.slice(); });
     }
   };
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

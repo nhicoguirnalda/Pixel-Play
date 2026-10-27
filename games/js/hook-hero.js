@@ -280,6 +280,7 @@
   var best = GameShell.best.get(BEST_KEY, 0);
   var coinTaken = [];         /* per-level flags — stay taken across retries */
   var levelTime = 0, attempts = 0, clearT = 0, ct = 0, lastBonus = 0;
+  var lives = 3;
   var trail = [], trailT = 0;
   var camX = 0, camY = 0;
   var hudKey = '';
@@ -377,7 +378,7 @@
     var windKey = Math.round(windNow / 10) + ':' + (windState.active ? 1 : 0) +
                   ':' + (windState.warn ? 1 : 0) + ':' + levelIdx;
     var key = state + '|' + score + '|' + coins + '|' + levelIdx + '|' +
-              Math.max(best, score) + '|' + unlocked + '|' + windKey;
+              Math.max(best, score) + '|' + unlocked + '|' + lives + '|' + windKey;
     if (!force && key === hudKey) return;
     hudKey = key;
     var windTxt = '';
@@ -401,6 +402,7 @@
         Score: score,
         Best: Math.max(best, score),
         Level: (levelIdx + 1) + '/' + LEVELS.length,
+        Lives: lives,
         Coins: coins
       },
       state === 'paused' ? '⏸ Paused' : hint + windTxt
@@ -466,6 +468,7 @@
     score = 0; coins = 0;
     coinTaken = [];
     attempts = 0;
+    lives = 3;
     lastRespawn = null;
     loadLevel(typeof which === 'number' ? which : 0);
     state = 'countdown';
@@ -548,11 +551,33 @@
   function respawn(cause) {
     attempts++;
     persistBest();
+    lives = Math.max(0, lives - 1);
+    if (lives <= 0) { outOfLives(cause); return; }
     if (cause === 'hazard') sfx('hit');
     else sfx('lose');             /* chasm fall = the run-ending cue */
     loadLevel(levelIdx);          /* coins already taken stay taken */
     state = 'countdown';
     ct = 0.7;
+  }
+
+  function outOfLives(cause) {
+    state = 'over';
+    sfx('lose');
+    updateHud(true);
+    GameShell.overlay.show({
+      title: 'Out of lives!',
+      msg: (cause === 'fall'
+        ? 'The chasm claimed your last life. '
+        : 'A hazard knocked out your last life. ') +
+        'You reached stage ' + (levelIdx + 1) + ' of ' + LEVELS.length + ' — try again from the start.',
+      stats: [
+        { label: 'Score', value: score },
+        { label: 'Best', value: best },
+        { label: 'Level', value: (levelIdx + 1) + '/' + LEVELS.length }
+      ],
+      btn: '▶ Try again',
+      action: start
+    });
   }
 
   function releaseHook(quiet) {
@@ -1398,8 +1423,6 @@
     } else if (k === 'p' || k === 'P' || k === 'Escape') {
       if (state === 'running' || state === 'countdown') pause();
       else if (state === 'paused') resume();
-    } else if (k === 'r' || k === 'R') {
-      start();
     }
   });
 
@@ -1484,6 +1507,7 @@
             ropeLen: ropeLen,
             hookHeld: hookHeld,
             attempts: attempts,
+            lives: lives,
             lastRespawn: lastRespawn,
             levelTime: levelTime,
             gateX: level ? level.gate : 0,
@@ -1562,4 +1586,7 @@
     btn: '▶ Play',
     action: start
   });
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

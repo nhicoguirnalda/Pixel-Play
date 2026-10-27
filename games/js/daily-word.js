@@ -723,4 +723,11 @@
       configurable: false
     });
   } catch (e) { /* snapshot hook unavailable — ignore */ }
+
+  /* shared HUD reset button */
+  function resetGame() {
+    totalScore = 0;
+    newRound();
+  }
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(resetGame);
 })();

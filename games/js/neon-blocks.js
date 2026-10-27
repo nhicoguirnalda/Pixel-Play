@@ -111,8 +111,14 @@
   }
 
   function gravInterval() {
-    var g = 0.9 - (level - 1) * 0.075;
-    return g < 0.05 ? 0.05 : g;
+    var g = 0.9 * Math.pow(0.875, level - 1);
+    return g < 0.06 ? 0.06 : g;
+  }
+
+  /* Higher levels lock pieces sooner, so the stack punishes slow play. */
+  function lockDelay() {
+    var d = LOCK_DELAY - (level - 1) * 0.03;
+    return d < 0.2 ? 0.2 : d;
   }
 
   /* ---------------- bag / spawning ---------------- */
@@ -236,7 +242,7 @@
       var n = rows.length;
       score += LINE_SCORE[n] * level;
       lines += n;
-      level = 1 + Math.floor(lines / 10);
+      level = 1 + Math.floor(lines / 8);
       clearRows = rows;
       clearT = CLEAR_TIME;
       hudDirty = true;
@@ -363,8 +369,9 @@
         das.t += dt;
         if (das.t >= DAS_DELAY) {
           das.arr += dt;
-          while (das.arr >= ARR) {
-            das.arr -= ARR;
+          var arrStep = Math.max(0.025, ARR - (level - 1) * 0.003);
+          while (das.arr >= arrStep) {
+            das.arr -= arrStep;
             if (!move(das.dir)) { das.arr = 0; break; }
           }
         }
@@ -385,7 +392,7 @@
 
     if (collides(piece.m, piece.x, piece.y + 1)) {
       lockT += dt;
-      if (lockT >= LOCK_DELAY || lockResets >= LOCK_RESETS_MAX) lockPiece();
+      if (lockT >= lockDelay() || lockResets >= LOCK_RESETS_MAX) lockPiece();
     } else {
       lockT = 0;
     }
@@ -624,8 +631,6 @@
     } else if (k === 'p' || k === 'P' || k === 'Escape') {
       if (state === 'running') pause();
       else if (state === 'paused') resume();
-    } else if (k === 'r' || k === 'R') {
-      start();
     }
   });
 
@@ -721,4 +726,7 @@
     btn: '▶ Play',
     action: start
   });
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

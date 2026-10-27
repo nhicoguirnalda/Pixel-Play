@@ -2295,8 +2295,7 @@
       if (state === 'running') pause();
       else if (state === 'paused') resume();
     } else if (k === 'r' || k === 'R') {
-      if (e.repeat) return;
-      start();
+      if (!e.repeat && state === 'running') beginReload();
     } else if (k === 'q' || k === 'Q') {
       if (!e.repeat && state === 'running') cycleWeapon();
     } else if (k === '1') {
@@ -2610,4 +2609,7 @@
       clearWave: function () { queue.length = 0; drones.length = 0; orbs.length = 0; }
     };
   }
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

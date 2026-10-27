@@ -79,7 +79,7 @@
   var gustFrontT = 0, gustFrontDur = 0, gustFrontDir = 1;
   var gustFrontAmp = 0, gustFrontTimer = GUST_FRONT_FIRST, gustFrontsFired = 0;
   var deathCause = 'fall';
-  var spikeHits = 0;            /* jagged ledges that threw the climber off */
+  var spikeHits = 0;            /* spiked ledges that ended a climb */
   var checkpoint;               /* { x, y } hip position of the last safe ledge */
   var camY = 0, heightMax = 0, heightInt = -1;
   var time = 0, shake = 0, hudT = 0;
@@ -350,6 +350,8 @@
       why = 'A falling rock clipped you at ' + h + ' metre' + (h === 1 ? '' : 's') + '.';
     } else if (deathCause === 'icicle') {
       why = 'An icicle volley caught you at ' + h + ' metre' + (h === 1 ? '' : 's') + '.';
+    } else if (deathCause === 'spike') {
+      why = 'A spiked ledge cut your climb short at ' + h + ' metre' + (h === 1 ? '' : 's') + '.';
     } else {
       why = 'You slipped and fell from ' + h + ' metre' + (h === 1 ? '' : 's') + '.';
     }
@@ -635,18 +637,17 @@
         if (body.x >= lx2 - 2 && body.x <= lx2 + L.w + 2 &&
             body.y <= L.y + 30 && body.y >= L.y + 6) {
           if (L.spiked) {
-            /* jagged ledge: it throws you back off instead of letting you rest */
+            /* jagged ledge: spike contact ends the run outright */
             var sx = clamp(body.x, lx2 + 8, lx2 + L.w - 8);
             burst(sx, L.y + 10, '#ff5c7a', 22, 80);
             shake = 16;
             spikeHits++;
             body.grounded = false;
             body.ledge = null;
-            body.y = L.y + 44;
             body.vy = 260;
             body.vx = 160;
-            if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('hit');
-            break;
+            die('spike');
+            return;
           }
           body.grounded = true;
           body.ledge = L;
@@ -1159,8 +1160,6 @@
     } else if (k === 'p' || k === 'P' || k === 'Escape') {
       if (state === 'running') pause();
       else if (state === 'paused') resume();
-    } else if (k === 'r' || k === 'R') {
-      start();
     }
   });
 
@@ -1360,4 +1359,7 @@
     btn: '▶ Play',
     action: start
   });
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

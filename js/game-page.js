@@ -14,8 +14,16 @@
 
   /* ---------------- GameShell API ---------------- */
 
+  var resetHandler = null;
+
   var shell = {
     el: function (id) { return document.getElementById(id); },
+
+    /* Games register their own fresh-start function here. The HUD reset
+       button calls it; pages without a handler reload as a safe fallback. */
+    onReset: function (fn) {
+      resetHandler = typeof fn === 'function' ? fn : null;
+    },
 
     /* GameShell.hud({ Score: 0, Best: 0 }, optionalRightText) */
     hud: function (map, rightText) {
@@ -27,8 +35,12 @@
         html += '<span class="hud-item">' + k + '<b>' + map[k] + '</b></span>';
       }
       html += '<span class="hud-item hud-spacer">' + (rightText || '') + '</span>';
+      html += '<button class="hud-btn" type="button" data-reset title="Restart this game" aria-label="Restart this game">↺ Reset</button>';
       html += '<button class="hud-btn" type="button" data-fullscreen>⛶ Fullscreen</button>';
       hud.innerHTML = html;
+
+      var resetBtn = hud.querySelector('[data-reset]');
+      if (resetBtn) resetBtn.addEventListener('click', resetGame);
 
       var fsBtn = hud.querySelector('[data-fullscreen]');
       if (fsBtn) fsBtn.addEventListener('click', toggleFullscreen);
@@ -84,6 +96,13 @@
       }
     }
   };
+
+  function resetGame() {
+    if (resetHandler) {
+      try { resetHandler(); return; } catch (e) { /* fall back to a reload */ }
+    }
+    try { window.location.reload(); } catch (e) { /* ignore */ }
+  }
 
   function toggleFullscreen() {
     var stage = document.querySelector('.game-stage');

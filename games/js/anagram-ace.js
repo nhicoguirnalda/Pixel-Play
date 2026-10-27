@@ -997,10 +997,6 @@
       }
       return;
     }
-    if (k === 'r' || k === 'R') {
-      /* Restart only outside a live round, so 'r' can be typed in words. */
-      if (state !== 'running') { start(); return; }
-    }
     if (k === ' ') {
       if (state === 'ready') start();
       else if (state === 'over') nextRound();
@@ -1094,4 +1090,7 @@
       tileRect: function (i) { var r = tileRect(i); return { x: r.x, y: r.y, w: r.w, h: r.h }; }
     })
   });
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

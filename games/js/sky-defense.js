@@ -18,7 +18,7 @@
   var W = 720, H = 420;
   var CITY_TOP = 330;                  /* rooftops start here */
   var MAG = 6;                         /* rounds per magazine */
-  var RELOAD_MS = 1200;
+  var RELOAD_MS = 650;
   var START_HEALTH = 5;
   var BEST_KEY = 'sky-defense';
 
@@ -779,8 +779,6 @@
     } else if (k === 'p' || k === 'P' || k === 'Escape') {
       if (state === 'running') pause();
       else if (state === 'paused') resume();
-    } else if (k === 'r' || k === 'R') {
-      start();
     }
   });
 
@@ -832,4 +830,7 @@
       });
     }
   };
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

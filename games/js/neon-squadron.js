@@ -1335,8 +1335,6 @@
     } else if (key === 'p' || key === 'P' || key === 'Escape') {
       if (state === 'running') pause();
       else if (state === 'paused') resume();
-    } else if (key === 'r' || key === 'R') {
-      start();
     }
   });
 
@@ -1466,4 +1464,7 @@
     btn: '▶ Play',
     action: start
   });
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

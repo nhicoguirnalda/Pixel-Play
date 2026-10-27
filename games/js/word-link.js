@@ -755,11 +755,6 @@
       if (state === 'paused') resume();
       else if (state === 'running' && !pTile) pause();
       else if (state === 'running') pickChar(k);
-    } else if (k === 'r' || k === 'R') {
-      /* R restarts from the pause screen or a finished run — 'r' types otherwise */
-      if (state === 'over') start();
-      else if (state === 'paused') restartLevel();
-      else if (state === 'running') pickChar(k);
     } else if (k && k.length === 1 && /[a-zA-Z]/.test(k)) {
       pickChar(k);
     }
@@ -834,4 +829,7 @@
       return letters.map(function (l) { return { ch: l.ch, x: l.x, y: l.y }; });
     }
   };
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

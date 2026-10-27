@@ -697,10 +697,6 @@
       if (state === 'paused') resume();
       else if (state === 'running' && pUsable) typeChar(k);
       else if (state === 'running') pause();
-    } else if (k === 'r' || k === 'R') {
-      /* R restarts from the pause screen or game over — 'r' types otherwise */
-      if (state === 'over' || state === 'paused') start();
-      else if (state === 'running') typeChar(k);
     } else if (k && k.length === 1 && /[a-zA-Z]/.test(k)) {
       typeChar(k);
     }
@@ -757,4 +753,7 @@
     get totalWords() { return WORDS.length; },
     get wordList() { return WORDS.slice(); }
   };
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();

@@ -126,9 +126,10 @@
 
   /* ---------------- state ---------------- */
 
-  var state = 'ready';            /* ready | running | paused | crashed | won */
+  var state = 'ready';            /* ready | running | paused | crashed | won | over */
   var levelIdx = 0;
   var score = 0;
+  var lives = 3;
   var best = GameShell.best.get(BEST_KEY, 0);
   var timeLeft = LEVELS[0].time;
   var hudSec = -1, hudDirty = true, flipTotal = 0;
@@ -645,6 +646,7 @@
   function start() {
     levelIdx = 0;
     score = 0;
+    lives = 3;
     buildLevel(levelIdx);
     timeLeft = cfg.time;
     pops = []; stars = []; shake = 0;
@@ -719,6 +721,7 @@
   function crash(msg) {
     if (state !== 'running') return;
     state = 'crashed';
+    lives = Math.max(0, lives - 1);
     crashT = 1.25;
     crashMsg = msg;
     crashX = bike.x;
@@ -736,6 +739,30 @@
       });
     }
     hudDirty = true;
+  }
+
+  function gameOver() {
+    state = 'over';
+    crashT = 0;
+    releaseKeys();
+    if (score > best) {
+      best = score;
+      GameShell.best.set(BEST_KEY, best);
+    }
+    if (window.PixelPlayAudio) window.PixelPlayAudio.sfx('lose');
+    hudDirty = true;
+    updateHud();
+    GameShell.overlay.show({
+      title: 'Out of lives!',
+      msg: 'You used all three lives on ' + cfg.name + '. The trail is tough — reset and ride it again.',
+      stats: [
+        { label: 'Score', value: score },
+        { label: 'Best', value: best },
+        { label: 'Level', value: (levelIdx + 1) + '/' + LEVELS.length }
+      ],
+      btn: '▶ Try again',
+      action: start
+    });
   }
 
   function win() {
@@ -780,6 +807,7 @@
         Score: score,
         Best: Math.max(best, score),
         Level: (levelIdx + 1) + '/' + LEVELS.length,
+        Lives: lives,
         Tier: st.tier + '/9',
         Time: hudSec + 's'
       },
@@ -872,7 +900,10 @@
     } else if (state === 'crashed') {
       crashT -= dt;
       shake = Math.max(0, shake - dt * 26);
-      if (crashT <= 0) restartLevel();
+      if (crashT <= 0) {
+        if (lives <= 0) gameOver();
+        else restartLevel();
+      }
     }
 
     /* floating texts */
@@ -1296,7 +1327,7 @@
       ctx.fillText('CRASH!', W / 2, 120);
       ctx.font = '600 15px ' + FONT;
       ctx.fillStyle = 'rgba(232,238,252,' + (0.5 + 0.5 * alpha) + ')';
-      ctx.fillText(crashMsg + '  Restarting…', W / 2, 146);
+      ctx.fillText(crashMsg + (lives > 0 ? '  Restarting.' : '  Out of lives!'), W / 2, 146);
     }
   }
 
@@ -1419,10 +1450,6 @@
     } else if (k === 'p' || k === 'P' || k === 'Escape') {
       if (state === 'running') pause();
       else if (state === 'paused') resume();
-    } else if (k === 'r' || k === 'R') {
-      if (state === 'ready') start();
-      else if (state === 'running' || state === 'paused' || state === 'crashed') restartLevel();
-      else if (state === 'won') restartLevel();
     }
   });
 
@@ -1479,6 +1506,7 @@
             levels: LEVELS.length,
             levelName: cfg ? cfg.name : '',
             score: score,
+            lives: lives,
             best: Math.max(best, score),
             timeLeft: Math.ceil(timeLeft),
             x: Math.round(bike.x * 10) / 10,
@@ -1599,4 +1627,7 @@
     btn: '▶ Play',
     action: start
   });
+
+  /* shared HUD reset button */
+  if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
 })();
