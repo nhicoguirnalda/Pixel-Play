@@ -15,6 +15,136 @@
   /* ---------------- GameShell API ---------------- */
 
   var resetHandler = null;
+  var lastHud = null, lastRight = '';
+  var party = { on: false, player: 1, p1: null, p2: null, active: false };
+
+  /* Scores for the two-player party mode. Every game exposes its score in
+     the HUD or the game-over stats, so one shared comparison covers them all. */
+  var SCORE_KEYS = ['Score', 'Final score', 'Final', 'Points', 'Height', 'Distance', 'Lines', 'Words', 'Wins', 'Kills'];
+
+  function firstNumber(value) {
+    if (typeof value === 'number') return isFinite(value) ? value : 0;
+    var m = String(value).replace(/,/g, '').match(/-?\d+(\.\d+)?/);
+    return m ? parseFloat(m[0]) : 0;
+  }
+
+  function scoreFrom(map) {
+    if (!map) return 0;
+    for (var i = 0; i < SCORE_KEYS.length; i++) {
+      for (var k in map) {
+        if (Object.prototype.hasOwnProperty.call(map, k) &&
+            k.toLowerCase() === SCORE_KEYS[i].toLowerCase()) {
+          return firstNumber(map[k]);
+        }
+      }
+    }
+    return 0;
+  }
+
+  function scoreOf(opts) {
+    var stats = opts.stats || [];
+    var map = {};
+    for (var i = 0; i < stats.length; i++) map[stats[i].label] = stats[i].value;
+    var score = scoreFrom(map);
+    return score || scoreFrom(lastHud);
+  }
+
+  function isPauseOrContinue(opts) {
+    var title = String(opts.title || '');
+    var btn = String(opts.btn || '');
+    return /pause/i.test(title) || /continue|keep playing|next/i.test(btn);
+  }
+
+  function refreshHud() {
+    if (lastHud) shell.hud(lastHud, lastRight);
+  }
+
+  function startPartyRound() {
+    party.active = true;
+    resetGame();
+  }
+
+  function partyEnd(opts) {
+    var score = scoreOf(opts);
+    party.active = false;
+    if (party.player === 1) {
+      party.p1 = score;
+      party.player = 2;
+      refreshHud();
+      rawShow({
+        title: 'Player 1: ' + score,
+        msg: 'Pass the device to Player 2. Their round starts with the button below, then the higher score wins.',
+        stats: [{ label: 'Player 1', value: score }],
+        btn: '▶ Player 2 starts',
+        action: startPartyRound
+      });
+    } else {
+      party.p2 = score;
+      party.player = 1;
+      refreshHud();
+      var title = party.p1 > score ? 'Player 1 wins!' :
+                  score > party.p1 ? 'Player 2 wins!' : "It's a draw!";
+      rawShow({
+        title: title,
+        msg: 'Player 1 scored ' + party.p1 + ' and Player 2 scored ' + score +
+             '. Play another match, or press the Party button to leave.',
+        stats: [
+          { label: 'Player 1', value: party.p1 },
+          { label: 'Player 2', value: score }
+        ],
+        btn: '▶ New match',
+        action: function () {
+          party.p1 = null; party.p2 = null; party.player = 1;
+          startPartyRound();
+        }
+      });
+    }
+  }
+
+  function toggleParty() {
+    party.on = !party.on;
+    party.player = 1;
+    party.p1 = null;
+    party.p2 = null;
+    startPartyRound();
+  }
+
+  function rawShow(opts) {
+    var ov = document.getElementById('gameOverlay');
+    if (!ov) return;
+    opts = opts || {};
+    var t = document.getElementById('overlayTitle');
+    var m = document.getElementById('overlayMsg');
+    var s = document.getElementById('overlayStats');
+    var b = document.getElementById('overlayBtn');
+    var b2 = document.getElementById('overlayBtn2');
+    if (t) t.textContent = opts.title || '';
+    if (m) m.textContent = opts.msg || '';
+    if (s) {
+      var html = '';
+      var stats = opts.stats || [];
+      for (var i = 0; i < stats.length; i++) {
+        html += '<span>' + stats[i].label + '<b>' + stats[i].value + '</b></span>';
+      }
+      s.innerHTML = html;
+      s.style.display = html ? '' : 'none';
+    }
+    if (b) {
+      b.textContent = opts.btn || '▶ Play';
+      b.onclick = opts.action || null;
+      b.style.display = opts.action === false ? 'none' : '';
+    }
+    if (b2) {
+      b2.style.display = 'none';
+      b2.onclick = null;
+    }
+    ov.classList.remove('hidden');
+  }
+
+  function rawHide() {
+    var ov = document.getElementById('gameOverlay');
+    if (ov) ov.classList.add('hidden');
+  }
 
   var shell = {
     el: function (id) { return document.getElementById(id); },
@@ -29,6 +159,11 @@
     hud: function (map, rightText) {
       var hud = document.getElementById('gameHud');
       if (!hud) return;
+      lastHud = {};
+      for (var key in map) {
+        if (Object.prototype.hasOwnProperty.call(map, key)) lastHud[key] = map[key];
+      }
+      lastRight = rightText || '';
       var html = '';
       for (var k in map) {
         if (!Object.prototype.hasOwnProperty.call(map, k)) continue;
@@ -36,11 +171,23 @@
       }
       html += '<span class="hud-item hud-spacer">' + (rightText || '') + '</span>';
       html += '<button class="hud-btn" type="button" data-reset title="Restart this game" aria-label="Restart this game">↺ Reset</button>';
+      html += '<button class="hud-btn" type="button" data-party aria-pressed="' + (party.on ? 'true' : 'false') +
+              '" title="' + (party.on ? 'Party mode: Player ' + party.player + ' — click to leave' : 'Play with a friend on this device') +
+              '">' + (party.on ? '👥 P' + party.player : '👥 Party') + '</button>';
+      if (party.on && party.active) {
+        html += '<button class="hud-btn" type="button" data-endturn title="Finish this turn and compare scores">🏁 End turn</button>';
+      }
       html += '<button class="hud-btn" type="button" data-fullscreen>⛶ Fullscreen</button>';
       hud.innerHTML = html;
 
       var resetBtn = hud.querySelector('[data-reset]');
       if (resetBtn) resetBtn.addEventListener('click', resetGame);
+
+      var partyBtn = hud.querySelector('[data-party]');
+      if (partyBtn) partyBtn.addEventListener('click', toggleParty);
+
+      var endBtn = hud.querySelector('[data-endturn]');
+      if (endBtn) endBtn.addEventListener('click', function () { partyEnd({}); });
 
       var fsBtn = hud.querySelector('[data-fullscreen]');
       if (fsBtn) fsBtn.addEventListener('click', toggleFullscreen);
@@ -49,34 +196,18 @@
     overlay: {
       /* GameShell.overlay.show({ title, msg, stats:[{label,value}], btn, action }) */
       show: function (opts) {
-        var ov = document.getElementById('gameOverlay');
-        if (!ov) return;
         opts = opts || {};
-        var t = document.getElementById('overlayTitle');
-        var m = document.getElementById('overlayMsg');
-        var s = document.getElementById('overlayStats');
-        var b = document.getElementById('overlayBtn');
-        if (t) t.textContent = opts.title || '';
-        if (m) m.textContent = opts.msg || '';
-        if (s) {
-          var html = '';
-          var stats = opts.stats || [];
-          for (var i = 0; i < stats.length; i++) {
-            html += '<span>' + stats[i].label + '<b>' + stats[i].value + '</b></span>';
-          }
-          s.innerHTML = html;
-          s.style.display = html ? '' : 'none';
+        /* A handoff or match result is waiting: keep it on screen. */
+        if (party.on && !party.active) return;
+        if (party.on && !isPauseOrContinue(opts)) {
+          partyEnd(opts);
+          return;
         }
-        if (b) {
-          b.textContent = opts.btn || '▶ Play';
-          b.onclick = opts.action || null;
-          b.style.display = opts.action === false ? 'none' : '';
-        }
-        ov.classList.remove('hidden');
+        rawShow(opts);
       },
       hide: function () {
-        var ov = document.getElementById('gameOverlay');
-        if (ov) ov.classList.add('hidden');
+        if (party.on) party.active = true;
+        rawHide();
       },
       isOpen: function () {
         var ov = document.getElementById('gameOverlay');
