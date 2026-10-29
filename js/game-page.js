@@ -17,6 +17,7 @@
   var resetHandler = null;
   var lastHud = null, lastRight = '';
   var party = { on: false, player: 1, p1: null, p2: null, active: false };
+  var duoHandlers = null, duoOn = false;
 
   /* Scores for the two-player party mode. Every game exposes its score in
      the HUD or the game-over stats, so one shared comparison covers them all. */
@@ -102,11 +103,27 @@
   }
 
   function toggleParty() {
+    if (duoOn) {
+      duoOn = false;
+      if (duoHandlers) duoHandlers.stop();
+    }
     party.on = !party.on;
     party.player = 1;
     party.p1 = null;
     party.p2 = null;
+    party.active = false;
     startPartyRound();
+  }
+
+  /* Duo is simultaneous same-screen play: the game registers a start and a
+     stop function and owns both characters, scores and the winner screen. */
+  function toggleDuo() {
+    if (!duoHandlers) return;
+    duoOn = !duoOn;
+    party.on = false;
+    party.active = false;
+    if (duoOn) duoHandlers.start();
+    else duoHandlers.stop();
   }
 
   function rawShow(opts) {
@@ -155,6 +172,13 @@
       resetHandler = typeof fn === 'function' ? fn : null;
     },
 
+    /* Games with a simultaneous two-player mode register it here. The HUD
+       button calls start(); clicking it again calls stop() for a solo restart. */
+    onDuo: function (start, stop) {
+      duoHandlers = (typeof start === 'function' && typeof stop === 'function')
+        ? { start: start, stop: stop } : null;
+    },
+
     /* GameShell.hud({ Score: 0, Best: 0 }, optionalRightText) */
     hud: function (map, rightText) {
       var hud = document.getElementById('gameHud');
@@ -171,9 +195,16 @@
       }
       html += '<span class="hud-item hud-spacer">' + (rightText || '') + '</span>';
       html += '<button class="hud-btn" type="button" data-reset title="Restart this game" aria-label="Restart this game">↺ Reset</button>';
-      html += '<button class="hud-btn" type="button" data-party aria-pressed="' + (party.on ? 'true' : 'false') +
-              '" title="' + (party.on ? 'Party mode: Player ' + party.player + ' — click to leave' : 'Play with a friend on this device') +
-              '">' + (party.on ? '👥 P' + party.player : '👥 Party') + '</button>';
+      if (duoHandlers) {
+        html += '<button class="hud-btn" type="button" data-duo aria-pressed="' + (duoOn ? 'true' : 'false') +
+                '" title="' + (duoOn ? 'Duo mode: two players at once — click to play solo' : 'Two players at the same time on this device') +
+                '">' + (duoOn ? '🤝 Duo on' : '🤝 Duo') + '</button>';
+      }
+      if (!duoOn) {
+        html += '<button class="hud-btn" type="button" data-party aria-pressed="' + (party.on ? 'true' : 'false') +
+                '" title="' + (party.on ? 'Party mode: Player ' + party.player + ' — click to leave' : 'Take turns and compare scores') +
+                '">' + (party.on ? '👥 P' + party.player : '👥 Party') + '</button>';
+      }
       if (party.on && party.active) {
         html += '<button class="hud-btn" type="button" data-endturn title="Finish this turn and compare scores">🏁 End turn</button>';
       }
@@ -182,6 +213,9 @@
 
       var resetBtn = hud.querySelector('[data-reset]');
       if (resetBtn) resetBtn.addEventListener('click', resetGame);
+
+      var duoBtn = hud.querySelector('[data-duo]');
+      if (duoBtn) duoBtn.addEventListener('click', toggleDuo);
 
       var partyBtn = hud.querySelector('[data-party]');
       if (partyBtn) partyBtn.addEventListener('click', toggleParty);

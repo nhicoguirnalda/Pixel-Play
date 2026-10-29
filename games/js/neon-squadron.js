@@ -20,14 +20,17 @@
   var best = GameShell.best.get(BEST_KEY, 0);
   var rafId = 0, lastT = 0, newBest = false;
 
-  var score = 0, lives = 3, wave = 1;
-  var ship = { x: W / 2, y: H - 96 };
+  var score = 0, lives = 3, wave = 1, score2 = 0;
+  var duo = false;
+  var ship = { x: W / 2, y: H - 96, inv: 0, fireCd: 0 };
+  var ship2 = { x: W / 2, y: H - 96, inv: 0, fireCd: 0 };
   var keys = { left: false, right: false, up: false, down: false };
+  var keys2 = { left: false, right: false, up: false, down: false };
   var firing = false, autoFire = true;
 
   var bullets = [], eBullets = [], enemies = [], powers = [], sparks = [], stars = [];
 
-  var fireCd = 0, invuln = 0, shield = 0;
+  var shield = 0;
   var rapidMs = 0, spreadMs = 0, homingMs = 0, laserMs = 0;
   var magnetMs = 0, doubleMs = 0, bombCharges = 0;
   var between = false, waveGap = 0;
@@ -115,8 +118,19 @@
 
   function shieldMax() { return 1 + upg.shield; }
 
-  function addScore(n) {
-    score += Math.round(n * (doubleMs > 0 ? 2 : 1));
+  function addScore(n, who) {
+    var v = Math.round(n * (doubleMs > 0 ? 2 : 1));
+    if (who === 'p2') score2 += v;
+    else if (who === 'both') { score += v; score2 += v; }
+    else score += v;
+  }
+
+  /* Bosses aim at whoever is closest, so both players share the threat. */
+  function nearestShip(x, y) {
+    if (!duo) return ship;
+    var d1 = (ship.x - x) * (ship.x - x) + (ship.y - y) * (ship.y - y);
+    var d2 = (ship2.x - x) * (ship2.x - x) + (ship2.y - y) * (ship2.y - y);
+    return d2 < d1 ? ship2 : ship;
   }
 
   function findBoss() {
@@ -127,11 +141,16 @@
   }
 
   function updateHud() {
-    GameShell.hud(
-      { Score: score, Best: Math.max(best, score), Lives: lives, Bombs: bombCharges },
-      state === 'paused' ? '⏸ Paused'
-        : (choosing ? '★ Upgrade ready' : 'Wave ' + wave)
-    );
+    var right = state === 'paused' ? '⏸ Paused'
+      : (choosing ? '★ Upgrade ready' : 'Wave ' + wave);
+    if (duo) {
+      GameShell.hud({ P1: score, P2: score2, Lives: lives, Bombs: bombCharges }, right);
+    } else {
+      GameShell.hud(
+        { Score: score, Best: Math.max(best, score), Lives: lives, Bombs: bombCharges },
+        right
+      );
+    }
   }
 
   /* ---------------- waves ---------------- */
@@ -181,37 +200,38 @@
 
   /* ---------------- bullets ---------------- */
 
-  function shoot() {
-    var y = ship.y - 22;
+  function shoot(s, owner) {
+    var y = s.y - 22;
     var dmg = 1 + upg.dmg;
     shotSeq++;
 
     if (laserMs > 0) {
       bullets.push({
-        x: ship.x, y: y, vx: 0, vy: -BULLET_SPEED * 1.45,
-        r: 4, dmg: dmg + 1, pierce: 5, hits: [], laser: true
+        x: s.x, y: y, vx: 0, vy: -BULLET_SPEED * 1.45,
+        r: 4, dmg: dmg + 1, pierce: 5, hits: [], laser: true, owner: owner
       });
     } else {
-      bullets.push({ x: ship.x, y: y, vx: 0, vy: -BULLET_SPEED, r: 4.5, dmg: dmg });
+      bullets.push({ x: s.x, y: y, vx: 0, vy: -BULLET_SPEED, r: 4.5, dmg: dmg, owner: owner });
       if (spreadMs > 0) {
-        bullets.push({ x: ship.x - 11, y: y + 8, vx: -2.6, vy: -BULLET_SPEED * 0.94, r: 4, dmg: dmg });
-        bullets.push({ x: ship.x + 11, y: y + 8, vx: 2.6, vy: -BULLET_SPEED * 0.94, r: 4, dmg: dmg });
+        bullets.push({ x: s.x - 11, y: y + 8, vx: -2.6, vy: -BULLET_SPEED * 0.94, r: 4, dmg: dmg, owner: owner });
+        bullets.push({ x: s.x + 11, y: y + 8, vx: 2.6, vy: -BULLET_SPEED * 0.94, r: 4, dmg: dmg, owner: owner });
       }
     }
 
     if (homingMs > 0 && shotSeq % 2 === 0) {
       var side = Math.floor(shotSeq / 2) % 2 ? -1 : 1;
       bullets.push({
-        x: ship.x + side * 15, y: y + 6,
+        x: s.x + side * 15, y: y + 6,
         vx: side * 2.4, vy: -6.4, r: 4,
         dmg: Math.max(1, 1 + Math.floor(upg.dmg / 2)),
-        homing: true, speed: 7.6
+        homing: true, speed: 7.6, owner: owner
       });
     }
   }
 
   function bossFan(e, count, speed, spread) {
-    var base = Math.atan2(ship.y - e.y, ship.x - e.x);
+    var tgt = nearestShip(e.x, e.y);
+    var base = Math.atan2(tgt.y - e.y, tgt.x - e.x);
     for (var i = 0; i < count; i++) {
       var a = base + (-spread + (i / (count - 1)) * spread * 2) * 0.5;
       eBullets.push({
@@ -233,7 +253,8 @@
   }
 
   function bossAimed(e, count, speed, spread) {
-    var base = Math.atan2(ship.y - e.y, ship.x - e.x);
+    var tgt = nearestShip(e.x, e.y);
+    var base = Math.atan2(tgt.y - e.y, tgt.x - e.x);
     for (var i = 0; i < count; i++) {
       var a = base + (-spread + (i / (count - 1)) * spread * 2);
       eBullets.push({
@@ -306,7 +327,8 @@
       e.x = W / 2 + Math.sin(e.t * 0.0009) * 150;
       e.y = 132 + Math.sin(e.t * 0.0013) * 14;
     } else {
-      e.x += (ship.x - e.x) * 0.012 * k;
+      var tgt = nearestShip(e.x, e.y);
+      e.x += (tgt.x - e.x) * 0.012 * k;
       e.x = clamp(e.x, 92, W - 92);
       e.y = 128 + Math.sin(e.t * 0.0015) * 18;
     }
@@ -336,7 +358,8 @@
       e.heavyCd = e.phase === 2 ? 5400 : 7000;
       e.heavyTele = 1100;
       e.heavyKind = e.arch;
-      e.aimAngle = Math.atan2(ship.y - e.y, ship.x - e.x);
+      var aim = nearestShip(e.x, e.y);
+      e.aimAngle = Math.atan2(aim.y - e.y, aim.x - e.x);
       e.fireCd = 500;
       return;
     }
@@ -365,6 +388,7 @@
     else if (kind === 'magnet') magnetMs = 11000;
     else if (kind === 'double') doubleMs = 12000;
     spark(ship.x, ship.y - 10, 18, def ? def.color : '#22d3ee', 0.9);
+    if (duo) spark(ship2.x, ship2.y - 10, 18, def ? def.color : '#22d3ee', 0.9);
     updateHud();
   }
 
@@ -374,7 +398,7 @@
     flashT = 420;
     eBullets = [];
     for (var i = enemies.length - 1; i >= 0; i--) {
-      damageEnemy(i, 6 + upg.dmg);
+      damageEnemy(i, 6 + upg.dmg, duo ? 'both' : 'p1');
     }
     spark(ship.x, ship.y - 30, 48, '#facc15', 2);
     updateHud();
@@ -406,7 +430,7 @@
     if (!choosing || !choices[index]) return;
     var def = choices[index];
     if (def.id === 'score') {
-      addScore(1500);
+      addScore(1500, duo ? 'both' : 'p1');
     } else {
       upg[def.id] = (upg[def.id] || 0) + 1;
       if (def.id === 'life') lives = Math.min(9, lives + 1);
@@ -430,12 +454,16 @@
   /* ---------------- state changes ---------------- */
 
   function reset() {
-    score = 0; lives = 3; wave = 1; newBest = false;
-    ship.x = W / 2; ship.y = H - 96;
+    score = 0; score2 = 0; lives = 3; wave = 1; newBest = false;
+    ship.x = duo ? W / 2 - 70 : W / 2; ship.y = H - 96;
+    ship2.x = W / 2 + 70; ship2.y = H - 96;
     bullets = []; eBullets = []; enemies = []; powers = []; sparks = [];
     keys.left = keys.right = keys.up = keys.down = false;
+    keys2.left = keys2.right = keys2.up = keys2.down = false;
     firing = false;
-    fireCd = 0; invuln = 1800; shield = 0;
+    ship.fireCd = 0; ship.inv = 1800;
+    ship2.fireCd = 0; ship2.inv = 1800;
+    shield = 0;
     rapidMs = 0; spreadMs = 0; homingMs = 0; laserMs = 0;
     magnetMs = 0; doubleMs = 0; bombCharges = 0;
     between = false; waveGap = 0;
@@ -459,15 +487,14 @@
     if (state !== 'running') return;
     state = 'paused';
     keys.left = keys.right = keys.up = keys.down = false;
+    keys2.left = keys2.right = keys2.up = keys2.down = false;
     updateHud();
     GameShell.overlay.show({
       title: 'Paused',
       msg: 'The squadron is holding formation. Jump back in when you are ready.',
-      stats: [
-        { label: 'Score', value: score },
-        { label: 'Wave', value: wave },
-        { label: 'Lives', value: lives }
-      ],
+      stats: duo
+        ? [{ label: 'P1', value: score }, { label: 'P2', value: score2 }, { label: 'Lives', value: lives }]
+        : [{ label: 'Score', value: score }, { label: 'Wave', value: wave }, { label: 'Lives', value: lives }],
       btn: '▶ Resume',
       action: resume
     });
@@ -483,6 +510,23 @@
 
   function gameOver() {
     state = 'over';
+    if (duo) {
+      updateHud();
+      GameShell.overlay.show({
+        title: score > score2 ? 'Player 1 wins!' :
+               score2 > score ? 'Player 2 wins!' : "It's a draw!",
+        msg: 'Both ships went down on wave ' + wave + '. Player 1: ' + score +
+             ' points, Player 2: ' + score2 + ' points. Press Duo to fly solo again.',
+        stats: [
+          { label: 'Player 1', value: score },
+          { label: 'Player 2', value: score2 },
+          { label: 'Wave', value: wave }
+        ],
+        btn: '▶ Play again',
+        action: start
+      });
+      return;
+    }
     if (score > best) { best = score; newBest = true; GameShell.best.set(BEST_KEY, best); }
     updateHud();
     GameShell.overlay.show({
@@ -498,29 +542,32 @@
     });
   }
 
+  /* Returns the ship that overlaps the hitbox, or null. */
   function hitsShip(x, y, hw, hh) {
-    return Math.abs(x - ship.x) < hw + 12 && Math.abs(y - ship.y) < hh + 13;
+    if (Math.abs(x - ship.x) < hw + 12 && Math.abs(y - ship.y) < hh + 13) return ship;
+    if (duo && Math.abs(x - ship2.x) < hw + 12 && Math.abs(y - ship2.y) < hh + 13) return ship2;
+    return null;
   }
 
   /* returns true when the hit actually cost something */
-  function damagePlayer() {
-    if (state !== 'running' || invuln > 0) return false;
+  function damagePlayer(s) {
+    if (state !== 'running' || s.inv > 0) return false;
     if (shield > 0) {
       shield--;
-      invuln = 700;
-      spark(ship.x, ship.y, 20, '#a3e635', 1.1);
+      s.inv = 700;
+      spark(s.x, s.y, 20, '#a3e635', 1.1);
       updateHud();
       return true;
     }
     lives--;
-    invuln = 1700;
-    spark(ship.x, ship.y, 32, '#ec4899', 1.4);
+    s.inv = 1700;
+    spark(s.x, s.y, 32, '#ec4899', 1.4);
     updateHud();
     if (lives <= 0) gameOver();
     return true;
   }
 
-  function damageEnemy(idx, dmg) {
+  function damageEnemy(idx, dmg, who) {
     var e = enemies[idx];
     if (!e) return 0;
     e.hp -= dmg;
@@ -528,7 +575,7 @@
     if (e.hp > 0) return 0;
 
     var worth = e.boss ? (1200 + wave * 120) : 100;
-    addScore(worth);
+    addScore(worth, who);
     spark(e.x, e.y, e.boss ? 60 : 14, e.boss ? e.color : '#67e8f9', e.boss ? 1.7 : 1);
     if (e.boss) {
       pendingUpgrade = true;
@@ -567,10 +614,22 @@
     b.vy = Math.sin(ang) * sp;
   }
 
+  function moveShip(s, kk, k) {
+    var dx = 0, dy = 0;
+    if (kk.left) dx -= 1;
+    if (kk.right) dx += 1;
+    if (kk.up) dy -= 1;
+    if (kk.down) dy += 1;
+    if (dx && dy) { dx *= 0.7071; dy *= 0.7071; }
+    s.x = clamp(s.x + dx * SHIP_SPEED * k, 22, W - 22);
+    s.y = clamp(s.y + dy * SHIP_SPEED * k, H * 0.42, H - 30);
+  }
+
   function update(dt, k) {
     if (choosing) return;
 
-    if (invuln > 0) invuln -= dt;
+    if (ship.inv > 0) ship.inv -= dt;
+    if (duo && ship2.inv > 0) ship2.inv -= dt;
     if (rapidMs > 0) rapidMs = Math.max(0, rapidMs - dt);
     if (spreadMs > 0) spreadMs = Math.max(0, spreadMs - dt);
     if (homingMs > 0) homingMs = Math.max(0, homingMs - dt);
@@ -588,21 +647,23 @@
     }
 
     /* ship movement */
-    var dx = 0, dy = 0;
-    if (keys.left) dx -= 1;
-    if (keys.right) dx += 1;
-    if (keys.up) dy -= 1;
-    if (keys.down) dy += 1;
-    if (dx && dy) { dx *= 0.7071; dy *= 0.7071; }
-    ship.x = clamp(ship.x + dx * SHIP_SPEED * k, 22, W - 22);
-    ship.y = clamp(ship.y + dy * SHIP_SPEED * k, H * 0.42, H - 30);
+    moveShip(ship, keys, k);
+    if (duo) moveShip(ship2, keys2, k);
 
     /* auto / held fire */
-    fireCd -= dt;
-    if (fireCd <= 0 && (firing || autoFire)) {
-      var baseCd = rapidMs > 0 ? RAPID_FIRE_MS : FIRE_MS;
-      fireCd = baseCd * Math.pow(0.86, upg.rate);
-      shoot();
+    var baseCd = rapidMs > 0 ? RAPID_FIRE_MS : FIRE_MS;
+    var cd = baseCd * Math.pow(0.86, upg.rate);
+    ship.fireCd -= dt;
+    if (ship.fireCd <= 0 && (firing || autoFire)) {
+      ship.fireCd = cd;
+      shoot(ship, 'p1');
+    }
+    if (duo) {
+      ship2.fireCd -= dt;
+      if (ship2.fireCd <= 0 && (firing || autoFire)) {
+        ship2.fireCd = cd;
+        shoot(ship2, 'p2');
+      }
     }
 
     /* player bullets */
@@ -623,10 +684,10 @@
             if (b.hits.indexOf(tgt) >= 0) continue;
             b.hits.push(tgt);
             b.pierce--;
-            damageEnemy(j, b.dmg);
+            damageEnemy(j, b.dmg, b.owner);
           } else {
             remove = true;
-            damageEnemy(j, b.dmg);
+            damageEnemy(j, b.dmg, b.owner);
             break;
           }
         }
@@ -654,7 +715,8 @@
 
       if (!en.boss && en.y > H + 74) { enemies.splice(e, 1); continue; }
 
-      if (hitsShip(en.x, en.y, en.w / 2, en.h / 2) && damagePlayer()) {
+      var hit = hitsShip(en.x, en.y, en.w / 2, en.h / 2);
+      if (hit && damagePlayer(hit)) {
         spark(en.x, en.y, 14, '#f9a8d4', 1);
         if (!en.boss) enemies.splice(e, 1);
         if (state !== 'running') return;
@@ -670,9 +732,10 @@
         eBullets.splice(m, 1);
         continue;
       }
-      if (hitsShip(eb.x, eb.y, eb.r, eb.r)) {
+      var hit = hitsShip(eb.x, eb.y, eb.r, eb.r);
+      if (hit) {
         eBullets.splice(m, 1);
-        damagePlayer();
+        damagePlayer(hit);
         if (state !== 'running') return;
       }
     }
@@ -684,7 +747,8 @@
       pw.spin += 0.05 * k;
       pw.ttl -= dt;
       if (magnetMs > 0) {
-        var mx = ship.x - pw.x, my = ship.y - pw.y;
+        var pull = nearestShip(pw.x, pw.y);
+        var mx = pull.x - pw.x, my = pull.y - pw.y;
         var md = Math.sqrt(mx * mx + my * my) || 1;
         if (md < 280) {
           pw.x += (mx / md) * 4.2 * k;
@@ -692,7 +756,8 @@
         }
       }
       if (pw.y > H + 30 || pw.ttl <= 0) { powers.splice(p, 1); continue; }
-      if (Math.abs(pw.x - ship.x) < 24 && Math.abs(pw.y - ship.y) < 26) {
+      if (Math.abs(pw.x - ship.x) < 24 && Math.abs(pw.y - ship.y) < 26 ||
+          (duo && Math.abs(pw.x - ship2.x) < 24 && Math.abs(pw.y - ship2.y) < 26)) {
         powers.splice(p, 1);
         applyPower(pw.kind);
       }
@@ -714,7 +779,7 @@
       if (!between) {
         between = true;
         waveGap = 1500;
-        addScore(200 + wave * 60);
+        addScore(200 + wave * 60, duo ? 'both' : 'p1');
         updateHud();
       }
       if (pendingUpgrade) {
@@ -741,14 +806,14 @@
     }
   }
 
-  function drawShip(t) {
-    if (invuln > 0 && Math.floor(t / 90) % 2 === 0 && state === 'running') return;
-    var x = ship.x, y = ship.y;
+  function drawShip(t, s, glow, body) {
+    if (s.inv > 0 && Math.floor(t / 90) % 2 === 0 && state === 'running') return;
+    var x = s.x, y = s.y;
 
     ctx.save();
-    ctx.shadowColor = '#ec4899';
+    ctx.shadowColor = glow;
     ctx.shadowBlur = 18;
-    ctx.fillStyle = '#f9a8d4';
+    ctx.fillStyle = body;
     ctx.beginPath();
     ctx.moveTo(x, y - 20);
     ctx.lineTo(x + 15, y + 12);
@@ -1225,7 +1290,10 @@
     }
     ctx.restore();
 
-    if (state !== 'over') drawShip(t);
+    if (state !== 'over') {
+      drawShip(t, ship, '#ec4899', '#f9a8d4');
+      if (duo) drawShip(t, ship2, '#22d3ee', '#a5f3fc');
+    }
 
     /* sparks */
     for (var q = 0; q < sparks.length; q++) {
@@ -1318,10 +1386,11 @@
       e.preventDefault();
     }
 
-    if (key === 'ArrowLeft' || key === 'a' || key === 'A') keys.left = true;
-    else if (key === 'ArrowRight' || key === 'd' || key === 'D') keys.right = true;
-    else if (key === 'ArrowUp' || key === 'w' || key === 'W') keys.up = true;
-    else if (key === 'ArrowDown' || key === 's' || key === 'S') keys.down = true;
+    var pad = (duo && key.indexOf('Arrow') === 0) ? keys2 : keys;
+    if (key === 'ArrowLeft' || key === 'a' || key === 'A') pad.left = true;
+    else if (key === 'ArrowRight' || key === 'd' || key === 'D') pad.right = true;
+    else if (key === 'ArrowUp' || key === 'w' || key === 'W') pad.up = true;
+    else if (key === 'ArrowDown' || key === 's' || key === 'S') pad.down = true;
     else if (key === 'x' || key === 'X' || key === 'b' || key === 'B') {
       detonate();
     } else if (key === ' ') {
@@ -1340,15 +1409,17 @@
 
   document.addEventListener('keyup', function (e) {
     var key = e.key;
-    if (key === 'ArrowLeft' || key === 'a' || key === 'A') keys.left = false;
-    else if (key === 'ArrowRight' || key === 'd' || key === 'D') keys.right = false;
-    else if (key === 'ArrowUp' || key === 'w' || key === 'W') keys.up = false;
-    else if (key === 'ArrowDown' || key === 's' || key === 'S') keys.down = false;
+    var pad = (duo && key.indexOf('Arrow') === 0) ? keys2 : keys;
+    if (key === 'ArrowLeft' || key === 'a' || key === 'A') pad.left = false;
+    else if (key === 'ArrowRight' || key === 'd' || key === 'D') pad.right = false;
+    else if (key === 'ArrowUp' || key === 'w' || key === 'W') pad.up = false;
+    else if (key === 'ArrowDown' || key === 's' || key === 'S') pad.down = false;
     else if (key === ' ') firing = false;
   });
 
   window.addEventListener('blur', function () {
     keys.left = keys.right = keys.up = keys.down = false;
+    keys2.left = keys2.right = keys2.up = keys2.down = false;
     firing = false;
   });
 
@@ -1404,6 +1475,7 @@
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) return;
     keys.left = keys.right = keys.up = keys.down = false;
+    keys2.left = keys2.right = keys2.up = keys2.down = false;
     firing = false;
     if (state === 'running') pause();
   });
@@ -1412,10 +1484,13 @@
 
   window.__neonSquadron = {
     state: function () { return state; },
+    duo: function () { return duo; },
     wave: function () { return wave; },
     score: function () { return score; },
+    scores: function () { return { p1: score, p2: score2 }; },
     lives: function () { return lives; },
     ship: function () { return { x: ship.x, y: ship.y }; },
+    ship2: function () { return duo ? { x: ship2.x, y: ship2.y } : null; },
     boss: function () {
       var b = findBoss();
       if (!b) return null;
@@ -1453,13 +1528,25 @@
 
   /* ---------------- boot ---------------- */
 
+  function startDuo() {
+    duo = true;
+    start();
+  }
+
+  function stopDuo() {
+    duo = false;
+    start();
+  }
+
+  if (typeof GameShell.onDuo === 'function') GameShell.onDuo(startDuo, stopDuo);
+
   initStars();
   reset();
   state = 'ready';
   ensureLoop();
   GameShell.overlay.show({
     title: 'Neon Squadron',
-    msg: 'Fly with the arrow keys or WASD and shoot with Space — auto-fire is already on. Bosses arrive every fourth wave: dodge their telegraphed heavy attack, then pick an upgrade with 1, 2 or 3. Grab power-ups, and press X (or tap the bomb chip) to clear the screen.',
+    msg: 'Fly with the arrow keys or WASD and shoot with Space — auto-fire is already on. Bosses arrive every fourth wave: dodge their telegraphed heavy attack, then pick an upgrade with 1, 2 or 3. Grab power-ups, and press X (or tap the bomb chip) to clear the screen. For two players at once, press Duo in the HUD: P1 flies with WASD, P2 with the arrow keys, sharing lives and upgrades.',
     stats: [{ label: 'Best', value: best }],
     btn: '▶ Play',
     action: start

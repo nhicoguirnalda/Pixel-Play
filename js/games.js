@@ -23,7 +23,7 @@ var GAMES = [
     id: 'snake', title: 'Neon Snake', cat: 'arcade',
     icon: '🐍', c1: '#22c55e', c2: '#0ea5e9',
     plays: '1.4M', playsN: 1400000, rating: 4.8, added: 3,
-    controls: 'Arrows / WASD',
+    controls: 'Arrows / WASD · 2P',
     desc: 'Slither through the grid, grab glowing orbs and grow — but never bite your own tail.',
     url: 'games/snake.html'
   },
@@ -63,7 +63,7 @@ var GAMES = [
     id: 'pong-arena', title: 'Pong Arena', cat: 'sports',
     icon: '🏓', c1: '#06b6d4', c2: '#3b82f6',
     plays: '1.6M', playsN: 1600000, rating: 4.7, added: 2, /* unchanged */
-    controls: 'Mouse / Touch',
+    controls: 'Mouse / Keys · 2P',
     desc: 'Classic paddle duel against a speedy AI. First to 7 wins the match.',
     url: 'games/pong-arena.html'
   },
@@ -95,7 +95,7 @@ var GAMES = [
     id: 'neon-squadron', title: 'Neon Squadron', cat: 'shooter',
     icon: '🛸', c1: '#ec4899', c2: '#06b6d4',
     plays: '1.0M', playsN: 1000000, rating: 4.7, added: 12,
-    controls: 'Arrows / WASD',
+    controls: 'Arrows / WASD · 2P',
     desc: 'Pilot a neon starfighter through endless alien waves, blast the bosses and grab power-ups.',
     url: 'games/neon-squadron.html'
   },
@@ -111,7 +111,7 @@ var GAMES = [
     id: 'bullet-ballet', title: 'Bullet Ballet', cat: 'shooter',
     icon: '💫', c1: '#f472b6', c2: '#8b5cf6',
     plays: '920K', playsN: 920000, rating: 4.7, added: 14,
-    controls: 'Arrows / WASD',
+    controls: 'Arrows / WASD · 2P',
     desc: 'Dodge swirling patterns with three lives, grab health power-ups for extra lives, and grind down bosses that hit harder each cycle until upgrades stop after the fifth.',
     url: 'games/bullet-ballet.html'
   },

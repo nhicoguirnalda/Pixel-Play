@@ -74,6 +74,9 @@
     x: CX, y: H - 120, lives: START_LIVES, inv: 0, kx: 0, ky: 0, fireT: 0,
     dmg: BASE_DMG, fireMs: BASE_FIRE_MS, streams: 1, shield: 0, slowMs: 0
   };
+  var duo = false;              /* two orbs, same boss, separate scores */
+  var player2 = { x: CX, y: H - 120, inv: 0, kx: 0, ky: 0, fireT: 0 };
+  var score2 = 0;
   var boss = { hp: 0, phaseHp: 0, phase: 1, spin: 0, hurt: 0, rage: false, def: BOSSES[0] };
   var bossIndex = 0, cycle = 0, bossNumber = 1;
   var bullets = [];             /* enemy bullets */
@@ -96,6 +99,7 @@
   var pendingChoices = [];
 
   var keys = { up: false, down: false, left: false, right: false };
+  var keys2 = { up: false, down: false, left: false, right: false };
   var rafId = 0, lastT = 0;
   var sfxShotMs = 0, sfxHitMs = 0;
 
@@ -142,7 +146,21 @@
     return (1 + cycle * BOSS_HP_PER_CYCLE) * (1 + index * BOSS_HP_PER_INDEX);
   }
 
-  function shownBest() { return Math.max(best, score); }
+  function shownBest() { return Math.max(best, score, duo ? score2 : 0); }
+
+  function addScore(n, who) {
+    if (who === 'p2') score2 += n;
+    else if (who === 'both') { score += n; score2 += n; }
+    else score += n;
+  }
+
+  /* Boss aim patterns target whoever is closer. */
+  function nearestOrb(x, y) {
+    if (!duo) return player;
+    var d1 = (player.x - x) * (player.x - x) + (player.y - y) * (player.y - y);
+    var d2 = (player2.x - x) * (player2.x - x) + (player2.y - y) * (player2.y - y);
+    return d2 < d1 ? player2 : player;
+  }
 
   function rr(x, y, w, h, r) {
     ctx.beginPath();
@@ -162,16 +180,23 @@
       (cycle > 0 ? ' · Cycle ' + (cycle + 1) : '') +
       (player.slowMs > 0 ? ' · ◷ slow' : '') + (boss.rage ? ' · RAGE' : '');
 
-    GameShell.hud(
-      {
-        Score: score,
-        Best: shownBest(),
-        Lives: player.lives,
-        Shield: player.shield,
-        Threat: '-' + hitDamage()
-      },
-      right
-    );
+    if (duo) {
+      GameShell.hud(
+        { P1: score, P2: score2, Lives: player.lives, Shield: player.shield },
+        right
+      );
+    } else {
+      GameShell.hud(
+        {
+          Score: score,
+          Best: shownBest(),
+          Lives: player.lives,
+          Shield: player.shield,
+          Threat: '-' + hitDamage()
+        },
+        right
+      );
+    }
   }
 
   function say(msg, sub, ms) {
@@ -188,7 +213,7 @@
   /* ---------------- setup ---------------- */
 
   function reset() {
-    player.x = CX;
+    player.x = duo ? CX - 70 : CX;
     player.y = H - 120;
     player.lives = START_LIVES;
     player.inv = 0;
@@ -200,6 +225,14 @@
     player.streams = 1;
     player.shield = 0;
     player.slowMs = 0;
+
+    player2.x = CX + 70;
+    player2.y = H - 120;
+    player2.inv = 0;
+    player2.kx = 0;
+    player2.ky = 0;
+    player2.fireT = 0;
+    score2 = 0;
 
     bossIndex = 0;
     cycle = 0;
@@ -223,6 +256,7 @@
     hudT = 0;
     newBest = false;
     keys.up = keys.down = keys.left = keys.right = false;
+    keys2.up = keys2.down = keys2.left = keys2.right = false;
     spawnBoss(0);
   }
 
@@ -293,7 +327,8 @@
 
     } else if (p === 2) {
       /* aim-assisted spread, tighter than before */
-      base = Math.atan2(player.y - CY, player.x - CX);
+      var aim = nearestOrb(CX, CY);
+      base = Math.atan2(aim.y - CY, aim.x - CX);
       n = Math.min(7, 2 + ph);
       sp = (200 + ph * 20) * spdMul;
       for (i = 0; i < n; i++) {
@@ -342,23 +377,24 @@
     }
   }
 
-  function hurtPlayer() {
+  function hurtPlayer(who) {
+    var p = who && who !== player ? who : player;
     if (state !== 'running') return;
     if (player.shield > 0) {
       player.shield--;
-      player.inv = Math.round(INVULN_MS * 0.7);
-      spark(player.x, player.y, '#38bdf8', 16);
-      floater(player.x, player.y - 20, 'SHIELD', '#7dd3fc');
+      p.inv = Math.round(INVULN_MS * 0.7);
+      spark(p.x, p.y, '#38bdf8', 16);
+      floater(p.x, p.y - 20, 'SHIELD', '#7dd3fc');
       sfx('select');
       updateHud();
       return;
     }
     /* one clean hit always costs a life — the threat value still scales */
     player.lives -= 1;
-    player.inv = INVULN_MS;
+    p.inv = INVULN_MS;
     shake = 12;
-    spark(player.x, player.y, '#f472b6', 14);
-    floater(player.x, player.y - 20, '-1 LIFE', '#fca5a5');
+    spark(p.x, p.y, '#f472b6', 14);
+    floater(p.x, p.y - 20, '-1 LIFE', '#fca5a5');
     sfx('thud');
     updateHud();
     if (player.lives <= 0) {
@@ -367,7 +403,7 @@
     }
   }
 
-  function damageBoss(amount) {
+  function damageBoss(amount, who) {
     if (state !== 'running') return;
     boss.hp -= amount;
     boss.hurt = 90;
@@ -393,7 +429,7 @@
       boss.rage = false;
       bullets.length = 0;          /* clear the floor for the next phase */
       calmMs = 900;
-      score += 250 + boss.phase * 50;
+      addScore(250 + boss.phase * 50, who);
       shake = 16;
       dropPickup();
       say('Phase ' + boss.phase, boss.def.name + ' · ' + boss.phase + ' of ' + boss.def.phases);
@@ -403,7 +439,7 @@
       updateHud();
     } else {
       boss.hp = 0;
-      defeatBoss();
+      defeatBoss(who);
     }
   }
 
@@ -422,7 +458,7 @@
     });
   }
 
-  function collectPickup(p) {
+  function collectPickup(p, who) {
     if (p.type === 'heal') {
       player.lives += 1;
       floater(p.x, p.y, '+1 LIFE', '#6ee7b7');
@@ -444,7 +480,7 @@
       player.dmg += 2;
       floater(p.x, p.y, '+2 DMG', '#fcd34d');
     }
-    score += 40;
+    addScore(40, who || 'p1');
     spark(p.x, p.y, '#fde68a', 12);
     sfx('coin');
     updateHud();
@@ -467,8 +503,8 @@
     return out;
   }
 
-  function defeatBoss() {
-    score += 900 + bossNumber * 150;
+  function defeatBoss(who) {
+    addScore(900 + bossNumber * 150, who);
     bullets.length = 0;
     shots.length = 0;
     dropPickup();
@@ -477,7 +513,7 @@
       /* The fifth boss is the last one that rewards an upgrade. */
       pendingChoices = [];
       say('BOSS DOWN', 'No more upgrades after boss 5 — keep fighting!', 2200);
-      advanceBoss();
+      advanceBoss(who);
       return;
     }
     pendingChoices = rollChoices();
@@ -486,13 +522,13 @@
     updateHud();
   }
 
-  function advanceBoss() {
+  function advanceBoss(who) {
     bossIndex++;
     bossNumber++;
     if (bossIndex >= BOSSES.length) {
       bossIndex = 0;
       cycle++;
-      score += 1200 + cycle * 400;
+      addScore(1200 + cycle * 400, who || (duo ? 'both' : 'p1'));
       player.lives += 1;
       floater(player.x, player.y - 24, '+1 LIFE', '#6ee7b7');
       say('Full cycle clear', '+1 life · cycle ' + (cycle + 1), 2200);
@@ -517,7 +553,7 @@
     if (bossIndex >= BOSSES.length) {
       bossIndex = 0;
       cycle++;
-      score += 1200 + cycle * 400;
+      addScore(1200 + cycle * 400, duo ? 'both' : 'p1');
       player.lives += 1;
       floater(player.x, player.y - 24, '+1 LIFE', '#6ee7b7');
       say(chosen.name + ' installed', 'Full cycle clear · +1 life · cycle ' + (cycle + 1), 2200);
@@ -560,11 +596,14 @@
     GameShell.overlay.show({
       title: 'Paused',
       msg: 'The ballet is frozen mid-step. Resume when you are ready to dance again.',
-      stats: [
-        { label: 'Score', value: score },
-        { label: 'Lives', value: player.lives },
-        { label: 'Boss', value: bossNumber + ' · ' + boss.def.name }
-      ],
+      stats: duo
+        ? [{ label: 'P1', value: score }, { label: 'P2', value: score2 },
+           { label: 'Lives', value: player.lives }]
+        : [
+          { label: 'Score', value: score },
+          { label: 'Lives', value: player.lives },
+          { label: 'Boss', value: bossNumber + ' · ' + boss.def.name }
+        ],
       btn: '▶ Resume',
       action: resume
     });
@@ -585,9 +624,29 @@
 
     if (won) {
       var bonus = 2000 + player.lives * 150;
-      score += bonus;
+      addScore(bonus, duo ? 'both' : 'p1');
       say('Victory!');
     }
+
+    if (duo) {
+      updateHud();
+      GameShell.overlay.show({
+        title: score > score2 ? 'Player 1 wins!' :
+               score2 > score ? 'Player 2 wins!' : "It's a draw!",
+        msg: 'Both orbs went down on boss ' + bossNumber + ' (' + boss.def.name +
+             '). Player 1: ' + score + ' points, Player 2: ' + score2 +
+             ' points. Press Duo to dance solo again.',
+        stats: [
+          { label: 'Player 1', value: score },
+          { label: 'Player 2', value: score2 },
+          { label: 'Boss reached', value: bossNumber }
+        ],
+        btn: '▶ Play again',
+        action: start
+      });
+      return;
+    }
+
     if (score > best) {
       best = score;
       newBest = true;
@@ -615,23 +674,52 @@
 
   /* ---------------- update ---------------- */
 
-  function fireShots() {
-    var a = Math.atan2(CY - player.y, CX - player.x);
+  function fireShots(p, owner) {
+    var a = Math.atan2(CY - p.y, CX - p.x);
     var n = player.streams;
     for (var i = 0; i < n; i++) {
       var off = (i - (n - 1) / 2) * 0.055;
       var ang = a + off;
       shots.push({
-        x: player.x + Math.cos(ang) * (PLAYER_R + 4),
-        y: player.y + Math.sin(ang) * (PLAYER_R + 4),
+        x: p.x + Math.cos(ang) * (PLAYER_R + 4),
+        y: p.y + Math.sin(ang) * (PLAYER_R + 4),
         vx: Math.cos(ang) * SHOT_SPEED,
         vy: Math.sin(ang) * SHOT_SPEED,
-        r: SHOT_R
+        r: SHOT_R, owner: owner
       });
     }
     if (sfxShotMs <= 0) {
       sfx('shoot');
       sfxShotMs = 120;
+    }
+  }
+
+  /* Move one orb, including knockback, wall limits and the boss body. */
+  function moveOrb(p, kk, s) {
+    var dx = (kk.right ? 1 : 0) - (kk.left ? 1 : 0);
+    var dy = (kk.down ? 1 : 0) - (kk.up ? 1 : 0);
+    if (dx && dy) { dx *= 0.7071; dy *= 0.7071; }
+
+    p.x += dx * PLAYER_SPEED * s + p.kx * s;
+    p.y += dy * PLAYER_SPEED * s + p.ky * s;
+
+    var decay = Math.exp(-s * 6);
+    p.kx *= decay;
+    p.ky *= decay;
+
+    var lo = PAD + PLAYER_R, hiX = W - PAD - PLAYER_R, hiY = H - PAD - PLAYER_R;
+    if (p.x < lo) { p.x = lo; p.kx = 0; }
+    if (p.x > hiX) { p.x = hiX; p.kx = 0; }
+    if (p.y < lo) { p.y = lo; p.ky = 0; }
+    if (p.y > hiY) { p.y = hiY; p.ky = 0; }
+
+    var bdx = p.x - CX, bdy = p.y - CY;
+    var bd = Math.sqrt(bdx * bdx + bdy * bdy);
+    var minD = boss.def.r + PLAYER_R + 8;
+    if (bd < minD) {
+      var ba = bd > 0.001 ? Math.atan2(bdy, bdx) : Math.random() * Math.PI * 2;
+      p.x = CX + Math.cos(ba) * minD;
+      p.y = CY + Math.sin(ba) * minD;
     }
   }
 
@@ -651,41 +739,24 @@
     if (hudT <= 0) { hudT = 200; updateHud(); }
 
     /* ---- player movement ---- */
-    var dx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
-    var dy = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
-    if (dx && dy) { var norm = 0.7071; dx *= norm; dy *= norm; }
-
-    player.x += dx * PLAYER_SPEED * s + player.kx * s;
-    player.y += dy * PLAYER_SPEED * s + player.ky * s;
-
-    /* knockback bleeds off quickly */
-    var decay = Math.exp(-s * 6);
-    player.kx *= decay;
-    player.ky *= decay;
-
-    var lo = PAD + PLAYER_R, hiX = W - PAD - PLAYER_R, hiY = H - PAD - PLAYER_R;
-    if (player.x < lo) { player.x = lo; player.kx = 0; }
-    if (player.x > hiX) { player.x = hiX; player.kx = 0; }
-    if (player.y < lo) { player.y = lo; player.ky = 0; }
-    if (player.y > hiY) { player.y = hiY; player.ky = 0; }
-
-    /* keep the orb out of the boss body */
-    var bdx = player.x - CX, bdy = player.y - CY;
-    var bd = Math.sqrt(bdx * bdx + bdy * bdy);
-    var minD = boss.def.r + PLAYER_R + 8;
-    if (bd < minD) {
-      var ba = bd > 0.001 ? Math.atan2(bdy, bdx) : Math.random() * Math.PI * 2;
-      player.x = CX + Math.cos(ba) * minD;
-      player.y = CY + Math.sin(ba) * minD;
-    }
+    moveOrb(player, keys, s);
+    if (duo) moveOrb(player2, keys2, s);
 
     if (player.inv > 0) player.inv -= dt;
+    if (duo && player2.inv > 0) player2.inv -= dt;
 
     /* ---- auto-fire ---- */
     player.fireT -= dt;
     if (player.fireT <= 0) {
       player.fireT = player.fireMs;
-      fireShots();
+      fireShots(player, 'p1');
+    }
+    if (duo) {
+      player2.fireT -= dt;
+      if (player2.fireT <= 0) {
+        player2.fireT = player.fireMs;
+        fireShots(player2, 'p2');
+      }
     }
 
     /* ---- boss patterns ---- */
@@ -718,8 +789,8 @@
       if (bx * bx + by * by <= (boss.def.r + sh.r) * (boss.def.r + sh.r)) {
         shots.splice(i, 1);
         spark(sh.x, sh.y, '#fde68a', 5);
-        score += SHOT_SCORE;
-        damageBoss(player.dmg);
+        addScore(SHOT_SCORE, sh.owner);
+        damageBoss(player.dmg, sh.owner);
         if (state !== 'running') return;
         continue;
       }
@@ -733,19 +804,25 @@
       b.x += b.vx * bs;
       b.y += b.vy * bs;
 
-      if (player.inv <= 0) {
-        var px = b.x - player.x, py = b.y - player.y;
-        var rr2 = PLAYER_R + b.r;
-        if (px * px + py * py <= rr2 * rr2) {
-          bullets.splice(j, 1);
-          /* knock the player away along the bullet's own path */
-          var len = Math.sqrt(b.vx * b.vx + b.vy * b.vy) || 1;
-          player.kx = (b.vx / len) * KNOCKBACK;
-          player.ky = (b.vy / len) * KNOCKBACK;
-          hurtPlayer();
-          if (state !== 'running') return;
-          continue;
-        }
+      var victim = null;
+      var rr2 = PLAYER_R + b.r;
+      var px = b.x - player.x, py = b.y - player.y;
+      if (player.inv <= 0 && px * px + py * py <= rr2 * rr2) {
+        victim = player;
+      } else if (duo && player2.inv <= 0) {
+        px = b.x - player2.x;
+        py = b.y - player2.y;
+        if (px * px + py * py <= rr2 * rr2) victim = player2;
+      }
+      if (victim) {
+        bullets.splice(j, 1);
+        /* knock the orb away along the bullet's own path */
+        var len = Math.sqrt(b.vx * b.vx + b.vy * b.vy) || 1;
+        victim.kx = (b.vx / len) * KNOCKBACK;
+        victim.ky = (b.vy / len) * KNOCKBACK;
+        hurtPlayer(victim);
+        if (state !== 'running') return;
+        continue;
       }
       if (b.x < -30 || b.x > W + 30 || b.y < -30 || b.y > H + 30) bullets.splice(j, 1);
     }
@@ -755,18 +832,22 @@
       var p = pickups[k];
       p.life -= dt;
       if (p.life <= 0) { pickups.splice(k, 1); continue; }
-      var pdx = player.x - p.x, pdy = player.y - p.y;
-      var pd = Math.sqrt(pdx * pdx + pdy * pdy);
-      if (pd < 95 && pd > 0.01) {
+
+      var pd1 = Math.hypot(p.x - player.x, p.y - player.y);
+      var pd2 = duo ? Math.hypot(p.x - player2.x, p.y - player2.y) : Infinity;
+      var near = pd2 < pd1 ? player2 : player;
+      var nearWho = pd2 < pd1 ? 'p2' : 'p1';
+      var nearD = Math.min(pd1, pd2);
+
+      if (nearD < 95 && nearD > 0.01) {
         /* gentle magnet so pickups are not fiddly on a phone */
-        p.x += (pdx / pd) * 150 * s;
-        p.y += (pdy / pd) * 150 * s;
-        pdx = player.x - p.x;
-        pdy = player.y - p.y;
-        pd = Math.sqrt(pdx * pdx + pdy * pdy);
+        var pdx = near.x - p.x, pdy = near.y - p.y;
+        p.x += (pdx / nearD) * 150 * s;
+        p.y += (pdy / nearD) * 150 * s;
+        nearD = Math.hypot(p.x - near.x, p.y - near.y);
       }
-      if (pd <= PLAYER_R + 16) {
-        collectPickup(p);
+      if (nearD <= PLAYER_R + 16) {
+        collectPickup(p, nearWho);
         pickups.splice(k, 1);
       }
     }
@@ -990,30 +1071,31 @@
     }
   }
 
-  function drawPlayer(t) {
+  function drawPlayer(t, p, glow, mid, edge, withMeter) {
     if (state === 'over' && player.lives <= 0) return;
-    var blink = player.inv > 0 && Math.floor(t / 90) % 2 === 0;
+    var blink = p.inv > 0 && Math.floor(t / 90) % 2 === 0;
     ctx.save();
     ctx.globalAlpha = blink ? 0.4 : 1;
-    ctx.shadowColor = '#22d3ee';
+    ctx.shadowColor = glow;
     ctx.shadowBlur = 30;
-    var pg = ctx.createRadialGradient(player.x - 3, player.y - 3, 1, player.x, player.y, PLAYER_R + 3);
+    var pg = ctx.createRadialGradient(p.x - 3, p.y - 3, 1, p.x, p.y, PLAYER_R + 3);
     pg.addColorStop(0, '#ffffff');
-    pg.addColorStop(0.5, '#67e8f9');
-    pg.addColorStop(1, '#0891b2');
+    pg.addColorStop(0.5, mid);
+    pg.addColorStop(1, edge);
     ctx.fillStyle = pg;
     ctx.beginPath();
-    ctx.arc(player.x, player.y, PLAYER_R, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, PLAYER_R, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
     /* invulnerability halo */
-    if (player.inv > 0) {
+    if (p.inv > 0) {
       ctx.save();
-      ctx.strokeStyle = 'rgba(103, 232, 249, .5)';
+      ctx.strokeStyle = mid;
+      ctx.globalAlpha = 0.5;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(player.x, player.y, PLAYER_R + 7, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, PLAYER_R + 7, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
@@ -1024,10 +1106,12 @@
       ctx.strokeStyle = 'rgba(56, 189, 248, ' + (0.5 - s * 0.1) + ')';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(player.x, player.y, PLAYER_R + 5 + s * 5, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, PLAYER_R + 5 + s * 5, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
+
+    if (!withMeter) return;
 
     /* life pips along the bottom — no health bar, one hit costs one pip */
     var bx = 48, by = H - 28, i;
@@ -1216,7 +1300,8 @@
     drawShots();
     drawBullets();
     drawSparks();
-    drawPlayer(t);
+    drawPlayer(t, player, '#22d3ee', '#67e8f9', '#0891b2', true);
+    if (duo) drawPlayer(t, player2, '#ec4899', '#f9a8d4', '#be185d', false);
     drawFloaters();
     drawBanner();
     ctx.restore();
@@ -1243,16 +1328,17 @@
 
   /* ---------------- input ---------------- */
 
-  function setDir(name, on) {
-    if (name === 'up') keys.up = on;
-    else if (name === 'down') keys.down = on;
-    else if (name === 'left') keys.left = on;
-    else if (name === 'right') keys.right = on;
+  function setDir(name, on, which) {
+    var kk = which || keys;
+    if (name === 'up') kk.up = on;
+    else if (name === 'down') kk.down = on;
+    else if (name === 'left') kk.left = on;
+    else if (name === 'right') kk.right = on;
   }
 
-  function steer(name) {
+  function steer(name, which) {
     if (state === 'ready' || state === 'over') start();
-    setDir(name, true);
+    setDir(name, true, which);
   }
 
   function toCanvas(e) {
@@ -1286,10 +1372,11 @@
       return;
     }
 
-    if (k === 'ArrowUp' || k === 'w' || k === 'W') steer('up');
-    else if (k === 'ArrowDown' || k === 's' || k === 'S') steer('down');
-    else if (k === 'ArrowLeft' || k === 'a' || k === 'A') steer('left');
-    else if (k === 'ArrowRight' || k === 'd' || k === 'D') steer('right');
+    var pad = (duo && k.indexOf('Arrow') === 0) ? keys2 : keys;
+    if (k === 'ArrowUp' || k === 'w' || k === 'W') steer('up', pad);
+    else if (k === 'ArrowDown' || k === 's' || k === 'S') steer('down', pad);
+    else if (k === 'ArrowLeft' || k === 'a' || k === 'A') steer('left', pad);
+    else if (k === 'ArrowRight' || k === 'd' || k === 'D') steer('right', pad);
     else if (k === ' ' || k === 'Enter') {
       if (state === 'ready' || state === 'over') start();
       else if (state === 'running') pause();
@@ -1302,10 +1389,11 @@
 
   document.addEventListener('keyup', function (e) {
     var k = e.key;
-    if (k === 'ArrowUp' || k === 'w' || k === 'W') keys.up = false;
-    else if (k === 'ArrowDown' || k === 's' || k === 'S') keys.down = false;
-    else if (k === 'ArrowLeft' || k === 'a' || k === 'A') keys.left = false;
-    else if (k === 'ArrowRight' || k === 'd' || k === 'D') keys.right = false;
+    var pad = (duo && k.indexOf('Arrow') === 0) ? keys2 : keys;
+    if (k === 'ArrowUp' || k === 'w' || k === 'W') pad.up = false;
+    else if (k === 'ArrowDown' || k === 's' || k === 'S') pad.down = false;
+    else if (k === 'ArrowLeft' || k === 'a' || k === 'A') pad.left = false;
+    else if (k === 'ArrowRight' || k === 'd' || k === 'D') pad.right = false;
   });
 
   var padBtns = document.querySelectorAll('[data-dir]');
@@ -1348,17 +1436,22 @@
 
   window.addEventListener('blur', function () {
     keys.up = keys.down = keys.left = keys.right = false;
+    keys2.up = keys2.down = keys2.left = keys2.right = false;
   });
 
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) return;
     keys.up = keys.down = keys.left = keys.right = false;
+    keys2.up = keys2.down = keys2.left = keys2.right = false;
     if (state === 'running') pause();
   });
 
   /* ---------------- read-only test hook ---------------- */
 
   window.__bulletBallet = {
+    duo: function () { return duo; },
+    scores: function () { return { p1: score, p2: score2 }; },
+    orb2: function () { return duo ? { x: player2.x, y: player2.y } : null; },
     state: function () {
       return {
         state: state,
@@ -1479,12 +1572,24 @@
 
   /* ---------------- boot ---------------- */
 
+  function startDuo() {
+    duo = true;
+    start();
+  }
+
+  function stopDuo() {
+    duo = false;
+    start();
+  }
+
+  if (typeof GameShell.onDuo === 'function') GameShell.onDuo(startDuo, stopDuo);
+
   reset();
   updateHud();
   ensureLoop();
   GameShell.overlay.show({
     title: 'Bullet Ballet',
-    msg: 'Move with the arrow keys, WASD or the pad below — your orb fires by itself. You have 3 lives: shields absorb a hit, everything else costs one. Clear bosses to pick upgrades and grab +1 LIFE pickups between phases.',
+    msg: 'Move with the arrow keys, WASD or the pad below — your orb fires by itself. You have 3 lives: shields absorb a hit, everything else costs one. Clear bosses to pick upgrades and grab +1 LIFE pickups between phases. For two players at once, press Duo in the HUD: P1 moves with WASD, P2 with the arrow keys, sharing lives and upgrades while each keeps a score.',
     stats: [{ label: 'Best', value: best }],
     btn: '▶ Play',
     action: start

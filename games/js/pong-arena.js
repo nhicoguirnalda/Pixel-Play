@@ -37,6 +37,8 @@
   var ai = { y: H / 2 - PADDLE_H / 2 };
   var ball = { x: W / 2, y: H / 2, vx: 0, vy: 0 };
   var keys = { up: false, down: false };
+  var duo = false;            /* simultaneous two-player: right paddle is P2 */
+  var keys2 = { up: false, down: false };
   var awaiting = true;        /* true while waiting for Space / a tap to serve */
   var serveMs = 0;
   var serveDir = 1;
@@ -65,8 +67,10 @@
 
   function updateHud() {
     GameShell.hud(
-      { Score: match.you + ' : ' + match.ai, Best: best },
-      state === 'paused' ? '⏸ Paused' : 'First to ' + WIN_SCORE
+      duo ? { P1: match.you, P2: match.ai }
+          : { Score: match.you + ' : ' + match.ai, Best: best },
+      state === 'paused' ? '⏸ Paused'
+        : (duo ? 'Duo · first to ' + WIN_SCORE : 'First to ' + WIN_SCORE)
     );
   }
 
@@ -139,6 +143,21 @@
     state = 'over';
     var won = match.you > match.ai;
 
+    if (duo) {
+      updateHud();
+      GameShell.overlay.show({
+        title: won ? 'Player 1 wins the match!' : 'Player 2 wins the match!',
+        msg: 'Final score ' + match.you + '–' + match.ai + '. Play another match, or press Duo to go back to the AI.',
+        stats: [
+          { label: 'Player 1', value: match.you },
+          { label: 'Player 2', value: match.ai }
+        ],
+        btn: '▶ Play again',
+        action: start
+      });
+      return;
+    }
+
     if (won) {
       streak++;
       if (streak > best) {
@@ -181,6 +200,8 @@
     ball.vy = 0;
     keys.up = false;
     keys.down = false;
+    keys2.up = false;
+    keys2.down = false;
     flash = 0;
     newBest = false;
     serveDir = Math.random() < 0.5 ? 1 : -1;
@@ -226,18 +247,28 @@
       player.y = clamp(player.y, 0, H - PADDLE_H);
     }
 
-    /* AI: reaction-limited tracking, speed capped and scaled when behind */
-    aiReact -= dt;
-    if (aiReact <= 0) {
-      aiReact = AI_REACTION;
-      aiTargetY = ball.vx > 0 ? ball.y : H / 2;
+    if (duo) {
+      var d2 = 0;
+      if (keys2.up) d2 -= 1;
+      if (keys2.down) d2 += 1;
+      if (d2 !== 0) {
+        ai.y += d2 * PLAYER_SPEED * k;
+        ai.y = clamp(ai.y, 0, H - PADDLE_H);
+      }
+    } else {
+      /* AI: reaction-limited tracking, speed capped and scaled when behind */
+      aiReact -= dt;
+      if (aiReact <= 0) {
+        aiReact = AI_REACTION;
+        aiTargetY = ball.vx > 0 ? ball.y : H / 2;
+      }
+      var aiSpeed = Math.min(AI_MAX, AI_BASE + match.you * 0.25);
+      var diff = aiTargetY - (ai.y + PADDLE_H / 2);
+      var step = aiSpeed * k;
+      if (Math.abs(diff) <= step) ai.y = aiTargetY - PADDLE_H / 2;
+      else ai.y += diff > 0 ? step : -step;
+      ai.y = clamp(ai.y, 0, H - PADDLE_H);
     }
-    var aiSpeed = Math.min(AI_MAX, AI_BASE + match.you * 0.25);
-    var diff = aiTargetY - (ai.y + PADDLE_H / 2);
-    var step = aiSpeed * k;
-    if (Math.abs(diff) <= step) ai.y = aiTargetY - PADDLE_H / 2;
-    else ai.y += diff > 0 ? step : -step;
-    ai.y = clamp(ai.y, 0, H - PADDLE_H);
 
     if (flash > 0) flash -= dt;
 
@@ -274,7 +305,7 @@
       bounce(player, true);
     }
 
-    /* AI paddle (right) */
+    /* right paddle (P2 in duo, AI otherwise) */
     var rx = W - WALL - PADDLE_W;
     if (ball.vx > 0 &&
         prevX + BALL_R < rx &&
@@ -413,8 +444,10 @@
       e.preventDefault();
     }
 
-    if (k === 'ArrowUp' || k === 'w' || k === 'W') keys.up = true;
-    else if (k === 'ArrowDown' || k === 's' || k === 'S') keys.down = true;
+      if (k === 'ArrowUp') { if (duo) keys2.up = true; else keys.up = true; }
+    else if (k === 'ArrowDown') { if (duo) keys2.down = true; else keys.down = true; }
+    else if (k === 'w' || k === 'W') keys.up = true;
+    else if (k === 's' || k === 'S') keys.down = true;
     else if (k === ' ' || k === 'Enter') {
       if (state === 'ready' || state === 'over') start();
       else if (state === 'paused') resume();
@@ -430,13 +463,17 @@
 
   document.addEventListener('keyup', function (e) {
     var k = e.key;
-    if (k === 'ArrowUp' || k === 'w' || k === 'W') keys.up = false;
-    else if (k === 'ArrowDown' || k === 's' || k === 'S') keys.down = false;
+    if (k === 'ArrowUp') { keys.up = false; keys2.up = false; }
+    else if (k === 'ArrowDown') { keys.down = false; keys2.down = false; }
+    else if (k === 'w' || k === 'W') keys.up = false;
+    else if (k === 's' || k === 'S') keys.down = false;
   });
 
   window.addEventListener('blur', function () {
     keys.up = false;
     keys.down = false;
+    keys2.up = false;
+    keys2.down = false;
   });
 
   var actionBtns = document.querySelectorAll('[data-action]');
@@ -464,11 +501,23 @@
 
   /* ---------------- boot ---------------- */
 
+  function startDuo() {
+    duo = true;
+    start();
+  }
+
+  function stopDuo() {
+    duo = false;
+    start();
+  }
+
+  if (typeof GameShell.onDuo === 'function') GameShell.onDuo(startDuo, stopDuo);
+
   updateHud();
   ensureLoop();
   GameShell.overlay.show({
     title: 'Pong Arena',
-    msg: 'Move your paddle with the mouse, a finger drag or the arrow keys. First to 7 points wins the match — the winner keeps the streak alive.',
+    msg: 'Move your paddle with the mouse, a finger drag or the arrow keys. First to 7 points wins the match — the winner keeps the streak alive. For two players at once, press Duo in the HUD: P1 uses W/S, P2 uses the arrow keys.',
     stats: [{ label: 'Best streak', value: best }],
     btn: '▶ Play',
     action: start
@@ -476,4 +525,12 @@
 
   /* shared HUD reset button */
   if (typeof GameShell.onReset === 'function') GameShell.onReset(start);
+
+  window.__pong = {
+    state: function () { return state; },
+    duo: function () { return duo; },
+    match: function () { return { p1: match.you, p2: match.ai }; },
+    paddles: function () { return { p1: player.y, p2: ai.y }; },
+    ball: function () { return { x: ball.x, y: ball.y, vx: ball.vx, vy: ball.vy }; }
+  };
 })();
